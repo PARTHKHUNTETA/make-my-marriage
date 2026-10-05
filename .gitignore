@@ -1,0 +1,23 @@
+# dependencies
+node_modules
+
+# next.js
+.next
+out
+next-env.d.ts
+
+# vercel
+.vercel
+
+# testing
+coverage
+
+# typescript
+*.tsbuildinfo
+
+# env (keep the example)
+.env*
+!.env.example
+
+# os
+.DS_Store
