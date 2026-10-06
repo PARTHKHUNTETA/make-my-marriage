@@ -118,28 +118,31 @@ export const MAX_CITIES = 10;
 export const listingInputSchema = z.object({
   category: z.enum(VENDOR_CATEGORIES),
   // "Jaipur, Udaipur" as typed.
-  cities: z.string().transform((value, ctx) => {
-    const cities = [
-      ...new Set(
-        value
-          .split(/[,;\n]/)
-          .map((c) => c.trim().replace(/\s+/g, " "))
-          .filter(Boolean),
-      ),
-    ];
-    if (cities.length === 0) {
-      ctx.addIssue({ code: "custom", message: "Enter at least one city you serve" });
-      return z.NEVER;
-    }
-    if (cities.length > MAX_CITIES || cities.some((c) => c.length > 60)) {
-      ctx.addIssue({
-        code: "custom",
-        message: `Enter up to ${MAX_CITIES} cities, each a short name`,
-      });
-      return z.NEVER;
-    }
-    return cities;
-  }),
+  cities: z
+    .string()
+    .max(500, "That list is too long")
+    .transform((value, ctx) => {
+      const cities = [
+        ...new Set(
+          value
+            .split(/[,;\n]/)
+            .map((c) => c.trim().replace(/\s+/g, " "))
+            .filter(Boolean),
+        ),
+      ];
+      if (cities.length === 0) {
+        ctx.addIssue({ code: "custom", message: "Enter at least one city you serve" });
+        return z.NEVER;
+      }
+      if (cities.length > MAX_CITIES || cities.some((c) => c.length > 60)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Enter up to ${MAX_CITIES} cities, each a short name`,
+        });
+        return z.NEVER;
+      }
+      return cities;
+    }),
   description: z.string().trim().min(1, "Describe your work").max(2000, "That is too long"),
   startingPrice: z.preprocess(
     blank,

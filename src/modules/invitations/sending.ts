@@ -3,6 +3,7 @@ import { absoluteUrl } from "@/lib/app-url";
 import { toIstYmd } from "@/lib/dates";
 import { deliverJob, queueEmail } from "@/lib/email";
 import { AppError } from "@/lib/errors";
+import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
 import { drainEmailQueue, listEmailLog } from "@/lib/queue";
 import { eventStartsAt, formatTime, type EventItem } from "@/modules/events/schema";
 import { listEvents } from "@/modules/events/service";
@@ -68,6 +69,30 @@ async function context(weddingId: string, wanted: Wanted) {
   return { couple: `${wedding.brideName} & ${wedding.groomName}`, events, guests };
 }
 
+// A wedding can email at most this many guests a day, in total, however it is done. Far above any
+// real wedding's needs (it counts everyone a send is aimed at, including repeats the queue then
+// drops), and low enough that the app cannot be turned into a way to mail strangers.
+export const DAILY_GUEST_EMAILS = 3000;
+
+// Counts recipients against the wedding's daily allowance, before anything is queued.
+export async function chargeRecipients(weddingId: string, recipients: number): Promise<void> {
+  if (recipients <= 0) return;
+  try {
+    await consumeRateLimit("guest-email-day", subjectKey("wedding", weddingId), {
+      limit: DAILY_GUEST_EMAILS,
+      windowSeconds: 24 * 60 * 60,
+      cost: recipients,
+    });
+  } catch (err) {
+    if (err instanceof AppError && err.code === "RATE_LIMITED")
+      throw new AppError(
+        "RATE_LIMITED",
+        `This wedding has reached its limit of ${DAILY_GUEST_EMAILS} guest emails a day. Try again tomorrow.`,
+      );
+    throw err;
+  }
+}
+
 const guestUrl = (guest: GuestItem) => absoluteUrl(`/i/${guest.token}`);
 
 // A few go out straight away so the sender sees it work; the cron drains the rest.
@@ -81,6 +106,7 @@ export async function sendInvitationEmails(
   now: Date = new Date(),
 ): Promise<SendResult> {
   const { couple, events, guests } = await context(weddingId, wanted);
+  await chargeRecipients(weddingId, guests.filter((g) => g.email).length);
   const byId = new Map(events.map((e) => [e.id, e]));
   const result = empty();
   const sent: string[] = [];
@@ -130,6 +156,10 @@ export async function sendRsvpReminderEmails(
   now: Date = new Date(),
 ): Promise<SendResult> {
   const { couple, events, guests } = await context(weddingId, wanted);
+  await chargeRecipients(
+    weddingId,
+    guests.filter((g) => g.email && !g.remindersUnsubscribed).length,
+  );
   const upcoming = new Map(events.filter((e) => eventStartsAt(e) > now).map((e) => [e.id, e]));
   const result = empty();
   for (const guest of guests) {
@@ -189,6 +219,13 @@ export async function runAutomaticReminders(
       guests,
       rsvpDays: wedding.reminders.rsvpDays,
     });
+    // Over its daily allowance: this wedding waits until tomorrow; the others carry on.
+    try {
+      await chargeRecipients(wedding.id, plan.length);
+    } catch (err) {
+      if (err instanceof AppError && err.code === "RATE_LIMITED") continue;
+      throw err;
+    }
     const byGuest = new Map(guests.map((g) => [g.id, g]));
     const byEvent = new Map(events.map((e) => [e.id, e]));
     for (const item of plan) {

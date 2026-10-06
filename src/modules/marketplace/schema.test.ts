@@ -51,6 +51,13 @@ describe("vendorLoginSchema", () => {
   });
 });
 
+describe("listingInputSchema size limits", () => {
+  it("refuses a cities list that is absurdly long", () => {
+    expect(parse({ cities: "Pune, ".repeat(200) }).success).toBe(false);
+    expect(parse({ cities: "Pune, Mumbai, Jaipur" }).success).toBe(true);
+  });
+});
+
 describe("listingInputSchema", () => {
   it("accepts the required fields", () => {
     const r = parse();

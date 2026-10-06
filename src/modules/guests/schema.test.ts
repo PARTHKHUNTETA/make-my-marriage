@@ -104,3 +104,14 @@ describe("parseGuestQuery", () => {
     });
   });
 });
+
+describe("limits on what a request can carry", () => {
+  const base = { name: "Meera", guestsAllowed: 2 };
+  it("refuses a guest invited to an absurd number of events", () => {
+    const ids = Array.from({ length: 51 }, (_, i) => i.toString(16).padStart(24, "0"));
+    expect(guestInputSchema.safeParse({ ...base, invitedEventIds: ids }).success).toBe(false);
+    expect(guestInputSchema.safeParse({ ...base, invitedEventIds: ids.slice(0, 50) }).success).toBe(
+      true,
+    );
+  });
+});

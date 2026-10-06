@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AppError } from "@/lib/errors";
 
 const queueEmail = vi.hoisted(() => vi.fn());
 const guestsSvc = vi.hoisted(() => ({
@@ -8,12 +9,17 @@ const guestsSvc = vi.hoisted(() => ({
   recordInviteEmailed: vi.fn(),
   setGuestUnsubscribed: vi.fn(),
 }));
+const consumeRateLimit = vi.hoisted(() => vi.fn());
 const eventsSvc = vi.hoisted(() => ({ listEvents: vi.fn() }));
 const weddingSvc = vi.hoisted(() => ({ getWedding: vi.fn(), listRemindingWeddings: vi.fn() }));
 vi.mock("@/lib/email", () => ({ queueEmail, deliverJob: vi.fn() }));
 vi.mock("@/lib/queue", () => ({
   drainEmailQueue: vi.fn().mockResolvedValue({}),
   listEmailLog: vi.fn(),
+}));
+vi.mock("@/lib/ratelimit", () => ({
+  consumeRateLimit,
+  subjectKey: (a: string, b: string) => `${a}:${b}`,
 }));
 vi.mock("@/lib/app-url", () => ({ absoluteUrl: (p: string) => `http://app.test${p}` }));
 vi.mock("@/modules/guests/service", () => guestsSvc);
@@ -58,6 +64,7 @@ beforeEach(() => {
     .mockResolvedValue([ev("e1", "Sangeet", "2027-02-13"), ev("e2", "Wedding", "2027-02-14")]);
   weddingSvc.getWedding.mockReset().mockResolvedValue({ brideName: "Priya", groomName: "Aarav" });
   weddingSvc.listRemindingWeddings.mockReset();
+  consumeRateLimit.mockReset().mockResolvedValue(undefined);
 });
 
 describe("sendInvitationEmails", () => {
@@ -181,6 +188,80 @@ describe("runAutomaticReminders", () => {
   it("does nothing when no wedding has reminders on", async () => {
     weddingSvc.listRemindingWeddings.mockResolvedValue([]);
     expect(await runAutomaticReminders(now)).toEqual({ weddings: 0, queued: 0 });
+  });
+});
+
+describe("the daily allowance of guest emails", () => {
+  const limited = () =>
+    consumeRateLimit.mockRejectedValue(
+      new AppError("RATE_LIMITED", "Too many attempts. Please wait a few minutes and try again."),
+    );
+
+  it("counts only the guests a send can reach, before anything is queued", async () => {
+    guestsSvc.listEveryGuest.mockResolvedValue([
+      guest("a"),
+      guest("b", { email: undefined }),
+      guest("c"),
+    ]);
+    await sendInvitationEmails("w1", { all: true }, now);
+    expect(consumeRateLimit).toHaveBeenCalledWith(
+      "guest-email-day",
+      "wedding:w1",
+      expect.objectContaining({ cost: 2, windowSeconds: 86400 }),
+    );
+    expect(consumeRateLimit.mock.invocationCallOrder[0]).toBeLessThan(
+      queueEmail.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("stops a send that would pass it, says so plainly, and queues nothing", async () => {
+    guestsSvc.listEveryGuest.mockResolvedValue([guest("a")]);
+    limited();
+    await expect(sendInvitationEmails("w1", { all: true }, now)).rejects.toMatchObject({
+      code: "RATE_LIMITED",
+      message: expect.stringContaining("guest emails a day"),
+    });
+    expect(queueEmail).not.toHaveBeenCalled();
+    guestsSvc.getGuestsByIds.mockResolvedValue([
+      guest("a", { invitations: [{ eventId: "e1", rsvpStatus: "pending" }] }),
+    ]);
+    await expect(sendRsvpReminderEmails("w1", { guestIds: ["a"] }, now)).rejects.toMatchObject({
+      code: "RATE_LIMITED",
+    });
+    expect(queueEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not count guests who unsubscribed from reminders", async () => {
+    guestsSvc.listEveryGuest.mockResolvedValue([
+      guest("a"),
+      guest("b", { remindersUnsubscribed: true }),
+    ]);
+    await sendRsvpReminderEmails("w1", { nonResponders: true }, now);
+    expect(consumeRateLimit).toHaveBeenCalledWith(
+      "guest-email-day",
+      "wedding:w1",
+      expect.objectContaining({ cost: 1 }),
+    );
+  });
+
+  it("automatic reminders skip a wedding over its allowance and still serve the others", async () => {
+    weddingSvc.listRemindingWeddings.mockResolvedValue([
+      { id: "over", couple: "A & B", reminders: { enabled: true, rsvpDays: [12] } },
+      { id: "fine", couple: "C & D", reminders: { enabled: true, rsvpDays: [12] } },
+    ]);
+    guestsSvc.listEveryGuest.mockResolvedValue([guest("a")]);
+    consumeRateLimit.mockImplementation(async (_a: string, subject: string) => {
+      if (subject === "wedding:over") throw new AppError("RATE_LIMITED", "limit");
+    });
+    const result = await runAutomaticReminders(now);
+    expect(result).toEqual({ weddings: 2, queued: 1 });
+    expect(queueEmail.mock.calls.map((c) => c[0].weddingId)).toEqual(["fine"]);
+  });
+
+  it("lets any other failure through instead of hiding it", async () => {
+    guestsSvc.listEveryGuest.mockResolvedValue([guest("a")]);
+    consumeRateLimit.mockRejectedValue(new Error("database down"));
+    await expect(sendInvitationEmails("w1", { all: true }, now)).rejects.toThrow("database down");
   });
 });
 

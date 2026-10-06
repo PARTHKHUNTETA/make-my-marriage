@@ -37,6 +37,12 @@ async function inviteContext(ctx: { weddingId: string; userId: string }) {
   const [wedding, profile] = await Promise.all([getWedding(ctx.weddingId), getProfile(ctx.userId)]);
   if (!wedding || !profile)
     throw new AppError("NOT_FOUND", "We couldn't load your wedding. Please refresh.");
+  // Invitations are emails to other people, so the sender must have confirmed their own address.
+  if (!profile.emailVerified)
+    throw new AppError(
+      "FORBIDDEN",
+      "Confirm your email address before inviting people. We sent you a link when you signed up.",
+    );
   return { weddingTitle: wedding.title, inviterName: profile.name };
 }
 

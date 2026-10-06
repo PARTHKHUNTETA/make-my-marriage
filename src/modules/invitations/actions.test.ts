@@ -7,8 +7,10 @@ const sending = vi.hoisted(() => ({
 }));
 const setReminderSettings = vi.hoisted(() => vi.fn());
 const consumeRateLimit = vi.hoisted(() => vi.fn());
+const getProfile = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/authz", () => ({ requireMember }));
 vi.mock("./sending", () => sending);
+vi.mock("@/modules/members/service", () => ({ getProfile }));
 vi.mock("@/modules/wedding/service", () => ({ setReminderSettings }));
 vi.mock("@/lib/ratelimit", () => ({
   consumeRateLimit,
@@ -21,10 +23,46 @@ import { saveReminderSettingsAction, sendInvitationsAction, sendRemindersAction 
 const G = "507f1f77bcf86cd799439011";
 
 beforeEach(() => {
-  requireMember.mockReset().mockResolvedValue({ kind: "member", weddingId: "w1" });
+  requireMember.mockReset().mockResolvedValue({ kind: "member", weddingId: "w1", userId: "u1" });
   Object.values(sending).forEach((fn) => fn.mockReset().mockResolvedValue({ queued: 2 }));
   setReminderSettings.mockReset().mockResolvedValue(undefined);
   consumeRateLimit.mockReset().mockResolvedValue(undefined);
+  getProfile.mockReset().mockResolvedValue({ emailVerified: true });
+});
+
+describe("emailing guests needs a confirmed email address", () => {
+  beforeEach(() => getProfile.mockResolvedValue({ emailVerified: false }));
+
+  it("refuses to send invitations or reminders, and sends nothing", async () => {
+    expect(await sendInvitationsAction({ all: true })).toMatchObject({
+      ok: false,
+      error: { code: "FORBIDDEN" },
+    });
+    expect(await sendRemindersAction({ nonResponders: true })).toMatchObject({
+      ok: false,
+      error: { code: "FORBIDDEN" },
+    });
+    expect(sending.sendInvitationEmails).not.toHaveBeenCalled();
+    expect(sending.sendRsvpReminderEmails).not.toHaveBeenCalled();
+  });
+
+  it("refuses to turn automatic reminders on, but lets them be turned off", async () => {
+    expect(await saveReminderSettingsAction({ enabled: true, days: "14, 3" })).toMatchObject({
+      ok: false,
+      error: { code: "FORBIDDEN" },
+    });
+    expect(setReminderSettings).not.toHaveBeenCalled();
+    expect(await saveReminderSettingsAction({ enabled: false, days: "14, 3" })).toMatchObject({
+      ok: true,
+    });
+    expect(setReminderSettings).toHaveBeenCalledOnce();
+  });
+
+  it("refuses an account whose profile cannot be found", async () => {
+    getProfile.mockResolvedValue(null);
+    expect(await sendInvitationsAction({ all: true })).toMatchObject({ ok: false });
+    expect(sending.sendInvitationEmails).not.toHaveBeenCalled();
+  });
 });
 
 describe("email actions", () => {

@@ -76,7 +76,7 @@ export const guestInputSchema = z.object({
   // A form with a single event checkbox hands back one string, or false, instead of an array.
   invitedEventIds: z.preprocess(
     (value) => (typeof value === "string" ? [value] : value === false ? [] : value),
-    z.array(objectId).min(1, "Choose at least one event"),
+    z.array(objectId).min(1, "Choose at least one event").max(50, "That is too many events"),
   ),
   notes: z
     .string()

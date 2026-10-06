@@ -265,6 +265,39 @@ inserts, refuses updates that rewrite it and starts every aggregation with a `$m
 lint rule keeps raw collection access out of everything else: importing `getDb` from `@/lib/db` is
 an error everywhere except `src/modules/**/repository.ts` and `src/lib/`.
 
+## Security
+
+How the app protects people, and what to know before going live.
+
+- **Accounts:** Argon2id passwords; signed, HttpOnly, SameSite=Lax session cookies (Secure in
+  production) with separate member and vendor sessions; login is rate limited per address and per
+  email, and an unknown email costs the same time as a wrong password. Resetting a password signs
+  out every other session. Removing a member takes effect on their next request.
+- **Tenant isolation:** every query on a wedding's data goes through `scoped()`, which ANDs the
+  wedding in; a lint rule bans raw database access outside repositories. Guest, gallery and entry
+  links are 128-bit random tokens that reach exactly one guest or wedding.
+- **Uploads:** photos are checked by their first bytes, not their name or type; SVG and anything
+  else is refused. Storage addresses are signed and short-lived, and the local dev route does not
+  exist in production.
+- **Headers:** in production a Content-Security-Policy allows scripts, styles and requests only
+  from this site (plus the R2 photo storage), blocks framing, plug-ins and outside forms; the
+  camera is allowed for this site only. If you serve photos from a custom storage domain, add it to
+  `img-src` and `connect-src` in `next.config.ts`.
+- **Abuse limits:** public endpoints are rate limited per device; emailing guests or inviting team
+  members needs a confirmed email address, and a wedding can email at most 3,000 guests a day.
+- **Forms and APIs:** every mutating API route accepts JSON only (a form posted from another site
+  is refused, including for logout), and Server Actions are same-origin by default.
+- **Known and accepted:** sign-up says when an email is already registered (the usual trade-off
+  for a clear message; it is rate limited per address). Sessions are stateless, so signing out
+  clears the cookie but a copied cookie works until it expires (24 hours, or 30 days if "remember
+  me" was ticked) unless the password is reset. Rate limits read the client address from the
+  `x-forwarded-for` header, which Vercel sets itself; behind any other proxy that header must be
+  overwritten, or limits can be dodged. `npm audit` reports a few issues in development tools
+  (the linter and the shadcn CLI) that never ship; production dependencies are clean.
+- **Before going live:** set `STAFF_EMAILS`, all four `R2_*` variables and `RESEND_API_KEY` with a
+  verified domain, rotate any key that was ever pasted into a chat, and set a strong `SESSION_SECRET`
+  and `CRON_SECRET` (32+ characters each).
+
 ## Deploying
 
 Deployed on Vercel from Git. [`vercel.json`](vercel.json) pins functions to `bom1` (Mumbai) so

@@ -56,7 +56,7 @@ beforeEach(() => {
   notify.notifyMembers.mockReset().mockResolvedValue(undefined);
   notify.announceMemberJoined.mockReset().mockResolvedValue(undefined);
   svc.listTeam.mockResolvedValue({ members: [{ memberId: ID, name: "Rahul Verma" }], invites: [] });
-  svc.getProfile.mockResolvedValue({ name: "Priya Sharma" });
+  svc.getProfile.mockResolvedValue({ name: "Priya Sharma", emailVerified: true });
   svc.inviteMember.mockResolvedValue({ inviteId: "i1", renewed: false });
 });
 
@@ -177,6 +177,20 @@ describe("other team actions use the admin's own wedding", () => {
       memberId: ID,
       role: "manager",
     });
+  });
+
+  it("an admin who has not confirmed their email cannot invite or re-send, and nothing is sent", async () => {
+    svc.getProfile.mockResolvedValue({ name: "Priya Sharma", emailVerified: false });
+    expect(await inviteMemberAction({ email: "rahul@example.com" })).toMatchObject({
+      ok: false,
+      error: { code: "FORBIDDEN" },
+    });
+    expect(await resendInviteAction({ inviteId: ID })).toMatchObject({
+      ok: false,
+      error: { code: "FORBIDDEN" },
+    });
+    expect(svc.inviteMember).not.toHaveBeenCalled();
+    expect(svc.resendInvite).not.toHaveBeenCalled();
   });
 
   it("removing a member tells the other admins, but not the admin who did it", async () => {
