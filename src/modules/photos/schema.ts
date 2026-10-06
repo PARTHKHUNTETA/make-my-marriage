@@ -132,3 +132,17 @@ export const approveFromSchema = z.object({
   uploader: z.string().min(1).max(60).nullable(),
 });
 export const uploadsSwitchSchema = z.object({ on: z.boolean() });
+
+export const zipPlanSchema = z.object({ albumId: objectId.optional() });
+export const zipPartSchema = z.object({
+  albumId: objectId.optional(),
+  index: z.number().int().min(0).max(1000),
+});
+
+export const coverTargetSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("wedding") }),
+  z.object({ kind: z.literal("event"), eventId: objectId }),
+]);
+export const confirmCoverSchema = z.object({ target: coverTargetSchema, coverId: objectId });
+export const removeCoverSchema = z.object({ target: coverTargetSchema });
+export const requestCoverSchema = z.object({ target: coverTargetSchema });

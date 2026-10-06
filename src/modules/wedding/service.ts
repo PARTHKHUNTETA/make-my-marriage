@@ -13,6 +13,7 @@ import {
   insertWedding,
   findWeddingByGalleryToken,
   findWeddingBySlug,
+  saveCoverImageKey,
   saveGalleryToken,
   saveUploadsOn,
   listWeddingsWithReminders,
@@ -109,6 +110,7 @@ function toSummary(doc: WeddingDoc): WeddingSummary {
     city: doc.city,
     venue: doc.venue,
     description: doc.description,
+    coverImageKey: doc.coverImageKey,
     slug: doc.website.slug,
     whatsappMessage: doc.whatsappMessage,
     reminders: doc.reminders ?? { enabled: false, rsvpDays: DEFAULT_RSVP_REMINDER_DAYS },
@@ -262,4 +264,15 @@ export async function resetGalleryToken(weddingId: string): Promise<string> {
   if (!(await saveGalleryToken(weddingId, token)))
     throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
   return token;
+}
+
+// Records (or, with null, clears) the cover picture and says which file it replaced, so the caller
+// can delete it.
+export async function setCoverImage(
+  weddingId: string,
+  key: string | null,
+): Promise<{ previous: string | undefined }> {
+  const result = await saveCoverImageKey(weddingId, key);
+  if (!result) throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
+  return result;
 }

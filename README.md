@@ -166,6 +166,13 @@ the slug `demo`. Chrome and Firefox resolve `*.localhost`; Safari does not.
   before it appears. Select, move between albums, delete (files included), full-screen view with
   swipe, and download the original. Each wedding has a storage quota (`PHOTO_QUOTA_GB`, default 10);
   a batch that would pass it is refused with `STORAGE_FULL`.
+- **Downloads and covers:** the gallery downloads an album, all photos, or a hand-picked set as a ZIP
+  (made in the browser, in parts of up to 150 photos or about 400 MB for big albums), and "View as
+  guests" opens exactly what guests see. The wedding has a cover picture (Settings → Wedding
+  details) shown at the top of the wedding website and behind the dashboard banner, and each event
+  can have its own on its website card. Pictures are shrunk to a JPEG of at most 1920 px in the
+  browser, checked by the server, and replacing or removing one (or deleting the event) deletes
+  the old file.
 - **Guest gallery and uploads:** every wedding has one private link, `/g/<token>` (Photos → Share and
   QR), shown as a QR code to download (PNG or SVG) or print as an A4 poster or A5 table card.
   Guests need no account: they browse the approved photos (full-screen with swipe, download the

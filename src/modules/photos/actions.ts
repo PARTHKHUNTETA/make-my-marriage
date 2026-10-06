@@ -6,8 +6,12 @@ import { requireAdmin, requireMember } from "@/lib/authz";
 import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
 import { listEvents } from "@/modules/events/service";
 import { getWedding, resetGalleryToken, setUploadsOn } from "@/modules/wedding/service";
+import { confirmCover, removeCover, requestCoverUpload } from "./covers";
 import {
   approveFromSchema,
+  confirmCoverSchema,
+  removeCoverSchema,
+  requestCoverSchema,
   confirmUploadsSchema,
   listPhotosSchema,
   movePhotosSchema,
@@ -16,6 +20,8 @@ import {
   requestUploadsSchema,
   reviewIdsSchema,
   uploadsSwitchSchema,
+  zipPartSchema,
+  zipPlanSchema,
 } from "./schema";
 import {
   approve,
@@ -23,6 +29,9 @@ import {
   confirmUploads,
   deletePhotos,
   getDownload,
+  getZipPart,
+  getZipPlan,
+  getZipSelection,
   getUsage,
   listAlbums,
   listPhotos,
@@ -164,5 +173,73 @@ export async function resetGalleryLinkAction() {
     if (wedding) revalidatePath(`/${wedding.website.slug}`);
     revalidatePath("/photos/share");
     return { reset: true };
+  });
+}
+
+// ---- ZIP downloads ----------------------------------------------------------------------------
+
+export async function getZipPlanAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    const { albumId } = zipPlanSchema.parse(input);
+    return getZipPlan(ctx.weddingId, albumId);
+  });
+}
+
+export async function getZipPartAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    const { albumId, index } = zipPartSchema.parse(input);
+    return getZipPart(ctx.weddingId, albumId, index);
+  });
+}
+
+export async function getZipSelectionAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    const { photoIds } = photoIdsSchema.parse(input);
+    return getZipSelection(ctx.weddingId, photoIds);
+  });
+}
+
+// ---- cover pictures ---------------------------------------------------------------------------
+
+// A cover shows on the dashboard, the website and the event cards.
+const refreshCovers = () => {
+  revalidatePath("/dashboard");
+  revalidatePath("/events");
+  revalidatePath("/settings/wedding");
+  revalidatePath("/", "layout");
+};
+
+export async function requestCoverUploadAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    await consumeRateLimit("cover-slots", subjectKey("member", ctx.memberId), {
+      limit: 40,
+      windowSeconds: 15 * 60,
+    });
+    const { target } = requestCoverSchema.parse(input);
+    return requestCoverUpload(ctx.weddingId, target);
+  });
+}
+
+export async function confirmCoverAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    const { target, coverId } = confirmCoverSchema.parse(input);
+    await confirmCover(ctx.weddingId, target, coverId);
+    refreshCovers();
+    return { saved: true };
+  });
+}
+
+export async function removeCoverAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    const { target } = removeCoverSchema.parse(input);
+    await removeCover(ctx.weddingId, target);
+    refreshCovers();
+    return { removed: true };
   });
 }

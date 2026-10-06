@@ -23,6 +23,9 @@ import {
   deletePhotoDocs,
   ensureAlbums,
   findAbandonedSlots,
+  findApprovedForDownload,
+  listApprovedForDownload,
+  type DownloadRow,
   findAlbum,
   findAlbumsByIds,
   findByUploadKeys,
@@ -35,6 +38,7 @@ import {
   usedBytes,
   type PhotoDoc,
 } from "./repository";
+import { planParts, ZIP_PART_BYTES, ZIP_PART_FILES } from "./zip";
 import {
   MAX_FILE_BYTES,
   PAGE_SIZE,
@@ -443,4 +447,60 @@ export async function purgeStalePending(now = new Date()): Promise<{ deleted: nu
     for (const [weddingId, ids] of byWedding) deleted += await reject(weddingId, ids);
   }
   return { deleted };
+}
+
+// ---- ZIP downloads --------------------------------------------------------------------------
+
+export type ZipPart = { index: number; count: number; bytes: number };
+export type ZipEntry = { fileName: string; url: string };
+
+const summarise = (parts: DownloadRow[][]): ZipPart[] =>
+  parts.map((rows, index) => ({
+    index,
+    count: rows.length,
+    bytes: rows.reduce((n, r) => n + r.bytes, 0),
+  }));
+
+// How an album (or every photo) would be split into ZIP parts.
+export async function getZipPlan(weddingId: string, albumId?: string): Promise<ZipPart[]> {
+  return summarise(planParts(await listApprovedForDownload(weddingId, albumId)));
+}
+
+// The files of one part, each with a short-lived address to fetch it from.
+export async function getZipPart(
+  weddingId: string,
+  albumId: string | undefined,
+  index: number,
+): Promise<ZipEntry[]> {
+  const parts = planParts(await listApprovedForDownload(weddingId, albumId));
+  const rows = parts[index];
+  if (!rows) throw new AppError("NOT_FOUND", "That part no longer exists");
+  return Promise.all(
+    rows.map(async (r) => ({
+      fileName: r.fileName,
+      url: await signView(r.originalKey, { seconds: 15 * 60 }),
+    })),
+  );
+}
+
+// The files of photos picked by hand, in the order given. Too many or too big is refused up
+// front, so the browser is never asked for more than it can hold.
+export async function getZipSelection(weddingId: string, photoIds: string[]): Promise<ZipEntry[]> {
+  const tooMany = () =>
+    new AppError(
+      "VALIDATION_FAILED",
+      `Pick up to ${ZIP_PART_FILES} photos or about ${Math.round(ZIP_PART_BYTES / 1024 / 1024)} MB at a time, or download the whole album in parts.`,
+    );
+  if (photoIds.length > ZIP_PART_FILES) throw tooMany();
+  const rows = await findApprovedForDownload(weddingId, photoIds);
+  if (rows.length === 0) throw new AppError("NOT_FOUND", "Those photos no longer exist");
+  if (rows.reduce((n, r) => n + r.bytes, 0) > ZIP_PART_BYTES) throw tooMany();
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const ordered = photoIds.map((id) => byId.get(id)).filter((r): r is DownloadRow => Boolean(r));
+  return Promise.all(
+    ordered.map(async (r) => ({
+      fileName: r.fileName,
+      url: await signView(r.originalKey, { seconds: 15 * 60 }),
+    })),
+  );
 }

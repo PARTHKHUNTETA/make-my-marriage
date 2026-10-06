@@ -19,14 +19,27 @@ import { getAuthEnv, getStorageEnv } from "@/lib/env";
 // Keys look like `weddings/<weddingId>/photos/<photoId>/<original|display|thumb>`; nothing a user
 // types ever becomes part of a key.
 
-const KEY_PATTERN = /^weddings\/[a-f0-9]{24}\/photos\/[a-f0-9]{24}\/(original|display|thumb)$/;
+const KEY_PATTERN =
+  /^weddings\/[a-f0-9]{24}\/(photos\/[a-f0-9]{24}\/(original|display|thumb)|covers\/[a-f0-9]{24})$/;
 export const UPLOAD_URL_SECONDS = 15 * 60;
 export const VIEW_URL_SECONDS = 60 * 60;
+
+// Cover images are shown on public pages whose HTML may be cached for a while, so their addresses
+// last nearly as long as storage allows (a week).
+export const COVER_URL_SECONDS = 6 * 24 * 60 * 60;
 
 export type PhotoVariant = "original" | "display" | "thumb";
 
 export function photoKey(weddingId: string, photoId: string, variant: PhotoVariant): string {
   const key = `weddings/${weddingId}/photos/${photoId}/${variant}`;
+  assertKey(key);
+  return key;
+}
+
+// One cover picture (the wedding's, or an event's). Every upload gets a new id, so a replaced
+// picture never shows from a stale cache.
+export function coverKey(weddingId: string, coverId: string): string {
+  const key = `weddings/${weddingId}/covers/${coverId}`;
   assertKey(key);
   return key;
 }

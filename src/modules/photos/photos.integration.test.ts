@@ -238,4 +238,60 @@ describe.skipIf(!enabled)("photos against MongoDB", () => {
       after.find((a) => a.isGeneral)!.id,
     );
   });
+  it("ZIP downloads cover approved photos only, in parts, and never another wedding's", async () => {
+    const wz = new ObjectId().toHexString();
+    const wy = new ObjectId().toHexString();
+    try {
+      const album = await general(wz);
+      const approved: string[] = [];
+      for (let i = 0; i < 3; i++) {
+        const slot = await upload(wz, album, file({ name: `Z${i}.jpg` }));
+        await photos.confirmUploads(wz, [slot.photoId], "member");
+        approved.push(slot.photoId);
+      }
+      // One still waiting and one never finished: neither belongs in a download.
+      const waiting = await upload(wz, album);
+      await photos.confirmUploads(wz, [waiting.photoId], "guest");
+      await photos.requestUploads(
+        wz,
+        { albumId: album, files: [file()] },
+        { type: "member", memberId: me },
+      );
+
+      const plan = await photos.getZipPlan(wz, album);
+      expect(plan).toEqual([{ index: 0, count: 3, bytes: JPEG.length * 3 }]);
+      expect(await photos.getZipPlan(wz)).toHaveLength(1);
+      const entries = await photos.getZipPart(wz, album, 0);
+      expect(entries.map((e) => e.fileName)).toEqual(["Z0.jpg", "Z1.jpg", "Z2.jpg"]);
+      for (const e of entries) expect(e.url).toContain("/api/dev-storage/");
+      await expect(photos.getZipPart(wz, album, 1)).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+      const picked = await photos.getZipSelection(wz, [
+        approved[2]!,
+        approved[0]!,
+        waiting.photoId,
+      ]);
+      expect(picked.map((e) => e.fileName)).toEqual(["Z2.jpg", "Z0.jpg"]); // order given, waiting left out
+      await expect(photos.getZipSelection(wy, approved)).rejects.toMatchObject({
+        code: "NOT_FOUND",
+      });
+      expect(await photos.getZipPlan(wy)).toEqual([]);
+      const tooMany = Array.from({ length: 151 }, () => new ObjectId().toHexString());
+      await expect(photos.getZipSelection(wz, tooMany)).rejects.toMatchObject({
+        code: "VALIDATION_FAILED",
+      });
+    } finally {
+      const docs = await db
+        .collection("photos")
+        .find({ weddingId: { $in: [new ObjectId(wz), new ObjectId(wy)] } })
+        .toArray();
+      await storage.deleteObjects(
+        docs.flatMap((d) => [d.originalKey, d.displayKey, d.thumbKey].filter(Boolean)),
+      );
+      for (const c of ["photos", "albums"])
+        await db
+          .collection(c)
+          .deleteMany({ weddingId: { $in: [new ObjectId(wz), new ObjectId(wy)] } });
+    }
+  });
 });

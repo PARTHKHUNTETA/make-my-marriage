@@ -45,7 +45,7 @@ export async function GET(request: Request, { params }: Ctx) {
   };
   if (download)
     headers["Content-Disposition"] = `attachment; filename="${download.replace(/"/g, "")}"`;
-  else if (key.endsWith("/thumb") || key.endsWith("/display"))
+  else if (key.endsWith("/thumb") || key.endsWith("/display") || key.includes("/covers/"))
     headers["Content-Type"] = "image/jpeg";
   return new NextResponse(new Uint8Array(bytes), { headers });
 }

@@ -69,6 +69,23 @@ export async function makeCopies(file: Blob): Promise<Copies> {
   }
 }
 
+export const COVER_EDGE = 1920;
+
+// One JPEG, at most 1920 px on its longest side, for a cover picture. Null if this browser cannot
+// read the file (HEIC on most computers).
+export async function makeCoverBlob(file: Blob): Promise<Blob | null> {
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    try {
+      return await shrink(bitmap, COVER_EDGE, 0.88);
+    } finally {
+      bitmap.close();
+    }
+  } catch {
+    return null;
+  }
+}
+
 // PUTs one file, reporting progress. XHR rather than fetch, because only XHR reports upload progress.
 export function putBlob(
   url: string,

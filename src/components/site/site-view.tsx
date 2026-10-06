@@ -28,6 +28,13 @@ export function SiteView({ site }: { site: SiteData }) {
         </div>
       ) : null}
 
+      {site.coverUrl ? (
+        <div className="aspect-[16/7] max-h-[60vh] w-full overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={site.coverUrl} alt="" className="size-full object-cover" />
+        </div>
+      ) : null}
+
       <header className={t.hero}>
         <p className={t.eyebrow}>We&rsquo;re getting married</p>
         <h1 className={t.names}>
@@ -59,6 +66,15 @@ export function SiteView({ site }: { site: SiteData }) {
             <ul className="mt-8 grid gap-5 sm:grid-cols-2">
               {site.events.map((e) => (
                 <li key={e.id} className={t.card}>
+                  {e.coverUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={e.coverUrl}
+                      alt=""
+                      loading="lazy"
+                      className="mb-4 aspect-[16/9] w-full rounded object-cover"
+                    />
+                  ) : null}
                   <h3 className={t.cardTitle}>{e.name}</h3>
                   <p className={`${t.meta} flex items-center justify-center gap-2`}>
                     <CalendarDays className="size-4 shrink-0" aria-hidden />

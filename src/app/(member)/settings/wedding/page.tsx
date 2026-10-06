@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { CoverImageField } from "@/components/photos/cover-image-field";
 import { EditWeddingForm } from "@/components/wedding/edit-wedding-form";
 import { requireMember } from "@/lib/authz";
 import { toIstYmd } from "@/lib/dates";
+import { coverUrl } from "@/modules/photos/covers";
 import { getWedding } from "@/modules/wedding/service";
 
 export const metadata: Metadata = { title: "Wedding details — Make My Marriage" };
@@ -41,6 +43,13 @@ export default async function WeddingDetailsPage() {
           description: wedding.description ?? "",
         }}
       />
+      <div className="mt-6">
+        <CoverImageField
+          target={{ kind: "wedding" }}
+          currentUrl={await coverUrl(wedding.coverImageKey)}
+          hint="Shown at the top of your wedding website and on your dashboard."
+        />
+      </div>
     </main>
   );
 }

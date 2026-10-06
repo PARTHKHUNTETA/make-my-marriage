@@ -363,3 +363,47 @@ export async function findStalePending(cutoff: Date, limit: number): Promise<Pho
     .find({ status: "pending", uploadedAt: { $lt: cutoff } }, { sort: { uploadedAt: 1 }, limit })
     .toArray();
 }
+
+// ---- downloads ------------------------------------------------------------------------------
+
+export type DownloadRow = { id: string; fileName: string; originalKey: string; bytes: number };
+
+// Every approved photo (of one album, or all), oldest first, with only what a download needs.
+export async function listApprovedForDownload(
+  weddingId: string,
+  albumId?: string,
+): Promise<DownloadRow[]> {
+  const docs = await scoped(await photos(), { weddingId })
+    .find(
+      { status: "approved", ...(albumId ? { albumId: oid(albumId) } : {}) },
+      {
+        sort: { uploadedAt: 1, _id: 1 },
+        projection: { fileName: 1, originalKey: 1, sizeBytes: 1 },
+      },
+    )
+    .toArray();
+  return docs.map((d) => ({
+    id: d._id.toHexString(),
+    fileName: d.fileName,
+    originalKey: d.originalKey,
+    bytes: d.sizeBytes,
+  }));
+}
+
+export async function findApprovedForDownload(
+  weddingId: string,
+  ids: string[],
+): Promise<DownloadRow[]> {
+  const docs = await scoped(await photos(), { weddingId })
+    .find(
+      { _id: { $in: ids.map(oid) }, status: "approved" },
+      { projection: { fileName: 1, originalKey: 1, sizeBytes: 1 } },
+    )
+    .toArray();
+  return docs.map((d) => ({
+    id: d._id.toHexString(),
+    fileName: d.fileName,
+    originalKey: d.originalKey,
+    bytes: d.sizeBytes,
+  }));
+}

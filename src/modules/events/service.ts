@@ -1,4 +1,5 @@
 import { inTransaction } from "@/lib/db";
+import { deleteObjects } from "@/lib/storage";
 import { istDate } from "@/lib/dates";
 import { AppError } from "@/lib/errors";
 import { countGuestsInvitedToEvent, removeEventInvitations } from "@/modules/guests/service";
@@ -14,6 +15,7 @@ import {
   insertEvent,
   listEvents as findEvents,
   replaceEventFields,
+  saveEventCover,
   setShowTable,
   type EventDoc,
   type EventFields,
@@ -22,9 +24,6 @@ import {
 import type { EventDeletePreview, EventInput, EventItem } from "./schema";
 
 // Business rules for the events module (PRD 5.3, api-design §5).
-//
-// Not built yet because their modules come in later phases: creating an event's photo album
-// (Phase 6), and on delete moving its photos to General (Phase 6). Each of those adds its own step to deleteEvent.
 
 const NOT_FOUND = new AppError("NOT_FOUND", "That event no longer exists.");
 
@@ -40,6 +39,7 @@ function toItem(doc: EventDoc): EventItem {
     address: doc.address,
     description: doc.description,
     dressCode: doc.dressCode,
+    coverImageKey: doc.coverImageKey,
     showOnWebsite: doc.showOnWebsite,
     showTable: doc.showTable ?? false,
   };
@@ -118,6 +118,7 @@ export async function previewEventDelete(
 // One transaction: the event goes with its invitations and RSVPs; its tasks and expenses lose the
 // link but stay, its budget line goes with it, vendors stop listing it, and its seating tables go.
 export async function deleteEvent(weddingId: string, eventId: string): Promise<void> {
+  const before = await findEvent(weddingId, eventId);
   await inTransaction(async (session) => {
     if (!(await removeEvent(weddingId, eventId, { session }))) throw NOT_FOUND;
     await removeEventInvitations(weddingId, eventId, { session });
@@ -128,6 +129,8 @@ export async function deleteEvent(weddingId: string, eventId: string): Promise<v
     await removeEventArrivals(weddingId, eventId, { session });
     await removeEventAlbum(weddingId, eventId, { session });
   });
+  // Its cover picture goes with it. A failure only leaves an unreferenced file behind.
+  if (before?.coverImageKey) await deleteObjects([before.coverImageKey]).catch(() => undefined);
 }
 
 // Turns "Your table" on the guests' invitation pages on or off for this event.
@@ -137,4 +140,15 @@ export async function setEventShowTable(
   on: boolean,
 ): Promise<void> {
   if (!(await setShowTable(weddingId, eventId, on))) throw NOT_FOUND;
+}
+
+// Records (or, with null, clears) an event's cover picture and says which file it replaced.
+export async function setEventCover(
+  weddingId: string,
+  eventId: string,
+  key: string | null,
+): Promise<{ previous: string | undefined }> {
+  const result = await saveEventCover(weddingId, eventId, key);
+  if (!result) throw NOT_FOUND;
+  return result;
 }

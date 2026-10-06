@@ -225,6 +225,25 @@ export async function findWeddingByGalleryToken(token: string): Promise<WeddingD
   return (await weddings()).findOne({ galleryToken: token, deletedAt: { $exists: false } });
 }
 
+// Sets (or, with null, removes) the cover picture. Returns the key it replaced so the caller can
+// delete that file; null if there is no such wedding.
+export async function saveCoverImageKey(
+  id: string,
+  key: string | null,
+): Promise<{ previous: string | undefined } | null> {
+  if (!ObjectId.isValid(id)) return null;
+  const before = await (
+    await weddings()
+  ).findOneAndUpdate(
+    { _id: new ObjectId(id), deletedAt: { $exists: false } },
+    key === null
+      ? { $unset: { coverImageKey: "" }, $set: { updatedAt: new Date() } }
+      : { $set: { coverImageKey: key, updatedAt: new Date() } },
+    { returnDocument: "before" },
+  );
+  return before ? { previous: before.coverImageKey } : null;
+}
+
 export async function saveUploadsOn(id: string, on: boolean): Promise<boolean> {
   if (!ObjectId.isValid(id)) return false;
   const result = await (

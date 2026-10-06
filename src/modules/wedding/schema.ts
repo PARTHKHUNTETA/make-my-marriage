@@ -92,6 +92,8 @@ export type WeddingSummary = {
   city: string;
   venue?: string;
   description?: string;
+  // R2 key of the cover picture, if one was uploaded. The page turns it into an address.
+  coverImageKey?: string;
   slug: string;
   // The couple's own WhatsApp share text, if they wrote one.
   whatsappMessage?: string;

@@ -74,6 +74,8 @@ export type SiteEvent = {
   venueName?: string;
   address?: string;
   mapsUrl: string | null;
+  // The event's own picture, if it has one.
+  coverUrl?: string;
 };
 
 export type SiteData = {
@@ -84,6 +86,8 @@ export type SiteData = {
   date: Date;
   city: string;
   welcome?: string;
+  // The wedding's cover picture, shown above the names.
+  coverUrl?: string;
   events: SiteEvent[];
   // Present when the Live section is on and a link is set.
   live?: { embedUrl: string; watchUrl: string };

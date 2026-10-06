@@ -69,6 +69,7 @@ export type EventItem = {
   address?: string;
   description?: string;
   dressCode?: string;
+  coverImageKey?: string;
   showOnWebsite: boolean;
   showTable: boolean;
 };

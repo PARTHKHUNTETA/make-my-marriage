@@ -3,8 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Download, ImagePlus, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Eye, ImagePlus, Trash2, X } from "lucide-react";
 import { formatBytes } from "@/lib/bytes";
+import { buildZip, fetchBytes, saveZip, type ZipSource } from "@/lib/zip-download";
 import {
   makeCopies,
   putBlob,
@@ -16,10 +17,14 @@ import {
   confirmUploadsAction,
   deletePhotosAction,
   getDownloadAction,
+  getZipPartAction,
+  getZipPlanAction,
+  getZipSelectionAction,
   movePhotosAction,
   requestUploadsAction,
 } from "@/modules/photos/actions";
 import type { AlbumSummary, PhotoItem, Usage } from "@/modules/photos/schema";
+import type { ZipPart } from "@/modules/photos/service";
 
 const ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
 
@@ -31,6 +36,8 @@ type Props = {
   page: number;
   pages: number;
   total: number;
+  // The private link guests use, so the couple can see the gallery as guests do.
+  guestLink: string;
 };
 
 const chip = (on: boolean) =>
@@ -48,7 +55,16 @@ function href(albumId: string | undefined, page = 1) {
   return s ? `/photos?${s}` : "/photos";
 }
 
-export function PhotoGallery({ albums, albumId, usage, items, page, pages, total }: Props) {
+export function PhotoGallery({
+  albums,
+  albumId,
+  usage,
+  items,
+  page,
+  pages,
+  total,
+  guestLink,
+}: Props) {
   const router = useRouter();
   const general = albums.find((a) => a.isGeneral);
   const inAlbum = albums.find((a) => a.id === albumId);
@@ -62,6 +78,8 @@ export function PhotoGallery({ albums, albumId, usage, items, page, pages, total
   const [message, setMessage] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [open, setOpen] = React.useState<number | null>(null);
+  const [parts, setParts] = React.useState<ZipPart[] | null>(null);
+  const [zip, setZip] = React.useState<{ done: number; total: number } | null>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
   const uploading = progress !== null && progress.done + progress.failed < progress.total;
   const used = usage.quotaBytes > 0 ? Math.min(100, (usage.usedBytes / usage.quotaBytes) * 100) : 0;
@@ -118,6 +136,47 @@ export function PhotoGallery({ albums, albumId, usage, items, page, pages, total
     document.body.appendChild(a);
     a.click();
     a.remove();
+  }
+
+  async function makeZip(entries: ZipSource[], fileName: string) {
+    setZip({ done: 0, total: entries.length });
+    try {
+      const bytes = await buildZip(entries, fetchBytes, (done, total) => setZip({ done, total }));
+      saveZip(bytes, fileName);
+      setMessage(`Downloaded ${entries.length} ${entries.length === 1 ? "photo" : "photos"}.`);
+    } catch (err) {
+      setMessage(
+        err instanceof Error ? err.message : "The download did not finish. Please try again.",
+      );
+    } finally {
+      setZip(null);
+    }
+  }
+
+  const zipName = (suffix = "") =>
+    `${(inAlbum?.name ?? "all-photos").replace(/[^A-Za-z0-9]+/g, "-").toLowerCase()}${suffix}.zip`;
+
+  // Offers the album as one ZIP, or as parts when it is too big for one.
+  async function planAlbumZip() {
+    setMessage(null);
+    const r = await getZipPlanAction({ ...(albumId ? { albumId } : {}) });
+    if (!r.ok) return setMessage(r.error.message);
+    if (r.data.length === 0) return setMessage("There are no photos to download yet.");
+    if (r.data.length === 1) return downloadPart(r.data[0]!.index, 1);
+    setParts(r.data);
+  }
+
+  async function downloadPart(index: number, of: number) {
+    const r = await getZipPartAction({ ...(albumId ? { albumId } : {}), index });
+    if (!r.ok) return setMessage(r.error.message);
+    await makeZip(r.data, zipName(of > 1 ? `-part-${index + 1}-of-${of}` : ""));
+  }
+
+  async function downloadSelected() {
+    setMessage(null);
+    const r = await getZipSelectionAction({ photoIds: [...selected] });
+    if (!r.ok) return setMessage(r.error.message);
+    await makeZip(r.data, "selected-photos.zip");
   }
 
   async function remove(ids: string[]) {
@@ -272,6 +331,35 @@ export function PhotoGallery({ albums, albumId, usage, items, page, pages, total
           </p>
         ) : null}
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          {!selecting ? (
+            <>
+              <a
+                href={guestLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${button} bg-white text-ink hover:bg-rose-200`}
+              >
+                <Eye className="size-4" aria-hidden /> View as guests
+              </a>
+              <Link
+                href="/photos/share"
+                className={`${button} bg-white text-ink hover:bg-rose-200`}
+              >
+                Share
+              </Link>
+              {total > 0 ? (
+                <button
+                  type="button"
+                  disabled={zip !== null}
+                  onClick={planAlbumZip}
+                  className={`${button} bg-white text-ink hover:bg-rose-200`}
+                >
+                  <Download className="size-4" aria-hidden /> Download {inAlbum ? "album" : "all"}{" "}
+                  (ZIP)
+                </button>
+              ) : null}
+            </>
+          ) : null}
           {items.length > 0 && !selecting ? (
             <button
               type="button"
@@ -290,6 +378,14 @@ export function PhotoGallery({ albums, albumId, usage, items, page, pages, total
                 className={`${button} bg-white text-ink hover:bg-rose-200`}
               >
                 Select all on this page
+              </button>
+              <button
+                type="button"
+                disabled={selected.size === 0 || zip !== null}
+                onClick={downloadSelected}
+                className={`${button} bg-white text-ink hover:bg-rose-200`}
+              >
+                <Download className="size-4" aria-hidden /> Download (ZIP)
               </button>
               <select
                 aria-label="Move selected photos to"
@@ -353,6 +449,38 @@ export function PhotoGallery({ albums, albumId, usage, items, page, pages, total
           ) : null}
         </div>
       </div>
+      {zip ? (
+        <p role="status" className="text-[13px] text-ink">
+          Preparing your ZIP… {zip.done} of {zip.total} photos. Keep this page open.
+        </p>
+      ) : null}
+      {parts ? (
+        <div className="rounded-xl bg-white p-4 text-[13px] shadow-[0_1px_3px_rgba(35,31,32,0.04)]">
+          <p className="text-ink">
+            This is a lot of photos, so it comes in {parts.length} parts. Download each one:
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {parts.map((p) => (
+              <button
+                key={p.index}
+                type="button"
+                disabled={zip !== null}
+                onClick={() => downloadPart(p.index, parts.length)}
+                className={`${button} bg-bronze text-white`}
+              >
+                Part {p.index + 1} · {p.count} photos · {formatBytes(p.bytes)}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setParts(null)}
+              className={`${button} bg-white text-ink-2 ring-1 ring-line`}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ) : null}
       {confirmDelete ? (
         <p role="alert" className="-mt-3 text-[13px] text-destructive">
           This permanently deletes {selected.size} {selected.size === 1 ? "photo" : "photos"} for

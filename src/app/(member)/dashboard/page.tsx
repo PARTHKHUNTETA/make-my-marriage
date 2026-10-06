@@ -28,6 +28,7 @@ import { RSVP_LABELS } from "@/modules/guests/schema";
 import { getStats, listEveryGuest } from "@/modules/guests/service";
 import { formatRupees } from "@/lib/money";
 import { getSummary as getMoneySummary } from "@/modules/money/service";
+import { coverUrl } from "@/modules/photos/covers";
 import { getSummary as getPhotoSummary } from "@/modules/photos/service";
 import { formatBytes } from "@/lib/bytes";
 import { listTasks } from "@/modules/tasks/service";
@@ -127,6 +128,7 @@ export default async function DashboardPage() {
   ]);
   if (!wedding) notFound();
 
+  const cover = await coverUrl(wedding.coverImageKey);
   const days = daysUntil(wedding.date);
   const daysShown = Math.abs(days);
   const upcoming = events.filter((e) => eventStartsAt(e) > now);
@@ -159,6 +161,13 @@ export default async function DashboardPage() {
     <main className="flex w-full flex-col pt-6">
       {/* Hero */}
       <section className="relative mb-6 w-full overflow-hidden rounded-xl bg-plum p-4 text-white shadow-xl sm:p-6 lg:p-10">
+        {cover ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={cover} alt="" className="absolute inset-0 size-full object-cover" />
+            <div aria-hidden className="absolute inset-0 bg-plum/75" />
+          </>
+        ) : null}
         <svg
           aria-hidden
           className="pointer-events-none absolute inset-0 size-full opacity-20"

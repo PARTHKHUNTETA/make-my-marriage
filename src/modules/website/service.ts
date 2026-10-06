@@ -3,6 +3,7 @@ import { mapsUrl } from "@/lib/maps";
 import { listEvents } from "@/modules/events/service";
 import type { WeddingSummary } from "@/modules/wedding/schema";
 import { absoluteUrl } from "@/lib/app-url";
+import { coverUrl } from "@/modules/photos/covers";
 import {
   getGallerySettings,
   getWedding,
@@ -31,17 +32,21 @@ async function buildSite(wedding: WeddingSummary, isPreview: boolean): Promise<S
     date: wedding.date,
     city: wedding.city,
     welcome: wedding.description,
-    events: events.map((e) => ({
-      id: e.id,
-      name: e.name,
-      date: e.date,
-      startTime: e.startTime,
-      endTime: e.endTime,
-      dressCode: e.dressCode,
-      venueName: e.venueName,
-      address: e.address,
-      mapsUrl: mapsUrl(e.venueName, e.address),
-    })),
+    coverUrl: await coverUrl(wedding.coverImageKey),
+    events: await Promise.all(
+      events.map(async (e) => ({
+        id: e.id,
+        name: e.name,
+        date: e.date,
+        startTime: e.startTime,
+        endTime: e.endTime,
+        dressCode: e.dressCode,
+        venueName: e.venueName,
+        address: e.address,
+        mapsUrl: mapsUrl(e.venueName, e.address),
+        coverUrl: await coverUrl(e.coverImageKey),
+      })),
+    ),
     live: live ? { embedUrl: live.embedUrl, watchUrl: live.watchUrl } : undefined,
     galleryUrl,
     isPreview,

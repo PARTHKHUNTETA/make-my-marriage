@@ -104,6 +104,25 @@ export async function deleteEvent(
   return result.deletedCount === 1;
 }
 
+// Sets (or, with null, removes) an event's cover picture; returns the key it replaced, or null if
+// there is no such event.
+export async function saveEventCover(
+  weddingId: string,
+  id: string,
+  key: string | null,
+): Promise<{ previous: string | undefined } | null> {
+  const _id = oid(id);
+  if (!_id) return null;
+  const before = await scoped(await events(), { weddingId }).findOneAndUpdate(
+    { _id },
+    key === null
+      ? { $unset: { coverImageKey: "" }, $set: { updatedAt: new Date() } }
+      : { $set: { coverImageKey: key, updatedAt: new Date() } },
+    { returnDocument: "before" },
+  );
+  return before ? { previous: before.coverImageKey } : null;
+}
+
 // Turns "show guests their table" on or off for one event. Not part of the event form.
 export async function setShowTable(weddingId: string, id: string, on: boolean): Promise<boolean> {
   const _id = oid(id);

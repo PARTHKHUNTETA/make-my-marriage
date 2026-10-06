@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { CoverImageField } from "@/components/photos/cover-image-field";
 import { DeleteEventButton } from "@/components/events/delete-event-button";
 import { EventForm } from "@/components/events/event-form";
 import { requireMember } from "@/lib/authz";
 import { toIstYmd } from "@/lib/dates";
 import { getEvent } from "@/modules/events/service";
+import { coverUrl } from "@/modules/photos/covers";
 import { getStats, listEveryGuest } from "@/modules/guests/service";
 import { VENDOR_CATEGORY_LABELS } from "@/modules/vendors/schema";
 import { listVendors } from "@/modules/vendors/service";
@@ -56,6 +58,13 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             dressCode: event.dressCode ?? "",
             showOnWebsite: event.showOnWebsite,
           }}
+        />
+
+        <CoverImageField
+          target={{ kind: "event", eventId: event.id }}
+          currentUrl={await coverUrl(event.coverImageKey)}
+          title="Event picture"
+          hint="Shown on this event's card on your wedding website."
         />
 
         <section className="rounded-xl bg-white shadow-[0_1px_3px_rgba(35,31,32,0.04)]">
