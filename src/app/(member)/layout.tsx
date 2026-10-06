@@ -32,11 +32,11 @@ export default async function MemberLayout({ children }: Readonly<{ children: Re
           countdown: daysToGoLabel(daysUntil(wedding.date)),
         }}
       />
-      <div className="lg:pl-64">
+      <div className="lg:pl-64 print:pl-0">
         <Topbar />
-        <div className="px-6 pt-16 pb-6">
+        <div className="px-6 pt-16 pb-6 print:p-0">
           {profile.emailVerified ? null : (
-            <div className="pt-4">
+            <div className="pt-4 print:hidden">
               <VerifyEmailBanner email={profile.email} />
             </div>
           )}

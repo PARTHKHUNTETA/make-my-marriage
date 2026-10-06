@@ -6,6 +6,8 @@ const wedding = vi.hoisted(() => ({ getWedding: vi.fn() }));
 vi.mock("@/modules/guests/service", () => guests);
 vi.mock("@/modules/events/service", () => events);
 vi.mock("@/modules/wedding/service", () => wedding);
+const tableNamesForParty = vi.hoisted(() => vi.fn());
+vi.mock("@/modules/seating/service", () => ({ tableNamesForParty }));
 
 import { getInvitation, submitGuestRsvp } from "./service";
 
@@ -39,6 +41,7 @@ const before = new Date("2027-02-10T10:00:00+05:30");
 const after = new Date("2027-02-12T19:00:00+05:30");
 
 beforeEach(() => {
+  tableNamesForParty.mockReset().mockResolvedValue(new Map());
   guests.getGuestByToken.mockReset().mockResolvedValue(guest());
   guests.submitRsvp.mockReset().mockResolvedValue({});
   events.getEventsByIds
@@ -84,6 +87,39 @@ describe("getInvitation", () => {
     guests.getGuestByToken.mockResolvedValue(guest());
     wedding.getWedding.mockResolvedValue(null);
     expect(await getInvitation("tok", before)).toBeNull();
+  });
+});
+
+describe("your table", () => {
+  it("shows the table only when the event switches it on and the party is attending and seated", async () => {
+    events.getEventsByIds.mockResolvedValue([
+      { ...event(E1, "Sangeet", "2027-02-11"), showTable: true },
+      { ...event(E2, "Wedding", "2027-02-12"), showTable: true },
+    ]);
+    tableNamesForParty.mockResolvedValue(
+      new Map([
+        [E1, ["7"]],
+        [E2, ["3"]],
+      ]),
+    );
+    const view = await getInvitation("tok", before);
+    // Sangeet: attending and seated. Wedding: no reply yet, so no table is shown.
+    expect(view?.events.map((e) => e.tableLabel)).toEqual(["Your table: 7", undefined]);
+  });
+  it("never shows a table for an event that has it switched off, and does not even look it up", async () => {
+    tableNamesForParty.mockResolvedValue(new Map([[E1, ["7"]]]));
+    const view = await getInvitation("tok", before);
+    expect(view?.events.every((e) => e.tableLabel === undefined)).toBe(true);
+    expect(tableNamesForParty).not.toHaveBeenCalled();
+  });
+  it("says tables when a party is split", async () => {
+    events.getEventsByIds.mockResolvedValue([
+      { ...event(E1, "Sangeet", "2027-02-11"), showTable: true },
+    ]);
+    tableNamesForParty.mockResolvedValue(new Map([[E1, ["7", "9"]]]));
+    expect((await getInvitation("tok", before))?.events[0]?.tableLabel).toBe(
+      "Your tables: 7 and 9",
+    );
   });
 });
 

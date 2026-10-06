@@ -70,6 +70,7 @@ export type EventItem = {
   description?: string;
   dressCode?: string;
   showOnWebsite: boolean;
+  showTable: boolean;
 };
 
 // What deleting an event would remove or unlink, shown before the person confirms (PRD 5.3).
@@ -78,6 +79,7 @@ export type EventDeletePreview = {
   guestCount: number;
   expenseCount: number;
   vendorCount: number;
+  tableCount: number;
 };
 
 // "16:00" -> "4:00 PM"

@@ -1,5 +1,6 @@
 import { ObjectId, type ClientSession } from "mongodb";
 import { AppError } from "@/lib/errors";
+import { removePartySeats } from "@/modules/seating/service";
 import { generateToken } from "@/lib/tokens";
 import {
   applyRsvpByToken,
@@ -105,6 +106,7 @@ export async function updateGuest(
 ): Promise<GuestItem> {
   const { set, unset } = split(input);
   const eventIds = unique(input.invitedEventIds);
+  const before = await findGuest(weddingId, guestId);
   const doc = await saveGuest(
     weddingId,
     guestId,
@@ -114,6 +116,11 @@ export async function updateGuest(
     eventIds.map((eventId) => ({ eventId, entryToken: generateToken() })),
   );
   if (!doc) throw NOT_FOUND;
+  // A party taken off an event gives up its seats there.
+  const dropped = (before?.invitations ?? [])
+    .map((i) => i.eventId.toHexString())
+    .filter((e) => !eventIds.includes(e));
+  if (dropped.length > 0) await removePartySeats(weddingId, guestId, dropped);
   return toItem(doc);
 }
 
@@ -124,6 +131,7 @@ export async function getGuest(weddingId: string, guestId: string): Promise<Gues
 
 export async function deleteGuest(weddingId: string, guestId: string): Promise<void> {
   if (!(await removeGuest(weddingId, guestId))) throw NOT_FOUND;
+  await removePartySeats(weddingId, guestId, "all");
 }
 
 export async function listGuests(

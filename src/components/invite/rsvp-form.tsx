@@ -112,6 +112,11 @@ export function EventReply({
         ) : null}
       </ul>
       {event.description ? <p className="mt-3 text-[15px] text-ink">{event.description}</p> : null}
+      {event.tableLabel && saved?.status === "attending" ? (
+        <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-[15px] font-semibold text-plum">
+          {event.tableLabel}
+        </p>
+      ) : null}
 
       <div className="mt-5 border-t border-line pt-4">
         {event.locked ? (

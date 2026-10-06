@@ -16,6 +16,8 @@ export type InvitationEventView = {
   numberAttending?: number;
   // True once the event has started: the reply is then shown read-only (PRD 5.6).
   locked: boolean;
+  // "Your table: 7", only when the couple has switched this on for the event and seated the party.
+  tableLabel?: string;
 };
 
 export type InvitationView = {

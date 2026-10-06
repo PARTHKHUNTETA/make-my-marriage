@@ -67,7 +67,7 @@ export function Sidebar({
   }
 
   return (
-    <aside className="fixed top-0 left-0 z-50 hidden h-full w-64 flex-col justify-between overflow-y-auto bg-rose-50 shadow-[0_1px_8px_rgba(0,0,0,0.04)] lg:flex">
+    <aside className="fixed top-0 left-0 z-50 hidden h-full w-64 flex-col justify-between overflow-y-auto bg-rose-50 shadow-[0_1px_8px_rgba(0,0,0,0.04)] lg:flex print:!hidden">
       <div className="flex flex-col">
         <div className="px-4 pt-6 pb-4">
           <Image

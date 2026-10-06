@@ -8,7 +8,13 @@ import type { EventDeletePreview } from "@/modules/events/schema";
 
 const small = "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50";
 
-function describeLinks({ taskCount, guestCount, expenseCount, vendorCount }: EventDeletePreview) {
+function describeLinks({
+  taskCount,
+  guestCount,
+  expenseCount,
+  vendorCount,
+  tableCount,
+}: EventDeletePreview) {
   const parts: string[] = [];
   if (guestCount > 0)
     parts.push(
@@ -25,6 +31,10 @@ function describeLinks({ taskCount, guestCount, expenseCount, vendorCount }: Eve
   if (vendorCount > 0)
     parts.push(
       `${vendorCount} ${vendorCount === 1 ? "vendor is" : "vendors are"} booked for it. ${vendorCount === 1 ? "They stay" : "They stay"} in My Vendors, without this event.`,
+    );
+  if (tableCount > 0)
+    parts.push(
+      `${tableCount} seating ${tableCount === 1 ? "table" : "tables"} for it will be deleted.`,
     );
   return parts.length > 0 ? parts.join(" ") : "Nothing else is linked to this event.";
 }

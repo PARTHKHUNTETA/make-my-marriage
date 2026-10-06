@@ -4,6 +4,7 @@ import { AppError } from "@/lib/errors";
 import { countGuestsInvitedToEvent, removeEventInvitations } from "@/modules/guests/service";
 import { countExpensesForEvent, unlinkEventFromMoney } from "@/modules/money/service";
 import { taskCountForEvent, unlinkEvent } from "@/modules/tasks/service";
+import { countTablesForEvent, removeEventTables } from "@/modules/seating/service";
 import { countVendorsForEvent, removeEventFromVendors } from "@/modules/vendors/service";
 import {
   deleteEvent as removeEvent,
@@ -11,6 +12,7 @@ import {
   insertEvent,
   listEvents as findEvents,
   replaceEventFields,
+  setShowTable,
   type EventDoc,
   type EventFields,
   type OptionalEventField,
@@ -37,6 +39,7 @@ function toItem(doc: EventDoc): EventItem {
     description: doc.description,
     dressCode: doc.dressCode,
     showOnWebsite: doc.showOnWebsite,
+    showTable: doc.showTable ?? false,
   };
 }
 
@@ -98,17 +101,18 @@ export async function previewEventDelete(
   eventId: string,
 ): Promise<EventDeletePreview> {
   if (!(await eventExists(weddingId, eventId))) throw NOT_FOUND;
-  const [taskCount, guestCount, expenseCount, vendorCount] = await Promise.all([
+  const [taskCount, guestCount, expenseCount, vendorCount, tableCount] = await Promise.all([
     taskCountForEvent(weddingId, eventId),
     countGuestsInvitedToEvent(weddingId, eventId),
     countExpensesForEvent(weddingId, eventId),
     countVendorsForEvent(weddingId, eventId),
+    countTablesForEvent(weddingId, eventId),
   ]);
-  return { taskCount, guestCount, expenseCount, vendorCount };
+  return { taskCount, guestCount, expenseCount, vendorCount, tableCount };
 }
 
 // One transaction: the event goes with its invitations and RSVPs; its tasks and expenses lose the
-// link but stay, its budget line goes with it, and vendors stop listing it.
+// link but stay, its budget line goes with it, vendors stop listing it, and its seating tables go.
 export async function deleteEvent(weddingId: string, eventId: string): Promise<void> {
   await inTransaction(async (session) => {
     if (!(await removeEvent(weddingId, eventId, { session }))) throw NOT_FOUND;
@@ -116,5 +120,15 @@ export async function deleteEvent(weddingId: string, eventId: string): Promise<v
     await unlinkEvent(weddingId, eventId, { session });
     await unlinkEventFromMoney(weddingId, eventId, { session });
     await removeEventFromVendors(weddingId, eventId, { session });
+    await removeEventTables(weddingId, eventId, { session });
   });
+}
+
+// Turns "Your table" on the guests' invitation pages on or off for this event.
+export async function setEventShowTable(
+  weddingId: string,
+  eventId: string,
+  on: boolean,
+): Promise<void> {
+  if (!(await setShowTable(weddingId, eventId, on))) throw NOT_FOUND;
 }

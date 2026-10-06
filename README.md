@@ -107,6 +107,15 @@ the lint rule that protects tenant isolation), and Phase 1 (Foundation) is built
   privacy-friendly embed is rebuilt from it. A small Content-Security-Policy lets pages frame only
   that player.
 
+- **Seating plans:** per event, create tables with a capacity and seat parties at them by dragging
+  (on a computer) or with the pickers (on a phone). A party takes its number attending, or the
+  number allowed until it replies, and can be split across tables but never given more seats than
+  it needs. Over-capacity tables are highlighted, and a "Still to seat" list shows who has no
+  table. The capacity check and the change happen in one database write, so two people seating at
+  once can never overfill a table, and moving a party goes all the way or not at all. Export as
+  CSV, or print / save as PDF from a clean print page. An optional per-event switch (off by
+  default) shows "Your table" on the invitation page of parties who are coming.
+
 Still to come: deleting a wedding (Phase 1), Discover vendors (needs a Google Places key), listing
 photos (with file storage),
 budget alerts at 90% and 100% (Phase 7 notifications), and the event album, invitations, expenses and

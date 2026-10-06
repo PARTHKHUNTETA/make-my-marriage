@@ -3,7 +3,7 @@ import { SignOutButton } from "@/components/sign-out-button";
 
 export function Topbar() {
   return (
-    <header className="fixed top-0 right-0 left-0 z-40 flex h-16 items-center justify-between bg-blush/85 px-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl lg:left-64">
+    <header className="fixed top-0 right-0 left-0 z-40 flex h-16 items-center justify-between bg-blush/85 px-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl lg:left-64 print:hidden">
       <div className="flex items-center gap-4">
         <button
           type="button"

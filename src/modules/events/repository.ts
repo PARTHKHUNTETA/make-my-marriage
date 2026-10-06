@@ -19,6 +19,8 @@ export type EventDoc = {
   dressCode?: string;
   coverImageKey?: string;
   showOnWebsite: boolean;
+  // Whether guests see "Your table" on their invitation page (off by default; set from Seating).
+  showTable?: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -100,4 +102,15 @@ export async function deleteEvent(
   if (!_id) return false;
   const result = await scoped(await events(), { weddingId }).deleteOne({ _id }, options);
   return result.deletedCount === 1;
+}
+
+// Turns "show guests their table" on or off for one event. Not part of the event form.
+export async function setShowTable(weddingId: string, id: string, on: boolean): Promise<boolean> {
+  const _id = oid(id);
+  if (!_id) return false;
+  const result = await scoped(await events(), { weddingId }).updateOne(
+    { _id },
+    { $set: { showTable: on, updatedAt: new Date() } },
+  );
+  return result.matchedCount === 1;
 }

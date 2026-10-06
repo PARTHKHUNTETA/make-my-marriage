@@ -96,6 +96,7 @@ describe.skipIf(!enabled)("events and tasks against MongoDB", () => {
       guestCount: 0,
       expenseCount: 0,
       vendorCount: 0,
+      tableCount: 0,
     });
 
     await events.deleteEvent(A, e.id);

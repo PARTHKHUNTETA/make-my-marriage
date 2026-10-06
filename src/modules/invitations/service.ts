@@ -1,4 +1,6 @@
 import { AppError } from "@/lib/errors";
+import { describeTables } from "@/modules/seating/calc";
+import { tableNamesForParty } from "@/modules/seating/service";
 import { eventStartsAt } from "@/modules/events/schema";
 import { getEventsByIds } from "@/modules/events/service";
 import type { RsvpInput } from "@/modules/guests/schema";
@@ -27,6 +29,10 @@ export async function getInvitation(
     ),
   ]);
   if (!wedding) return null;
+  // Looked up only if some event shows tables to guests at all.
+  const tables = events.some((e) => e.showTable)
+    ? await tableNamesForParty(weddingId, guest.id)
+    : new Map<string, string[]>();
   const replies = new Map(guest.invitations.map((i) => [i.eventId, i]));
   return {
     couple: `${wedding.brideName} & ${wedding.groomName}`,
@@ -49,6 +55,9 @@ export async function getInvitation(
         status: reply?.rsvpStatus ?? "pending",
         numberAttending: reply?.numberAttending,
         locked: eventStartsAt(event).getTime() <= now.getTime(),
+        ...(event.showTable && reply?.rsvpStatus === "attending" && tables.get(event.id)
+          ? { tableLabel: describeTables(tables.get(event.id)!) }
+          : {}),
       };
     }),
   };
