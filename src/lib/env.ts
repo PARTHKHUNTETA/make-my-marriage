@@ -34,10 +34,17 @@ const cronEnvSchema = z.object({
   CRON_SECRET: z.string().min(32, "CRON_SECRET must be at least 32 characters"),
 });
 
+// The Make My Marriage team: signed-in members whose verified email is on this list can open the
+// internal admin screen (api-design §13). Empty or unset means nobody can.
+const staffEnvSchema = z.object({
+  STAFF_EMAILS: z.preprocess(blankIsUnset, z.string().optional()),
+});
+
 export type Env = z.infer<typeof envSchema>;
 export type AuthEnv = z.infer<typeof authEnvSchema>;
 export type EmailEnv = z.infer<typeof emailEnvSchema>;
 export type CronEnv = z.infer<typeof cronEnvSchema>;
+export type StaffEnv = z.infer<typeof staffEnvSchema>;
 
 // Reports variable names only, never values.
 function parseEnv<S extends z.ZodType>(schema: S): z.infer<S> {
@@ -53,6 +60,7 @@ let cached: Env | undefined;
 let cachedAuth: AuthEnv | undefined;
 let cachedEmail: EmailEnv | undefined;
 let cachedCron: CronEnv | undefined;
+let cachedStaff: StaffEnv | undefined;
 
 // Parsed on first use rather than at import, so `next build` does not need secrets.
 export function getEnv(): Env {
@@ -73,4 +81,13 @@ export function getEmailEnv(): EmailEnv {
 export function getCronEnv(): CronEnv {
   cachedCron ??= parseEnv(cronEnvSchema);
   return cachedCron;
+}
+
+// The lowercased staff email addresses.
+export function getStaffEmails(): string[] {
+  cachedStaff ??= parseEnv(staffEnvSchema);
+  return (cachedStaff.STAFF_EMAILS ?? "")
+    .split(/[\s,;]+/)
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
 }

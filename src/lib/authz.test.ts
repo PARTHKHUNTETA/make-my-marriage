@@ -2,9 +2,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Context } from "./context";
 
 const resolveContext = vi.hoisted(() => vi.fn<() => Promise<Context>>());
-vi.mock("@/lib/context", () => ({ resolveContext }));
+const resolveVendorContext = vi.hoisted(() => vi.fn());
+const getProfile = vi.hoisted(() => vi.fn());
+const getStaffEmails = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/context", () => ({ resolveContext, resolveVendorContext }));
+vi.mock("@/modules/members/service", () => ({ getProfile }));
+vi.mock("@/lib/env", () => ({ getStaffEmails }));
 
-import { canManageMembers, requireAdmin, requireMember, requireUser, requireVendor } from "./authz";
+import {
+  canManageMembers,
+  requireAdmin,
+  requireMember,
+  requireStaff,
+  requireUser,
+  requireVendor,
+} from "./authz";
 
 const admin: Context = {
   kind: "member",
@@ -96,13 +108,50 @@ describe("requireAdmin", () => {
 });
 
 describe("requireVendor", () => {
-  it("allows a vendor", async () => {
-    resolveContext.mockResolvedValue(vendor);
+  it("allows a signed-in vendor", async () => {
+    resolveVendorContext.mockResolvedValue(vendor);
     await expect(requireVendor()).resolves.toBe(vendor);
   });
 
-  it("never lets a wedding member into the vendor space", async () => {
+  it("refuses when there is no vendor session, even if a wedding member is signed in", async () => {
+    resolveVendorContext.mockResolvedValue(null);
     resolveContext.mockResolvedValue(admin);
     await expect(requireVendor()).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+  });
+});
+
+describe("requireStaff", () => {
+  const profile = (over = {}) => ({
+    id: "u1",
+    name: "S",
+    email: "Team@Example.com",
+    emailVerified: true,
+    ...over,
+  });
+
+  it("allows a verified account on the staff list, whatever the capitalisation", async () => {
+    resolveContext.mockResolvedValue(admin);
+    getProfile.mockResolvedValue(profile());
+    getStaffEmails.mockReturnValue(["team@example.com"]);
+    await expect(requireStaff()).resolves.toEqual({ userId: "u1", email: "Team@Example.com" });
+  });
+
+  it("refuses an account that is not on the list, an unverified one, and an empty list", async () => {
+    resolveContext.mockResolvedValue(admin);
+    getProfile.mockResolvedValue(profile({ email: "other@example.com" }));
+    getStaffEmails.mockReturnValue(["team@example.com"]);
+    await expect(requireStaff()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    getProfile.mockResolvedValue(profile({ emailVerified: false }));
+    await expect(requireStaff()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    getProfile.mockResolvedValue(profile());
+    getStaffEmails.mockReturnValue([]);
+    await expect(requireStaff()).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("refuses a signed-out visitor and a vendor session", async () => {
+    resolveContext.mockResolvedValue({ kind: "anonymous" });
+    await expect(requireStaff()).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+    resolveContext.mockResolvedValue(vendor);
+    await expect(requireStaff()).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
   });
 });

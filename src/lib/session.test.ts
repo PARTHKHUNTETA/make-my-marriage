@@ -113,3 +113,20 @@ describe("session tokens", () => {
     await expect(s.signSessionToken("u", false)).rejects.toThrow(/SESSION_SECRET/);
   });
 });
+
+describe("vendor sessions are a separate space", () => {
+  it("a vendor token is not a member session, and a member token is not a vendor session", async () => {
+    const s = await load();
+    const vendorToken = await s.signSessionToken("vendor-1", false, "vendor");
+    const memberToken = await s.signSessionToken("user-1", false);
+    expect(await s.verifySessionToken(vendorToken, "vendor")).toMatchObject({ userId: "vendor-1" });
+    expect(await s.verifySessionToken(vendorToken)).toBeNull();
+    expect(await s.verifySessionToken(memberToken, "vendor")).toBeNull();
+    expect(await s.verifySessionToken(memberToken)).toMatchObject({ userId: "user-1" });
+  });
+
+  it("uses its own cookie name", async () => {
+    const s = await load();
+    expect(s.VENDOR_SESSION_COOKIE).not.toBe(s.SESSION_COOKIE);
+  });
+});

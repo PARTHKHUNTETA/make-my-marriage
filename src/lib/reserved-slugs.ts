@@ -6,6 +6,7 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   "dashboard",
   "events",
   "unsubscribe",
+  "staff",
   "tasks",
   "guests",
   "money",

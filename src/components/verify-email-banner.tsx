@@ -5,13 +5,19 @@ import { MailWarning } from "lucide-react";
 import { postJson } from "@/components/auth/post-json";
 
 // Shown to accounts that have not confirmed their email yet. They can keep working.
-export function VerifyEmailBanner({ email }: { email: string }) {
+export function VerifyEmailBanner({
+  email,
+  endpoint = "/api/auth/resend-verification",
+}: {
+  email: string;
+  endpoint?: string;
+}) {
   const [state, setState] = React.useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = React.useState("");
 
   async function resend() {
     setState("sending");
-    const result = await postJson("/api/auth/resend-verification", {});
+    const result = await postJson(endpoint, {});
     if (result.ok) return setState("sent");
     setMessage(result.error.message);
     setState("error");

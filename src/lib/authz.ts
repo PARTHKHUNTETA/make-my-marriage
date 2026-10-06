@@ -1,7 +1,10 @@
 import "server-only";
 import { AppError } from "@/lib/errors";
+import { getStaffEmails } from "@/lib/env";
+import { getProfile } from "@/modules/members/service";
 import {
   resolveContext,
+  resolveVendorContext,
   type Context,
   type MemberContext,
   type UserContext,
@@ -36,8 +39,20 @@ export async function requireAdmin(): Promise<MemberContext> {
   return ctx;
 }
 
+// The vendor portal. Vendors have their own session; a wedding member's session never opens it.
 export async function requireVendor(): Promise<VendorContext> {
-  const ctx = await resolveContext();
-  if (ctx.kind !== "vendor") throw new AppError("UNAUTHENTICATED", "Sign in to continue");
+  const ctx = await resolveVendorContext();
+  if (!ctx) throw new AppError("UNAUTHENTICATED", "Sign in to continue");
   return ctx;
+}
+
+// The Make My Marriage team: a signed-in account whose verified email is on the staff list
+// (STAFF_EMAILS). Anyone else, including every wedding member and vendor, is refused.
+export async function requireStaff(): Promise<{ userId: string; email: string }> {
+  const ctx = await requireUser();
+  const profile = await getProfile(ctx.userId);
+  if (!profile) throw new AppError("UNAUTHENTICATED", "Sign in to continue");
+  if (!profile.emailVerified || !getStaffEmails().includes(profile.email.toLowerCase()))
+    throw new AppError("FORBIDDEN", "This area is for the Make My Marriage team");
+  return { userId: ctx.userId, email: profile.email };
 }

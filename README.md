@@ -74,8 +74,17 @@ the lint rule that protects tenant isolation), and Phase 1 (Foundation) is built
   Marking it unpaid removes that expense. Money → Payments lists every installment by due date,
   with each vendor's total, paid so far and balance.
 
-Still to come: deleting a wedding (Phase 1), Discover vendors and the marketplace and vendor
-portal (the rest of Phase 4),
+- **Vendor portal:** vendors sign up with their own account (a separate login and cookie from
+  wedding members, so neither can open the other's side), verify their email, and manage one
+  listing: category, cities, description, starting price, website and Instagram. Every new or
+  edited listing goes to the Make My Marriage team for approval first; vendors can pause and
+  resume a live listing. A suspended listing stays suspended even if edited.
+- **Internal admin (`/staff`):** the team approves, rejects or suspends listings. Access is by
+  signed-in member whose verified email is listed in `STAFF_EMAILS`; for everyone else the page
+  is a 404. Set it in `.env.local` / Vercel (see `.env.example`).
+
+Still to come: deleting a wedding (Phase 1), Discover vendors, the marketplace for couples,
+booking requests and reviews (the rest of Phase 4), listing photos (with file storage),
 budget alerts at 90% and 100% (Phase 7 notifications), and the event album, invitations, expenses and
 vendor links that attach to events in later phases. Features are built
 in the PRD's seven release phases.

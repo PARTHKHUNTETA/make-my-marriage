@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
-import { readSession } from "@/lib/session";
+import { readSession, readVendorSession } from "@/lib/session";
+import { getVendorAuthState } from "@/modules/marketplace/service";
 import { getAuthState, getMembership } from "@/modules/members/service";
 
 // Who is calling, resolved once per server entry point before any data is touched
@@ -50,4 +51,20 @@ export const resolveContext = cache(async (): Promise<Context> => {
   return membership
     ? { kind: "member", userId: session.userId, ...membership }
     : { kind: "user", userId: session.userId };
+});
+
+// The vendor portal's own context: a vendor session, in its own cookie, checked against the vendor
+// account. A member session never counts here, and this never counts as a member session.
+export const resolveVendorContext = cache(async (): Promise<VendorContext | null> => {
+  const session = await readVendorSession();
+  if (!session) return null;
+  const state = await getVendorAuthState(session.userId);
+  // The account was deleted, or its password was reset after this session began.
+  if (!state) return null;
+  if (
+    state.sessionsValidAfter &&
+    session.issuedAt < Math.floor(state.sessionsValidAfter.getTime() / 1000)
+  )
+    return null;
+  return { kind: "vendor", vendorAccountId: session.userId };
 });
