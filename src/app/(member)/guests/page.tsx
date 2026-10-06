@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { UserPlus } from "lucide-react";
+import { Upload, UserPlus } from "lucide-react";
 import { GuestFilters } from "@/components/guests/guest-filters";
 import { GuestRow } from "@/components/guests/guest-row";
 import { GuestsHeader, StatCard } from "@/components/guests/guests-header";
@@ -55,12 +55,20 @@ export default async function GuestsPage({
       <GuestsHeader
         active="guests"
         action={
-          <Link
-            href="/guests/new"
-            className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
-          >
-            <UserPlus className="size-4" aria-hidden /> Add guest
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/guests/import"
+              className="inline-flex h-11 items-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-ink shadow-[0_1px_3px_rgba(35,31,32,0.08)] hover:bg-rose-100"
+            >
+              <Upload className="size-4" aria-hidden /> Import
+            </Link>
+            <Link
+              href="/guests/new"
+              className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
+            >
+              <UserPlus className="size-4" aria-hidden /> Add guest
+            </Link>
+          </div>
         }
       />
 

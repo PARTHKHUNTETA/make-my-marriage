@@ -14,7 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "test:integration": "INTEGRATION=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run integration"
+    "test:integration": "INTEGRATION=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run integration --no-file-parallelism"
   },
   "dependencies": {
     "@hookform/resolvers": "5.9.1",
@@ -30,6 +30,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-hook-form": "7.89.0",
+    "read-excel-file": "9.3.10",
     "server-only": "0.0.1",
     "tailwind-merge": "3.7.0",
     "tailwindcss": "4.3.3",

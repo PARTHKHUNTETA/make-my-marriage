@@ -46,8 +46,13 @@ the lint rule that protects tenant isolation), and Phase 1 (Foundation) is built
   reply any time. Members see replies per event, who has not answered, and can export headcounts
   as CSV for the caterer.
 
-Still to come: deleting a wedding (Phase 1), Excel/CSV guest import and invitation and reminder
-emails (the rest of Phase 3), and the event album, invitations, expenses and
+- **Import:** Guests → Import takes a .csv or .xlsx file (template provided, with this wedding's own
+  event names). The file is read in the browser; you see a row-by-row preview with errors and
+  duplicate phone numbers, and nothing is added until you confirm. Duplicates are skipped unless
+  you choose to add them.
+
+Still to come: deleting a wedding (Phase 1), invitation and reminder emails (the rest of Phase 3),
+and the event album, invitations, expenses and
 vendor links that attach to events in later phases. Features are built
 in the PRD's seven release phases.
 

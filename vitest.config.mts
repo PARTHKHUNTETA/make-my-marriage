@@ -14,5 +14,8 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
+    // Integration tests talk to a real, shared database and include repeated transaction races,
+    // so a slow round trip must not look like a failure. Unit tests keep the strict default.
+    ...(process.env.INTEGRATION === "1" ? { testTimeout: 30_000, hookTimeout: 30_000 } : {}),
   },
 });

@@ -270,6 +270,32 @@ describe.skipIf(!enabled)("guests and RSVPs against MongoDB", () => {
     expect(await guests.getGuestByToken(g.token)).toBeNull();
   });
 
+  it("bulk-creates guests in this wedding only, each with its own unguessable tokens", async () => {
+    await db.collection("guests").deleteMany({ weddingId: wA });
+    const made = await guests.createGuests(
+      A,
+      Array.from({ length: 25 }, (_, i) =>
+        guest({ name: `Bulk ${i}`, phone: `97000000${String(i).padStart(2, "0")}` }),
+      ),
+    );
+    expect(made).toBe(25);
+    const stored = await db.collection("guests").find({ weddingId: wA }).toArray();
+    expect(stored).toHaveLength(25);
+    expect(new Set(stored.map((g) => g.token)).size).toBe(25);
+    expect(
+      new Set(stored.flatMap((g) => g.invitations.map((i: { entryToken: string }) => i.entryToken)))
+        .size,
+    ).toBe(50);
+    expect(
+      stored.every((g) => g.invitations.length === 2 && g.remindersUnsubscribed === false),
+    ).toBe(true);
+    expect((await guests.listGuests(B, { page: 1 })).total).toBe(0);
+    expect(await guests.createGuests(A, [])).toBe(0);
+    const taken = await guests.phonesInUse(A, ["+919700000000", "+919700000001", "+910000000000"]);
+    expect([...taken.keys()].sort()).toEqual(["+919700000000", "+919700000001"]);
+    expect((await guests.phonesInUse(B, ["+919700000000"])).size).toBe(0);
+  });
+
   it("resolves a link to exactly one guest and wedding", async () => {
     const g = await guests.createGuest(A, guest({ name: "Linked" }));
     const found = await guests.getGuestByToken(g.token);
