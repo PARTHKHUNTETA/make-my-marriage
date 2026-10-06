@@ -473,3 +473,138 @@ export async function transitionRequest(
     { returnDocument: "after", ...options },
   );
 }
+
+// ---- reviews ----
+
+export type ReviewDoc = {
+  _id: ObjectId;
+  weddingId: ObjectId; // the author: one review per wedding per listing
+  listingId: ObjectId;
+  rating: number;
+  text?: string;
+  vendorReply?: string;
+  vendorRepliedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+let reviewsReady: Promise<Collection<ReviewDoc>> | undefined;
+
+function reviews(): Promise<Collection<ReviewDoc>> {
+  reviewsReady ??= (async () => {
+    const col = (await getDb()).collection<ReviewDoc>("reviews");
+    await col.createIndex({ weddingId: 1, listingId: 1 }, { unique: true });
+    await col.createIndex({ listingId: 1, createdAt: -1 });
+    return col;
+  })();
+  reviewsReady.catch(() => {
+    reviewsReady = undefined;
+  });
+  return reviewsReady;
+}
+
+// Writes the wedding's review of a listing: a new one, or a change to its own. A change keeps the
+// vendor's reply. One review per wedding per listing is enforced by the unique index.
+export async function upsertReview(
+  weddingId: string,
+  listingId: string,
+  rating: number,
+  text: string | undefined,
+): Promise<ReviewDoc | null> {
+  const [w, l] = [oid(weddingId), oid(listingId)];
+  if (!w || !l) return null;
+  const now = new Date();
+  const run = () =>
+    reviews().then((col) =>
+      col.findOneAndUpdate(
+        { weddingId: w, listingId: l },
+        {
+          $set: { rating, updatedAt: now, ...(text ? { text } : {}) },
+          ...(text ? {} : { $unset: { text: "" } }),
+          $setOnInsert: { createdAt: now },
+        },
+        { upsert: true, returnDocument: "after" },
+      ),
+    );
+  try {
+    return await run();
+  } catch (err) {
+    // Two saves raced to write the first review; the second just updates it.
+    if (err instanceof MongoServerError && err.code === 11000) return run();
+    throw err;
+  }
+}
+
+export async function findReviewByWedding(
+  weddingId: string,
+  listingId: string,
+): Promise<ReviewDoc | null> {
+  const [w, l] = [oid(weddingId), oid(listingId)];
+  return w && l ? (await reviews()).findOne({ weddingId: w, listingId: l }) : null;
+}
+
+export async function listReviewsForListing(
+  listingId: string,
+  limit: number,
+): Promise<ReviewDoc[]> {
+  const l = oid(listingId);
+  return l
+    ? (await reviews()).find({ listingId: l }).sort({ createdAt: -1 }).limit(limit).toArray()
+    : [];
+}
+
+export async function listRecentReviews(limit: number): Promise<ReviewDoc[]> {
+  return (await reviews()).find({}).sort({ createdAt: -1 }).limit(limit).toArray();
+}
+
+// One public reply per review, and only by the vendor the review is about.
+export async function setVendorReply(
+  accountId: string,
+  reviewId: string,
+  text: string,
+): Promise<ReviewDoc | null> {
+  const [a, r] = [oid(accountId), oid(reviewId)];
+  if (!a || !r) return null;
+  const listing = await (
+    await listings()
+  ).findOne({ vendorAccountId: a }, { projection: { _id: 1 } });
+  if (!listing) return null;
+  const now = new Date();
+  return (await reviews()).findOneAndUpdate(
+    { _id: r, listingId: listing._id, vendorReply: { $exists: false } },
+    { $set: { vendorReply: text, vendorRepliedAt: now, updatedAt: now } },
+    { returnDocument: "after" },
+  );
+}
+
+export async function deleteReview(reviewId: string): Promise<ReviewDoc | null> {
+  const r = oid(reviewId);
+  return r ? (await reviews()).findOneAndDelete({ _id: r }) : null;
+}
+
+// The listing's rating, worked out from its reviews every time one changes, and stored on the
+// listing so the marketplace can sort by it without adding up reviews on each page.
+export async function recomputeRating(listingId: string): Promise<void> {
+  const l = oid(listingId);
+  if (!l) return;
+  const [row] = await (
+    await reviews()
+  )
+    .aggregate<{ avg: number; count: number }>([
+      { $match: { listingId: l } },
+      { $group: { _id: null, avg: { $avg: "$rating" }, count: { $sum: 1 } } },
+    ])
+    .toArray();
+  await (
+    await listings()
+  ).updateOne(
+    { _id: l },
+    row
+      ? { $set: { ratingAvg: Math.round(row.avg * 100) / 100, ratingCount: row.count } }
+      : { $set: { ratingCount: 0 }, $unset: { ratingAvg: "" } },
+  );
+}
+
+export async function findListingsByIds(ids: ObjectId[]): Promise<ListingDoc[]> {
+  return ids.length === 0 ? [] : (await listings()).find({ _id: { $in: ids } }).toArray();
+}

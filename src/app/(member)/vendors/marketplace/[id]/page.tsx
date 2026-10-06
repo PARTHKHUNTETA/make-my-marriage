@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Globe, Star } from "lucide-react";
+import { ReviewForm } from "@/components/marketplace/review-form";
+import { Stars } from "@/components/marketplace/stars";
 import { BookingActions } from "@/components/marketplace/booking-actions";
 import { BookingRequestForm } from "@/components/marketplace/booking-request-form";
 import { requireMember } from "@/lib/authz";
@@ -9,8 +11,13 @@ import { formatLongDate } from "@/lib/dates";
 import { formatRupees } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
 import { getStats } from "@/modules/guests/service";
-import { BOOKING_STATUS_LABELS } from "@/modules/marketplace/schema";
-import { getLiveListing, getOpenBooking } from "@/modules/marketplace/service";
+import { BOOKING_STATUS_LABELS, reviewEligibility } from "@/modules/marketplace/schema";
+import {
+  getListingReviews,
+  getLiveListing,
+  getMyReview,
+  getOpenBooking,
+} from "@/modules/marketplace/service";
 import { VENDOR_CATEGORY_LABELS } from "@/modules/vendors/schema";
 import { getVendorByListing } from "@/modules/vendors/service";
 import { getWedding } from "@/modules/wedding/service";
@@ -24,14 +31,21 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
   const listing = await getLiveListing(id);
   if (!listing) notFound();
 
-  const [events, wedding, stats, open, mine, profile] = await Promise.all([
+  const [events, wedding, stats, open, mine, profile, reviews, myReview] = await Promise.all([
     listEvents(ctx.weddingId),
     getWedding(ctx.weddingId),
     getStats(ctx.weddingId),
     getOpenBooking(ctx.weddingId, id),
     getVendorByListing(ctx.weddingId, id),
     getProfile(ctx.userId),
+    getListingReviews(id),
+    getMyReview(ctx.weddingId, id),
   ]);
+  // A couple can review once the last event this vendor is linked to is over.
+  const eligibility = reviewEligibility(
+    mine !== null,
+    events.filter((e) => mine?.eventIds.includes(e.id)).map((e) => e.date),
+  );
   const headcounts = stats.perEvent.map((e) => e.headcount);
   const biggest = headcounts.length > 0 ? Math.max(...headcounts) : 0;
 
@@ -145,6 +159,53 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
               defaultContactName={profile?.name ?? ""}
             />
           </>
+        )}
+      </section>
+
+      <section className="mt-6 rounded-xl bg-white p-6 shadow-[0_1px_3px_rgba(35,31,32,0.04)]">
+        <h2 className="font-serif text-xl text-ink">Reviews</h2>
+        {eligibility.state === "eligible" ? (
+          <div className="mt-3 rounded-lg bg-rose-50 p-4">
+            <p className="mb-3 text-sm font-semibold text-ink">
+              {myReview ? "Your review" : "How was it? Review this vendor"}
+            </p>
+            <ReviewForm
+              key={myReview?.id ?? "new"}
+              listingId={listing.id}
+              initialRating={myReview?.rating}
+              initialText={myReview?.text}
+            />
+          </div>
+        ) : eligibility.state === "not_yet" ? (
+          <p className="mt-2 text-[13px] text-ink-2">
+            You can review this vendor after your last event with them, on{" "}
+            {formatLongDate(eligibility.lastEventOn)}.
+          </p>
+        ) : null}
+        {reviews.length === 0 ? (
+          <p className="mt-3 text-sm text-ink-2">No reviews yet.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-line">
+            {reviews.map((r) => (
+              <li key={r.id} className="py-4">
+                <div className="flex items-center gap-3">
+                  <Stars rating={r.rating} />
+                  <span className="text-xs text-ink-2">
+                    A couple who booked this vendor · {formatLongDate(r.createdAt)}
+                  </span>
+                </div>
+                {r.text ? (
+                  <p className="mt-2 text-[15px] whitespace-pre-line text-ink">{r.text}</p>
+                ) : null}
+                {r.vendorReply ? (
+                  <div className="mt-3 rounded-lg bg-rose-50 p-3 text-[13px] text-ink">
+                    <p className="font-semibold">Reply from {listing.businessName}</p>
+                    <p className="mt-1 whitespace-pre-line text-ink-2">{r.vendorReply}</p>
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         )}
       </section>
     </main>

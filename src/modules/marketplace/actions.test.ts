@@ -5,6 +5,7 @@ const requireStaff = vi.hoisted(() => vi.fn());
 const requireMember = vi.hoisted(() => vi.fn());
 const getEventsByIds = vi.hoisted(() => vi.fn());
 const getWedding = vi.hoisted(() => vi.fn());
+const getVendorByListing = vi.hoisted(() => vi.fn());
 const consumeRateLimit = vi.hoisted(() => vi.fn());
 const service = vi.hoisted(() => ({
   saveMyListing: vi.fn(),
@@ -15,10 +16,14 @@ const service = vi.hoisted(() => ({
   acceptQuote: vi.fn(),
   quoteRequest: vi.fn(),
   declineRequest: vi.fn(),
+  saveReview: vi.fn(),
+  replyToReview: vi.fn(),
+  removeReview: vi.fn(),
 }));
 vi.mock("@/lib/authz", () => ({ requireVendor, requireStaff, requireMember }));
 vi.mock("@/modules/events/service", () => ({ getEventsByIds }));
 vi.mock("@/modules/wedding/service", () => ({ getWedding }));
+vi.mock("@/modules/vendors/service", () => ({ getVendorByListing }));
 vi.mock("@/lib/ratelimit", () => ({
   consumeRateLimit,
   subjectKey: (a: string, b: string) => `${a}:${b}`,
@@ -33,7 +38,10 @@ import {
   decideListingAction,
   pauseListingAction,
   quoteRequestAction,
+  removeReviewAction,
+  replyToReviewAction,
   saveListingAction,
+  writeReviewAction,
   sendBookingRequestAction,
 } from "./actions";
 
@@ -50,6 +58,7 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue([{ id: E1, name: "Sangeet", date: new Date("2027-02-13") }]);
   getWedding.mockReset().mockResolvedValue({ city: "Jaipur" });
+  getVendorByListing.mockReset().mockResolvedValue({ eventIds: [E1] });
   consumeRateLimit.mockReset().mockResolvedValue(undefined);
   Object.values(service).forEach((fn) =>
     fn.mockReset().mockResolvedValue({ status: "pending", id: "r1" }),
@@ -223,5 +232,88 @@ describe("booking request actions (vendors)", () => {
     });
     expect(service.quoteRequest).not.toHaveBeenCalled();
     expect(service.declineRequest).not.toHaveBeenCalled();
+  });
+});
+
+describe("review actions", () => {
+  const review = { listingId: L, rating: 5, text: "Wonderful" };
+  const past = new Date(Date.now() - 3 * 86_400_000);
+  const future = new Date(Date.now() + 3 * 86_400_000);
+
+  it("saves a review once the vendor's last linked event is over", async () => {
+    getEventsByIds.mockResolvedValue([{ id: E1, date: past }]);
+    expect(await writeReviewAction(review)).toEqual({ ok: true, data: {} });
+    expect(service.saveReview).toHaveBeenCalledWith(
+      "w1",
+      expect.objectContaining({ listingId: L, rating: 5 }),
+    );
+    expect(getEventsByIds).toHaveBeenCalledWith("w1", [E1]);
+  });
+  it("refuses before the last event, for a vendor not booked, and for one with no events linked", async () => {
+    getEventsByIds.mockResolvedValue([{ id: E1, date: future }]);
+    expect(await writeReviewAction(review)).toMatchObject({
+      ok: false,
+      error: { code: "FORBIDDEN" },
+    });
+    getVendorByListing.mockResolvedValue(null);
+    getEventsByIds.mockResolvedValue([]);
+    expect(await writeReviewAction(review)).toMatchObject({
+      ok: false,
+      error: { code: "FORBIDDEN" },
+    });
+    getVendorByListing.mockResolvedValue({ eventIds: [] });
+    expect(await writeReviewAction(review)).toMatchObject({
+      ok: false,
+      error: { code: "FORBIDDEN" },
+    });
+    expect(service.saveReview).not.toHaveBeenCalled();
+  });
+  it("one date in the future among several keeps it closed", async () => {
+    getEventsByIds.mockResolvedValue([
+      { id: E1, date: past },
+      { id: E2, date: future },
+    ]);
+    expect(await writeReviewAction(review)).toMatchObject({ ok: false });
+  });
+  it("validates the rating and is rate limited", async () => {
+    getEventsByIds.mockResolvedValue([{ id: E1, date: past }]);
+    expect(await writeReviewAction({ ...review, rating: 0 })).toMatchObject({
+      ok: false,
+      error: { code: "VALIDATION_FAILED" },
+    });
+    const { AppError } = await import("@/lib/errors");
+    consumeRateLimit.mockRejectedValue(new AppError("RATE_LIMITED", "Slow down"));
+    expect(await writeReviewAction(review)).toMatchObject({
+      ok: false,
+      error: { code: "RATE_LIMITED" },
+    });
+    expect(service.saveReview).not.toHaveBeenCalled();
+  });
+  it("a vendor replies as themselves; the team removes", async () => {
+    await replyToReviewAction({ reviewId: L, text: "Thank you!" });
+    expect(service.replyToReview).toHaveBeenCalledWith("va1", L, "Thank you!");
+    await removeReviewAction({ reviewId: L });
+    expect(service.removeReview).toHaveBeenCalledWith(L);
+    expect(await replyToReviewAction({ reviewId: L, text: " " })).toMatchObject({ ok: false });
+  });
+  it("replying needs a vendor session and removing needs staff", async () => {
+    const { AppError } = await import("@/lib/errors");
+    requireVendor.mockRejectedValue(new AppError("UNAUTHENTICATED", "Sign in"));
+    requireStaff.mockRejectedValue(new AppError("FORBIDDEN", "Team only"));
+    requireMember.mockRejectedValue(new AppError("UNAUTHENTICATED", "Sign in"));
+    expect(await replyToReviewAction({ reviewId: L, text: "Hi" })).toMatchObject({
+      ok: false,
+      error: { code: "UNAUTHENTICATED" },
+    });
+    expect(await removeReviewAction({ reviewId: L })).toMatchObject({
+      ok: false,
+      error: { code: "FORBIDDEN" },
+    });
+    expect(await writeReviewAction(review)).toMatchObject({
+      ok: false,
+      error: { code: "UNAUTHENTICATED" },
+    });
+    expect(service.replyToReview).not.toHaveBeenCalled();
+    expect(service.removeReview).not.toHaveBeenCalled();
   });
 });

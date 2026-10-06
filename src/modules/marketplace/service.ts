@@ -13,7 +13,15 @@ import {
   findAccountById,
   findAccountsByIds,
   findApprovedListing,
+  deleteReview,
   findListingByAccount,
+  findListingsByIds,
+  findReviewByWedding,
+  listRecentReviews,
+  listReviewsForListing,
+  recomputeRating,
+  setVendorReply,
+  upsertReview,
   findListingById,
   findOpenRequestForListing,
   findRequestForWedding,
@@ -25,6 +33,7 @@ import {
   searchApprovedListings,
   transitionRequest,
   type BookingRequestDoc,
+  type ReviewDoc,
   setResetToken,
   setVerifyToken,
   transitionListing,
@@ -38,6 +47,9 @@ import {
   type BookingRequestInput,
   type BookingView,
   type EventSnapshot,
+  type ReviewInput,
+  type ReviewView,
+  type ReviewWithListing,
   type ListingQuery,
   type VendorBookingView,
 } from "./schema";
@@ -444,4 +456,89 @@ export async function declineRequest(accountId: string, requestId: string): Prom
       "NOT_FOUND",
       "That request can't be declined. It may have been cancelled or answered.",
     );
+}
+
+// ---- reviews ----
+
+const REVIEWS_SHOWN = 30;
+
+function toReviewView(doc: ReviewDoc): ReviewView {
+  return {
+    id: doc._id.toHexString(),
+    rating: doc.rating,
+    text: doc.text,
+    vendorReply: doc.vendorReply,
+    createdAt: doc.createdAt,
+  };
+}
+
+// A couple's one review of a vendor, written or changed. The caller has already checked that the
+// vendor's last event is over. The listing's rating is recomputed straight afterwards.
+export async function saveReview(weddingId: string, input: ReviewInput): Promise<ReviewView> {
+  const listing = await findListingById(input.listingId);
+  if (!listing) throw new AppError("NOT_FOUND", "That vendor is no longer available.");
+  const doc = await upsertReview(weddingId, input.listingId, input.rating, input.text);
+  if (!doc) throw new AppError("INTERNAL", "We couldn't save your review. Please try again.");
+  await recomputeRating(input.listingId);
+  return toReviewView(doc);
+}
+
+export async function getMyReview(
+  weddingId: string,
+  listingId: string,
+): Promise<ReviewView | null> {
+  const doc = await findReviewByWedding(weddingId, listingId);
+  return doc ? toReviewView(doc) : null;
+}
+
+// What anyone looking at a listing sees: ratings and words, never who wrote them.
+export async function getListingReviews(listingId: string): Promise<ReviewView[]> {
+  return (await listReviewsForListing(listingId, REVIEWS_SHOWN)).map(toReviewView);
+}
+
+async function withListings(docs: ReviewDoc[]): Promise<ReviewWithListing[]> {
+  const names = new Map(
+    (
+      await findListingsByIds([
+        ...new Map(docs.map((d) => [d.listingId.toHexString(), d.listingId])).values(),
+      ])
+    ).map((l) => [l._id.toHexString(), l.businessName]),
+  );
+  return docs.map((d) => ({
+    ...toReviewView(d),
+    listingId: d.listingId.toHexString(),
+    businessName: names.get(d.listingId.toHexString()) ?? "",
+  }));
+}
+
+export async function listMyReviews(accountId: string): Promise<ReviewView[]> {
+  const listing = await findListingByAccount(accountId);
+  return listing
+    ? (await listReviewsForListing(listing._id.toHexString(), 200)).map(toReviewView)
+    : [];
+}
+
+// The vendor's one public reply to a review about them.
+export async function replyToReview(
+  accountId: string,
+  reviewId: string,
+  text: string,
+): Promise<void> {
+  const doc = await setVendorReply(accountId, reviewId, text);
+  if (!doc)
+    throw new AppError(
+      "NOT_FOUND",
+      "That review can't be replied to. You may have replied already.",
+    );
+}
+
+export async function listReviewsForStaff(): Promise<ReviewWithListing[]> {
+  return withListings(await listRecentReviews(100));
+}
+
+// The team removes an abusive review, and the rating is recomputed without it.
+export async function removeReview(reviewId: string): Promise<void> {
+  const doc = await deleteReview(reviewId);
+  if (!doc) throw new AppError("NOT_FOUND", "That review was already removed.");
+  await recomputeRating(doc.listingId.toHexString());
 }

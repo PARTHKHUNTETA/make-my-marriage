@@ -91,8 +91,13 @@ the lint rule that protects tenant isolation), and Phase 1 (Foundation) is built
   vendor to My Vendors with the quote as total cost, linked to those events, in one transaction.
   A quote that changed after the couple looked cannot be accepted by mistake.
 
-Still to come: deleting a wedding (Phase 1), Discover vendors and marketplace reviews (the rest
-of Phase 4), listing photos (with file storage),
+- **Reviews:** after the last event a vendor is linked to has passed, a couple can leave one 1 to 5
+  star review (with optional words) per vendor, and change it later. The vendor can post one
+  public reply. The listing's rating is recomputed on every change, and anyone viewing a review
+  sees no wedding identity. The team can remove abusive reviews from `/staff`.
+
+Still to come: deleting a wedding (Phase 1), Discover vendors (needs a Google Places key), listing
+photos (with file storage),
 budget alerts at 90% and 100% (Phase 7 notifications), and the event album, invitations, expenses and
 vendor links that attach to events in later phases. Features are built
 in the PRD's seven release phases.

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  replySchema,
+  reviewEligibility,
+  reviewSchema,
   acceptQuoteSchema,
   bookingRequestSchema,
   parseListingQuery,
@@ -195,5 +198,63 @@ describe("quote schemas", () => {
     expect(acceptQuoteSchema.safeParse({ requestId: L, amount: 100 }).success).toBe(true);
     expect(acceptQuoteSchema.safeParse({ requestId: L, amount: 1.5 }).success).toBe(false);
     expect(acceptQuoteSchema.safeParse({ requestId: L }).success).toBe(false);
+  });
+});
+
+describe("reviewSchema", () => {
+  const L = "507f1f77bcf86cd799439011";
+  it("takes a whole rating from 1 to 5, as a number or from a form", () => {
+    for (const rating of [1, 3, 5, "4"])
+      expect(reviewSchema.safeParse({ listingId: L, rating }).success).toBe(true);
+    for (const rating of [0, 6, 2.5, "x", "", undefined, null])
+      expect(reviewSchema.safeParse({ listingId: L, rating }).success).toBe(false);
+  });
+  it("text is optional, trimmed, and capped", () => {
+    const r = reviewSchema.safeParse({ listingId: L, rating: 5, text: "  Lovely  " });
+    expect(r.success && r.data.text).toBe("Lovely");
+    const blank = reviewSchema.safeParse({ listingId: L, rating: 5, text: " " });
+    expect(blank.success && blank.data.text).toBeUndefined();
+    expect(
+      reviewSchema.safeParse({ listingId: L, rating: 5, text: "x".repeat(2001) }).success,
+    ).toBe(false);
+  });
+});
+
+describe("replySchema", () => {
+  it("needs some text, within a limit", () => {
+    const id = "507f1f77bcf86cd799439011";
+    expect(replySchema.safeParse({ reviewId: id, text: "Thank you!" }).success).toBe(true);
+    expect(replySchema.safeParse({ reviewId: id, text: "  " }).success).toBe(false);
+    expect(replySchema.safeParse({ reviewId: id, text: "x".repeat(1001) }).success).toBe(false);
+  });
+});
+
+describe("reviewEligibility", () => {
+  const day = (ymd: string) => new Date(`${ymd}T00:00:00+05:30`);
+  const now = new Date("2027-02-15T10:00:00+05:30");
+  it("is only for a vendor they booked, with events linked", () => {
+    expect(reviewEligibility(false, [day("2027-01-01")], now).state).toBe("not_booked");
+    expect(reviewEligibility(true, [], now).state).toBe("not_linked");
+  });
+  it("waits until the day after the last linked event", () => {
+    expect(reviewEligibility(true, [day("2027-02-14"), day("2027-02-15")], now).state).toBe(
+      "not_yet",
+    ); // today
+    expect(reviewEligibility(true, [day("2027-02-10"), day("2027-02-20")], now).state).toBe(
+      "not_yet",
+    ); // a later one remains
+    expect(reviewEligibility(true, [day("2027-02-10"), day("2027-02-14")], now).state).toBe(
+      "eligible",
+    );
+  });
+  it("says when the last event is", () => {
+    const r = reviewEligibility(true, [day("2027-02-18"), day("2027-02-16")], now);
+    expect(r).toEqual({ state: "not_yet", lastEventOn: day("2027-02-18") });
+  });
+  it("counts the day in India, not UTC", () => {
+    // 00:30 IST on the 15th is still the 14th in UTC; an event on the 14th is over in India.
+    expect(
+      reviewEligibility(true, [day("2027-02-14")], new Date("2027-02-15T00:30:00+05:30")).state,
+    ).toBe("eligible");
   });
 });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { daysUntil } from "@/lib/dates";
 import { MAX_PAISE, parseRupees } from "@/lib/money";
 import { normalizePhone } from "@/modules/guests/schema";
 import { PASSWORD_MAX, PASSWORD_MIN } from "@/modules/members/schema";
@@ -328,3 +329,56 @@ export type VendorBookingView = {
   status: BookingStatus;
   createdAt: Date;
 };
+
+// ---- reviews ----
+
+export const reviewSchema = z.object({
+  listingId: objectId,
+  rating: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() !== "" ? Number(value) : value),
+    z
+      .number({ error: "Choose a rating from 1 to 5" })
+      .int("Choose a rating from 1 to 5")
+      .min(1, "Choose a rating from 1 to 5")
+      .max(5, "Choose a rating from 1 to 5"),
+  ),
+  text: z.preprocess(blank, z.string().trim().max(2000, "That is too long").optional()),
+});
+export type ReviewInput = z.output<typeof reviewSchema>;
+
+export const replySchema = z.object({
+  reviewId: objectId,
+  text: z.string().trim().min(1, "Write your reply").max(1000, "That is too long"),
+});
+export const reviewIdSchema = z.object({ reviewId: objectId });
+
+export type ReviewView = {
+  id: string;
+  rating: number;
+  text?: string;
+  vendorReply?: string;
+  createdAt: Date;
+};
+
+// A review with the listing it is about, for the vendor's page and the team's.
+export type ReviewWithListing = ReviewView & { listingId: string; businessName: string };
+
+export type ReviewEligibility =
+  | { state: "not_booked" }
+  | { state: "not_linked" }
+  | { state: "not_yet"; lastEventOn: Date }
+  | { state: "eligible" };
+
+// A couple may review a vendor only once the vendor's last linked event is over (PRD 5.8): the
+// day after it, in India. A vendor with no linked events cannot be reviewed, since there is
+// nothing to say the work has been done.
+export function reviewEligibility(
+  booked: boolean,
+  eventDates: Date[],
+  now: Date = new Date(),
+): ReviewEligibility {
+  if (!booked) return { state: "not_booked" };
+  if (eventDates.length === 0) return { state: "not_linked" };
+  const last = new Date(Math.max(...eventDates.map((d) => d.getTime())));
+  return daysUntil(last, now) < 0 ? { state: "eligible" } : { state: "not_yet", lastEventOn: last };
+}

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { RemoveReviewButton } from "@/components/marketplace/remove-review-button";
+import { Stars } from "@/components/marketplace/stars";
 import { StaffListingActions } from "@/components/marketplace/staff-listing-actions";
 import { requireStaff } from "@/lib/authz";
 import { formatRupees } from "@/lib/money";
 import { LISTING_STATUS_LABELS } from "@/modules/marketplace/schema";
-import { listForStaff } from "@/modules/marketplace/service";
+import { listForStaff, listReviewsForStaff } from "@/modules/marketplace/service";
 import { VENDOR_CATEGORY_LABELS } from "@/modules/vendors/schema";
 
 export const metadata: Metadata = { title: "Team — Make My Marriage", robots: { index: false } };
@@ -18,7 +20,7 @@ export default async function StaffPage() {
   } catch {
     notFound();
   }
-  const listings = await listForStaff();
+  const [listings, reviews] = await Promise.all([listForStaff(), listReviewsForStaff()]);
   const pending = listings.filter((l) => l.status === "pending").length;
 
   return (
@@ -68,6 +70,37 @@ export default async function StaffPage() {
                   <StaffListingActions listingId={l.id} status={l.status} />
                 </div>
               </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <h2 className="mt-12 mb-1 font-serif text-3xl text-plum">Recent reviews</h2>
+      <p className="mb-4 text-sm text-ink-2">
+        Remove a review only if it is abusive or breaks the rules.
+      </p>
+      {reviews.length === 0 ? (
+        <p className="rounded-xl bg-white p-6 text-sm text-ink-2">No reviews yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {reviews.map((r) => (
+            <li
+              key={r.id}
+              className="rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)]"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-3">
+                  <Stars rating={r.rating} />
+                  <span className="text-sm font-semibold text-ink">{r.businessName}</span>
+                </div>
+                <RemoveReviewButton reviewId={r.id} />
+              </div>
+              {r.text ? (
+                <p className="mt-2 text-[13px] whitespace-pre-line text-ink">{r.text}</p>
+              ) : null}
+              {r.vendorReply ? (
+                <p className="mt-2 text-[13px] text-ink-2">Vendor reply: {r.vendorReply}</p>
+              ) : null}
             </li>
           ))}
         </ul>

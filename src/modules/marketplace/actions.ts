@@ -6,6 +6,7 @@ import { requireMember, requireStaff, requireVendor } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
 import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
 import { getEventsByIds } from "@/modules/events/service";
+import { getVendorByListing } from "@/modules/vendors/service";
 import { getWedding } from "@/modules/wedding/service";
 import {
   acceptQuoteSchema,
@@ -13,7 +14,11 @@ import {
   listingInputSchema,
   pauseSchema,
   quoteSchema,
+  replySchema,
   requestIdSchema,
+  reviewEligibility,
+  reviewIdSchema,
+  reviewSchema,
   staffDecisionSchema,
 } from "./schema";
 import {
@@ -22,7 +27,10 @@ import {
   declineRequest,
   decideListing,
   quoteRequest,
+  removeReview,
+  replyToReview,
   saveMyListing,
+  saveReview,
   sendBookingRequest,
   setListingPaused,
 } from "./service";
@@ -129,6 +137,60 @@ export async function declineRequestAction(input: unknown) {
   return safeAction(async () => {
     const ctx = await requireVendor();
     await declineRequest(ctx.vendorAccountId, requestIdSchema.parse(input).requestId);
+    refresh();
+    return {};
+  });
+}
+
+// ---- reviews ----
+
+const NOT_ELIGIBLE: Record<"not_booked" | "not_linked" | "not_yet", string> = {
+  not_booked: "You can review a vendor once you have booked them through Make My Marriage.",
+  not_linked:
+    "Link this vendor to your events in My Vendors first, so we know when their work was done.",
+  not_yet: "You can write your review after this vendor's last event is over.",
+};
+
+// A couple reviews a vendor they booked, after the vendor's last linked event. One review per
+// wedding per vendor; writing again changes it.
+export async function writeReviewAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    const parsed = reviewSchema.parse(input);
+    await consumeRateLimit("review", subjectKey("wedding", ctx.weddingId), {
+      limit: 20,
+      windowSeconds: 24 * 60 * 60,
+    });
+    const vendor = await getVendorByListing(ctx.weddingId, parsed.listingId);
+    const events = vendor ? await getEventsByIds(ctx.weddingId, vendor.eventIds) : [];
+    const eligibility = reviewEligibility(
+      vendor !== null,
+      events.map((e) => e.date),
+    );
+    if (eligibility.state !== "eligible")
+      throw new AppError("FORBIDDEN", NOT_ELIGIBLE[eligibility.state]);
+    await saveReview(ctx.weddingId, parsed);
+    refresh();
+    return {};
+  });
+}
+
+// A vendor's one public reply to a review about them.
+export async function replyToReviewAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireVendor();
+    const { reviewId, text } = replySchema.parse(input);
+    await replyToReview(ctx.vendorAccountId, reviewId, text);
+    refresh();
+    return {};
+  });
+}
+
+// The team removes an abusive review.
+export async function removeReviewAction(input: unknown) {
+  return safeAction(async () => {
+    await requireStaff();
+    await removeReview(reviewIdSchema.parse(input).reviewId);
     refresh();
     return {};
   });
