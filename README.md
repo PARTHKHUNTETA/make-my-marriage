@@ -58,7 +58,15 @@ the lint rule that protects tenant isolation), and Phase 1 (Foundation) is built
   at most one automatic email a day, and every reminder has a one-click unsubscribe link. A daily
   cron (`/api/cron/send-reminders`) queues them; the per-minute cron sends them.
 
-Still to come: deleting a wedding (Phase 1), and the event album, invitations, expenses and
+- **Money:** log expenses (11 categories, optional event, who paid) in rupees, stored exactly as
+  paise. Shared expenses are split between the bride's family, the groom's family and the couple
+  by percentage or fixed amount, and always add up to the paisa; a usual split can be set per
+  category. Budgets are optional: whole wedding, per category and per event, with remaining and
+  percent used, and over-budget lines in red. A "Who paid" page shows each side's contribution
+  overall and by category. Deleting an event keeps its expenses and removes only the link.
+
+Still to come: deleting a wedding (Phase 1), payment schedules and vendors (the rest of Phase 4),
+budget alerts at 90% and 100% (Phase 7 notifications), and the event album, invitations, expenses and
 vendor links that attach to events in later phases. Features are built
 in the PRD's seven release phases.
 

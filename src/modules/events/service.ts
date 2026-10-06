@@ -2,6 +2,7 @@ import { inTransaction } from "@/lib/db";
 import { istDate } from "@/lib/dates";
 import { AppError } from "@/lib/errors";
 import { countGuestsInvitedToEvent, removeEventInvitations } from "@/modules/guests/service";
+import { countExpensesForEvent, unlinkEventFromMoney } from "@/modules/money/service";
 import { taskCountForEvent, unlinkEvent } from "@/modules/tasks/service";
 import {
   deleteEvent as removeEvent,
@@ -18,8 +19,7 @@ import type { EventDeletePreview, EventInput, EventItem } from "./schema";
 // Business rules for the events module (PRD 5.3, api-design §5).
 //
 // Not built yet because their modules come in later phases: creating an event's photo album
-// (Phase 6), and on delete unlinking expenses and vendors and moving photos to General (Phases 4
-// and 6). Each of those adds its own step to deleteEvent.
+// (Phase 6), and on delete unlinking vendors and moving photos to General (Phases 4 and 6). Each of those adds its own step to deleteEvent.
 
 const NOT_FOUND = new AppError("NOT_FOUND", "That event no longer exists.");
 
@@ -97,19 +97,21 @@ export async function previewEventDelete(
   eventId: string,
 ): Promise<EventDeletePreview> {
   if (!(await eventExists(weddingId, eventId))) throw NOT_FOUND;
-  const [taskCount, guestCount] = await Promise.all([
+  const [taskCount, guestCount, expenseCount] = await Promise.all([
     taskCountForEvent(weddingId, eventId),
     countGuestsInvitedToEvent(weddingId, eventId),
+    countExpensesForEvent(weddingId, eventId),
   ]);
-  return { taskCount, guestCount };
+  return { taskCount, guestCount, expenseCount };
 }
 
-// One transaction: the event goes with its invitations and RSVPs, and its tasks lose the link
-// but stay.
+// One transaction: the event goes with its invitations and RSVPs; its tasks and expenses lose the
+// link but stay, and its budget line goes with it.
 export async function deleteEvent(weddingId: string, eventId: string): Promise<void> {
   await inTransaction(async (session) => {
     if (!(await removeEvent(weddingId, eventId, { session }))) throw NOT_FOUND;
     await removeEventInvitations(weddingId, eventId, { session });
     await unlinkEvent(weddingId, eventId, { session });
+    await unlinkEventFromMoney(weddingId, eventId, { session });
   });
 }

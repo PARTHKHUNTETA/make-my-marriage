@@ -12,7 +12,9 @@ import {
   findWeddingById,
   insertWedding,
   listWeddingsWithReminders,
+  saveOverallBudget,
   saveReminderSettings,
+  saveSplitDefault,
   saveWhatsappMessage,
   updateWeddingDetails as saveWeddingDetails,
   type WeddingDoc,
@@ -104,6 +106,8 @@ function toSummary(doc: WeddingDoc): WeddingSummary {
     slug: doc.website.slug,
     whatsappMessage: doc.whatsappMessage,
     reminders: doc.reminders ?? { enabled: false, rsvpDays: DEFAULT_RSVP_REMINDER_DAYS },
+    overallBudget: doc.overallBudget,
+    splitDefaults: doc.expenseSplitDefaults ?? {},
   };
 }
 
@@ -165,4 +169,18 @@ export async function listRemindingWeddings(): Promise<
     couple: `${w.brideName} & ${w.groomName}`,
     reminders: w.reminders ?? { enabled: false, rsvpDays: DEFAULT_RSVP_REMINDER_DAYS },
   }));
+}
+
+export async function setOverallBudget(weddingId: string, paise: number | null): Promise<void> {
+  if (!(await saveOverallBudget(weddingId, paise)))
+    throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
+}
+
+export async function setSplitDefault(
+  weddingId: string,
+  category: string,
+  shares: { bride_family: number; groom_family: number; couple: number } | null,
+): Promise<void> {
+  if (!(await saveSplitDefault(weddingId, category, shares)))
+    throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
 }

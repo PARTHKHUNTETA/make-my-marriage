@@ -26,6 +26,8 @@ import { EVENT_TYPE_LABELS, eventStartsAt, formatTime } from "@/modules/events/s
 import { listEvents } from "@/modules/events/service";
 import { RSVP_LABELS } from "@/modules/guests/schema";
 import { getStats, listEveryGuest } from "@/modules/guests/service";
+import { formatRupees } from "@/lib/money";
+import { getSummary as getMoneySummary } from "@/modules/money/service";
 import { listTasks } from "@/modules/tasks/service";
 import { getWedding } from "@/modules/wedding/service";
 
@@ -112,12 +114,13 @@ function SoonCard({ title, icon: Icon, text }: { title: string; icon: LucideIcon
 export default async function DashboardPage() {
   const ctx = await requireMember();
   const now = new Date();
-  const [wedding, events, tasks, stats, guests] = await Promise.all([
+  const [wedding, events, tasks, stats, guests, money] = await Promise.all([
     getWedding(ctx.weddingId),
     listEvents(ctx.weddingId),
     listTasks(ctx.weddingId, { view: "all" }, ctx.memberId),
     getStats(ctx.weddingId),
     listEveryGuest(ctx.weddingId),
+    getMoneySummary(ctx.weddingId),
   ]);
   if (!wedding) notFound();
 
@@ -420,11 +423,47 @@ export default async function DashboardPage() {
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <SoonCard
-            title="Budget & expenses"
-            icon={IndianRupee}
-            text="Track what you've spent against your budget, with payment schedules and shared costs."
-          />
+          <div className={`${card} flex flex-col justify-between`}>
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className={eyebrow}>Budget &amp; expenses</span>
+                <IndianRupee className="size-5 text-plum" />
+              </div>
+              <div className="mb-1 flex items-baseline gap-2">
+                <span className="font-serif text-2xl">{formatRupees(money.total)}</span>
+                <span className="text-[13px] text-ink-2">spent</span>
+              </div>
+              {wedding.overallBudget ? (
+                <>
+                  <div className="mt-2 mb-1 h-1.5 w-full overflow-hidden rounded-full bg-rose-100">
+                    <div
+                      className={`h-full rounded-full ${money.total > wedding.overallBudget ? "bg-destructive" : "bg-bronze"}`}
+                      style={{
+                        width: `${Math.min(100, Math.round((money.total / wedding.overallBudget) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                  <p
+                    className={`text-[13px] ${money.total > wedding.overallBudget ? "font-semibold text-destructive" : "text-ink-2"}`}
+                  >
+                    {money.total > wedding.overallBudget
+                      ? `${formatRupees(money.total - wedding.overallBudget)} over your ${formatRupees(wedding.overallBudget)} budget`
+                      : `${formatRupees(wedding.overallBudget - money.total)} left of ${formatRupees(wedding.overallBudget)}`}
+                  </p>
+                </>
+              ) : (
+                <p className="text-[13px] text-ink-2">
+                  {money.total === 0 ? "No expenses yet." : "No budget set."}
+                </p>
+              )}
+            </div>
+            <CardFooter
+              href={money.total === 0 && !wedding.overallBudget ? "/money/new" : "/money"}
+              label={
+                money.total === 0 && !wedding.overallBudget ? "Add an expense" : "Open expenses"
+              }
+            />
+          </div>
           <SoonCard
             title="Vendors"
             icon={Handshake}

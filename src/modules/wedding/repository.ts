@@ -28,6 +28,11 @@ export type WeddingDoc = {
   whatsappMessage?: string;
   reminders?: { enabled: boolean; rsvpDays: number[] };
   overallBudget?: number; // paise
+  // Default percentages for shared expenses, by expense category.
+  expenseSplitDefaults?: Record<
+    string,
+    { bride_family: number; groom_family: number; couple: number }
+  >;
   deletedAt?: Date; // soft delete, hard-deleted within 30 days (db-design §14)
   createdAt: Date;
   updatedAt: Date;
@@ -128,4 +133,38 @@ export async function listWeddingsWithReminders(): Promise<WeddingDoc[]> {
   return (await weddings())
     .find({ "reminders.enabled": true, deletedAt: { $exists: false } })
     .toArray();
+}
+
+// The overall wedding budget in paise. Null clears it.
+export async function saveOverallBudget(id: string, paise: number | null): Promise<boolean> {
+  if (!ObjectId.isValid(id)) return false;
+  const result = await (
+    await weddings()
+  ).updateOne(
+    { _id: new ObjectId(id), deletedAt: { $exists: false } },
+    paise === null
+      ? { $unset: { overallBudget: "" }, $set: { updatedAt: new Date() } }
+      : { $set: { overallBudget: paise, updatedAt: new Date() } },
+  );
+  return result.matchedCount === 1;
+}
+
+// The default split for shared expenses in one category. Null clears it. The category name comes
+// from a fixed list checked by the caller, so it is safe to use as a field name.
+export async function saveSplitDefault(
+  id: string,
+  category: string,
+  shares: { bride_family: number; groom_family: number; couple: number } | null,
+): Promise<boolean> {
+  if (!ObjectId.isValid(id) || !/^[a-z]+$/.test(category)) return false;
+  const field = `expenseSplitDefaults.${category}`;
+  const result = await (
+    await weddings()
+  ).updateOne(
+    { _id: new ObjectId(id), deletedAt: { $exists: false } },
+    shares === null
+      ? { $unset: { [field]: "" }, $set: { updatedAt: new Date() } }
+      : { $set: { [field]: shares, updatedAt: new Date() } },
+  );
+  return result.matchedCount === 1;
 }

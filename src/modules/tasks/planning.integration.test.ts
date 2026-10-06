@@ -91,7 +91,11 @@ describe.skipIf(!enabled)("events and tasks against MongoDB", () => {
     const e = await events.createEvent(A, event({ name: "Haldi", type: "haldi" }));
     const linked = await tasks.createTask(A, task({ title: "Order flowers", eventId: e.id }));
     const other = await tasks.createTask(A, task({ title: "Unrelated" }));
-    expect(await events.previewEventDelete(A, e.id)).toEqual({ taskCount: 1, guestCount: 0 });
+    expect(await events.previewEventDelete(A, e.id)).toEqual({
+      taskCount: 1,
+      guestCount: 0,
+      expenseCount: 0,
+    });
 
     await events.deleteEvent(A, e.id);
 

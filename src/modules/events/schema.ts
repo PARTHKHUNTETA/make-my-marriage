@@ -73,7 +73,7 @@ export type EventItem = {
 };
 
 // What deleting an event would remove or unlink, shown before the person confirms (PRD 5.3).
-export type EventDeletePreview = { taskCount: number; guestCount: number };
+export type EventDeletePreview = { taskCount: number; guestCount: number; expenseCount: number };
 
 // "16:00" -> "4:00 PM"
 export function formatTime(value: string): string {

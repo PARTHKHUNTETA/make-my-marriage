@@ -83,4 +83,6 @@ export type WeddingSummary = {
   // The couple's own WhatsApp share text, if they wrote one.
   whatsappMessage?: string;
   reminders: ReminderSettings;
+  overallBudget?: number; // paise
+  splitDefaults: Record<string, { bride_family: number; groom_family: number; couple: number }>;
 };
