@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import {
   ArrowRight,
   Camera,
@@ -23,9 +24,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { requireMember } from "@/lib/authz";
+import { daysUntil, formatLongDate } from "@/lib/dates";
+import { getWedding } from "@/modules/wedding/service";
+
 export const metadata: Metadata = { title: "Dashboard — Make My Marriage" };
 
-// All figures below are mock data from the design. Replace with module queries
+// The hero (couple, date, place, countdown) shows the real wedding. Everything below it is
+// mock data from the design. Replace with module queries
 // (wedding, events, tasks, guests, money, vendors, photos) as those land.
 
 const card = "rounded-xl bg-white p-4 shadow-sm transition-shadow hover:shadow-md";
@@ -165,7 +171,13 @@ function CardFooter({
   );
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const ctx = await requireMember();
+  const wedding = await getWedding(ctx.weddingId);
+  if (!wedding) notFound();
+  const days = daysUntil(wedding.date);
+  const daysShown = Math.abs(days);
+
   return (
     <main className="flex w-full flex-col pt-6">
       {/* Hero */}
@@ -211,13 +223,13 @@ export default function DashboardPage() {
                 <span className="size-1.5 rounded-full bg-honey" />
                 Orchestration Active
               </span>
-              <span className="font-mono text-xs tracking-wide text-line-soft">CONF-UDR-2025</span>
             </div>
             <h1 className="mb-1 font-serif text-5xl leading-none tracking-tight">
-              Priya &amp; Aarav
+              {wedding.brideName} &amp; {wedding.groomName}
             </h1>
             <p className="mb-4 font-serif text-xl text-rose-300/90 italic">
-              December 14–17, 2025 • The Leela Palace &amp; Jagmandir Island, Udaipur
+              {formatLongDate(wedding.date)} •{" "}
+              {wedding.venue ? `${wedding.venue}, ${wedding.city}` : wedding.city}
             </p>
             <div className="flex max-w-lg flex-col gap-1.5 pt-1">
               <div className="flex items-center justify-between text-[13px]">
@@ -244,12 +256,18 @@ export default function DashboardPage() {
 
           <div className="flex shrink-0 flex-col items-start gap-4 rounded-xl bg-white/10 p-4 shadow-sm backdrop-blur-md sm:flex-row sm:items-center sm:self-start xl:self-auto">
             <div className="flex items-baseline gap-2">
-              <span className="font-serif text-5xl leading-none">42</span>
+              <span className="font-serif text-5xl leading-none">{daysShown}</span>
               <span className="flex flex-col">
                 <span className="text-xs font-semibold tracking-wider text-honey uppercase">
-                  Days
+                  {daysShown === 1 ? "Day" : "Days"}
                 </span>
-                <span className="text-[13px] text-rose-300/80">until your wedding</span>
+                <span className="text-[13px] text-rose-300/80">
+                  {days > 0
+                    ? "until your wedding"
+                    : days === 0
+                      ? "it’s your wedding day"
+                      : "since your wedding"}
+                </span>
               </span>
             </div>
             <div className="h-px w-full bg-white/20 sm:h-12 sm:w-px" />
@@ -257,10 +275,10 @@ export default function DashboardPage() {
               <span className="font-mono text-xs tracking-wider text-line-soft uppercase">
                 Upcoming Milestone
               </span>
-              <span className="text-sm font-semibold">Ceremony 01: Mehendi</span>
+              <span className="text-sm font-semibold">The wedding day</span>
               <span className="inline-flex items-center gap-1.5 font-mono text-xs text-honey">
                 <Timer className="size-3.5" />
-                T-minus 42d 14h 20m
+                {days > 0 ? `T-minus ${days}d` : days === 0 ? "Today" : `${daysShown}d ago`}
               </span>
             </div>
           </div>

@@ -38,12 +38,15 @@ export class AppError extends Error {
 }
 
 export type ApiOk<T> = { ok: true; data: T };
-export type ApiError = { ok: false; error: { code: ErrorCode; message: string } };
+export type ApiError = {
+  ok: false;
+  error: { code: ErrorCode; message: string; details?: unknown };
+};
 
 export function okEnvelope<T>(data: T): ApiOk<T> {
   return { ok: true, data };
 }
 
-export function errorEnvelope(code: ErrorCode, message: string): ApiError {
-  return { ok: false, error: { code, message } };
+export function errorEnvelope(code: ErrorCode, message: string, details?: unknown): ApiError {
+  return { ok: false, error: { code, message, ...(details === undefined ? {} : { details }) } };
 }

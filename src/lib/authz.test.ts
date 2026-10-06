@@ -4,12 +4,13 @@ import type { Context } from "./context";
 const resolveContext = vi.hoisted(() => vi.fn<() => Promise<Context>>());
 vi.mock("@/lib/context", () => ({ resolveContext }));
 
-import { canManageMembers, requireAdmin, requireMember, requireVendor } from "./authz";
+import { canManageMembers, requireAdmin, requireMember, requireUser, requireVendor } from "./authz";
 
 const admin: Context = { kind: "member", userId: "u1", weddingId: "w1", role: "admin" };
 const manager: Context = { kind: "member", userId: "u2", weddingId: "w1", role: "manager" };
 const vendor: Context = { kind: "vendor", vendorAccountId: "v1" };
 const guest: Context = { kind: "guest", weddingId: "w1", guestId: "g1" };
+const user: Context = { kind: "user", userId: "u3" };
 const anonymous: Context = { kind: "anonymous" };
 
 beforeEach(() => {
@@ -21,6 +22,7 @@ describe("canManageMembers", () => {
     expect(canManageMembers(admin)).toBe(true);
     expect(canManageMembers(manager)).toBe(false);
     expect(canManageMembers(vendor)).toBe(false);
+    expect(canManageMembers(user)).toBe(false);
     expect(canManageMembers(guest)).toBe(false);
     expect(canManageMembers(anonymous)).toBe(false);
   });
@@ -38,6 +40,25 @@ describe("requireMember", () => {
     resolveContext.mockResolvedValue(ctx);
     await expect(requireMember()).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
   });
+
+  it("tells a signed-in account without a wedding to set one up (FORBIDDEN)", async () => {
+    resolveContext.mockResolvedValue(user);
+    await expect(requireMember()).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});
+
+describe("requireUser", () => {
+  it("allows a signed-in account with or without a wedding", async () => {
+    resolveContext.mockResolvedValue(user);
+    await expect(requireUser()).resolves.toBe(user);
+    resolveContext.mockResolvedValue(manager);
+    await expect(requireUser()).resolves.toBe(manager);
+  });
+
+  it.each([vendor, guest, anonymous])("rejects a %o caller as UNAUTHENTICATED", async (ctx) => {
+    resolveContext.mockResolvedValue(ctx);
+    await expect(requireUser()).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+  });
 });
 
 describe("requireAdmin", () => {
@@ -54,6 +75,11 @@ describe("requireAdmin", () => {
   it("rejects non-members as UNAUTHENTICATED", async () => {
     resolveContext.mockResolvedValue(anonymous);
     await expect(requireAdmin()).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+  });
+
+  it("does not let an account without a wedding act as admin", async () => {
+    resolveContext.mockResolvedValue(user);
+    await expect(requireAdmin()).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
 

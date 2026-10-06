@@ -25,7 +25,12 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // account pages (Phase 1)
   "login",
   "signup",
+  "setup",
   "logout",
+  "forgot-password",
+  "reset-password",
+  "verify-email",
+  "join",
   "verify",
   "reset",
   "vendor",

@@ -1,7 +1,9 @@
 import { Check } from "lucide-react";
 
-// Sign-up does not exist yet (Phase 1); every "start" call to action scrolls to the closing section.
-export const START_HREF = "#start";
+// Every "start" call to action on the homepage goes to the sign-in screen. New visitors reach
+// sign-up from there ("New here? Create your wedding workspace"); signed-in visitors are sent
+// straight on to their dashboard by the sign-in page itself.
+export const START_HREF = "/login";
 
 export const containerClass = "mx-auto w-full max-w-[1280px] px-4 sm:px-6";
 

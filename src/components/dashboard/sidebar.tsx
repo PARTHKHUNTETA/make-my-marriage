@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { postJson } from "@/components/auth/post-json";
 import {
   CalendarDays,
   CheckCircle2,
@@ -49,9 +50,21 @@ const sections: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-// Wedding and member are mock data until the wedding module and requireMember() land (Phase 1).
-export function Sidebar() {
+export function Sidebar({
+  user,
+  wedding,
+}: {
+  user: { name: string };
+  wedding: { couple: string; place: string; countdown: string };
+}) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function signOut() {
+    await postJson("/api/auth/logout", {});
+    router.replace("/login");
+    router.refresh();
+  }
 
   return (
     <aside className="fixed top-0 left-0 z-50 hidden h-full w-64 flex-col justify-between overflow-y-auto bg-rose-50 shadow-[0_1px_8px_rgba(0,0,0,0.04)] lg:flex">
@@ -66,8 +79,8 @@ export function Sidebar() {
           />
           <div className="mt-4 flex items-center justify-between rounded-xl bg-white p-2 shadow-[0_1px_3px_rgba(35,31,32,0.04)]">
             <div className="flex min-w-0 flex-col pr-1">
-              <span className="truncate text-sm font-semibold text-ink">Priya &amp; Aarav</span>
-              <span className="truncate font-mono text-xs text-ink-2">Udaipur • Dec 2025</span>
+              <span className="truncate text-sm font-semibold text-ink">{wedding.couple}</span>
+              <span className="truncate font-mono text-xs text-ink-2">{wedding.place}</span>
             </div>
             <ChevronsUpDown className="size-4 shrink-0 text-ink-2" />
           </div>
@@ -114,18 +127,19 @@ export function Sidebar() {
               <User className="size-[18px] text-white" />
             </div>
             <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-semibold text-ink">Priya Sharma</span>
-              <span className="truncate font-mono text-xs text-bronze">42 days to go</span>
+              <span className="truncate text-sm font-semibold text-ink">{user.name}</span>
+              <span className="truncate font-mono text-xs text-bronze">{wedding.countdown}</span>
             </div>
           </div>
-          <Link
-            href="/login"
+          <button
+            type="button"
+            onClick={signOut}
             title="Sign out"
             aria-label="Sign out"
             className="p-1 text-ink-2 transition-colors hover:text-ink"
           >
             <LogOut className="size-[18px]" />
-          </Link>
+          </button>
         </div>
       </div>
     </aside>

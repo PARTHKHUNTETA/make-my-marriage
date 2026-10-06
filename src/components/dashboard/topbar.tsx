@@ -1,4 +1,5 @@
 import { Bell, Clock, Search, User, Zap } from "lucide-react";
+import { SignOutButton } from "@/components/sign-out-button";
 
 export function Topbar() {
   return (
@@ -37,6 +38,10 @@ export function Topbar() {
           <Bell className="size-5" />
           <span className="absolute top-1 right-1 size-2 rounded-full bg-bronze" />
         </button>
+        {/* The sidebar (with its sign-out) is hidden below lg, so small screens get one here. */}
+        <div className="lg:hidden">
+          <SignOutButton />
+        </div>
         <div className="flex size-8 items-center justify-center rounded-full bg-plum">
           <User className="size-[18px] text-white" />
         </div>

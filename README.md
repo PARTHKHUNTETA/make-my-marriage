@@ -12,10 +12,27 @@ changing behaviour; this file only covers running the project.
 
 ## Status
 
-The skeleton is in place: the homepage, the four route groups as placeholders, a database health
-check, error and auth-guard foundations, and the lint rule that protects tenant isolation. No
-product features yet. Features are built in the PRD's seven release phases, starting with
-authentication, wedding creation and member management.
+The skeleton is in place (homepage, route groups, health check, error and guard foundations, and
+the lint rule that protects tenant isolation), and Phase 1 (Foundation) is built:
+
+- **Accounts:** email and password sign-up, login and logout, with Argon2id hashing, signed cookie
+  sessions and rate limiting. Email verification and password reset use single-use, expiring
+  links; resetting a password signs out every other session.
+- **Weddings:** first-time setup (`/setup`) creates the wedding and makes its creator the admin,
+  in one transaction. Everything under `(member)` needs an account that belongs to a wedding.
+- **Team:** admins invite family and friends by email (`/settings/members`), who join as Managers
+  through a link. Admins can promote, demote and remove members; a wedding can never be left
+  without an admin.
+- **Email:** account and invitation emails go through a MongoDB queue with retries and backoff,
+  sent immediately and drained by a cron route.
+- The dashboard hero and sidebar show the real wedding. The cards below the hero are still the
+  design's sample data until their modules (events, tasks, guests, money, vendors, photos) exist.
+
+- **Wedding details:** any member can edit the names, title, date, city, venue and message under
+  Settings → Wedding details. The web address (slug) never changes when the title does.
+
+Still to come in Phase 1: deleting a wedding. Features are built
+in the PRD's seven release phases.
 
 ## Setup
 
@@ -24,9 +41,17 @@ You need Node 22 (see `.nvmrc`) and a MongoDB Atlas cluster you can connect to.
 ```bash
 nvm install && nvm use      # Node 22
 npm install
-cp .env.example .env.local  # then fill in MONGODB_URI
+cp .env.example .env.local  # then fill in MONGODB_URI and SESSION_SECRET
 npm run dev
 ```
+
+`SESSION_SECRET` and `CRON_SECRET` can be generated with `openssl rand -base64 48`.
+
+**Email in development.** Without a `RESEND_API_KEY`, emails are not sent: each one is printed to
+the `npm run dev` terminal, link included. Sign up, then look there for the "confirm your email"
+link; password-reset and invitation emails appear the same way. To send real mail, add a key from
+[resend.com](https://resend.com). Until you verify a sending domain, Resend only delivers to your
+own address.
 
 Open <http://localhost:3000>. Check the database connection at
 <http://localhost:3000/api/health>; it returns `{ "ok": true, "data": { "db": "up", ... } }` when
@@ -81,8 +106,11 @@ The full text is in [`src/modules/README.md`](src/modules/README.md). In short:
 3. Server Actions validate with Zod, resolve context, check permission, then call the service.
 4. Cross-module work goes through events, not through another module's data.
 
-Rule 2 is enforced by ESLint: importing `getDb` from `@/lib/db` is an error everywhere except
-`src/modules/**/repository.ts` and `src/lib/`.
+Rule 2 is built on [`src/lib/scoped.ts`](src/lib/scoped.ts): a repository wraps its collection
+with `scoped(collection, { weddingId })`, which adds the wedding to every filter, stamps it on
+inserts, refuses updates that rewrite it and starts every aggregation with a `$match` on it. The
+lint rule keeps raw collection access out of everything else: importing `getDb` from `@/lib/db` is
+an error everywhere except `src/modules/**/repository.ts` and `src/lib/`.
 
 ## Deploying
 
@@ -90,6 +118,9 @@ Deployed on Vercel from Git. [`vercel.json`](vercel.json) pins functions to `bom
 guest data is processed in India, not only stored there. In the Vercel project:
 
 - Set the Node.js version to 22.x.
-- Add the environment variables from `.env.example`, with production values.
+- Add the environment variables from `.env.example`, with production values. That includes
+  `RESEND_API_KEY` and a verified sending domain in `EMAIL_FROM`, and `CRON_SECRET`.
+- The email queue is drained by Vercel Cron every minute (`vercel.json`). Cron jobs that run more
+  often than daily need a paid Vercel plan.
 - Point the wildcard domain (`*.makemymarriage.com`) at the project and let Vercel issue the
   wildcard certificate.
