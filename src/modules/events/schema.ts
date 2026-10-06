@@ -73,11 +73,18 @@ export type EventItem = {
 };
 
 // What deleting an event would remove or unlink, shown before the person confirms (PRD 5.3).
-export type EventDeletePreview = { taskCount: number };
+export type EventDeletePreview = { taskCount: number; guestCount: number };
 
 // "16:00" -> "4:00 PM"
 export function formatTime(value: string): string {
   const [h = "0", m = "00"] = value.split(":");
   const hour = Number(h);
   return `${hour % 12 === 0 ? 12 : hour % 12}:${m} ${hour < 12 ? "AM" : "PM"}`;
+}
+
+// The moment the event starts: its date (midnight in India) plus the start time. Guests can
+// change their reply until then (PRD 5.6).
+export function eventStartsAt(event: Pick<EventItem, "date" | "startTime">): Date {
+  const [h = "0", m = "0"] = event.startTime.split(":");
+  return new Date(event.date.getTime() + (Number(h) * 60 + Number(m)) * 60_000);
 }

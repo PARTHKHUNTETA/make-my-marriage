@@ -38,7 +38,16 @@ the lint rule that protects tenant isolation), and Phase 1 (Foundation) is built
   read (the due day has passed in India and the task is not completed). Removing a member
   unassigns their tasks.
 
-Still to come: deleting a wedding (Phase 1), and the event album, invitations, expenses and
+- **Guests:** one entry per invited party, with phone, email, how many people are allowed and
+  which events they are invited to. Search, filter by event and reply, totals, a duplicate-phone
+  warning, Copy link and Share on WhatsApp (the message is editable once for the whole wedding).
+- **Invitations and replies:** each guest's private link (`/i/<token>`, no login) shows only their
+  events. They reply per event until it starts, then it is read-only; members can still change a
+  reply any time. Members see replies per event, who has not answered, and can export headcounts
+  as CSV for the caterer.
+
+Still to come: deleting a wedding (Phase 1), Excel/CSV guest import and invitation and reminder
+emails (the rest of Phase 3), and the event album, invitations, expenses and
 vendor links that attach to events in later phases. Features are built
 in the PRD's seven release phases.
 

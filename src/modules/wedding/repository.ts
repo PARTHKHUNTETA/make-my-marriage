@@ -92,3 +92,17 @@ export async function updateWeddingDetails(
   );
   return result.matchedCount === 1;
 }
+
+// The editable WhatsApp share text (PRD 5.6). Null clears it, which brings back the default.
+export async function saveWhatsappMessage(id: string, message: string | null): Promise<boolean> {
+  if (!ObjectId.isValid(id)) return false;
+  const result = await (
+    await weddings()
+  ).updateOne(
+    { _id: new ObjectId(id), deletedAt: { $exists: false } },
+    message === null
+      ? { $unset: { whatsappMessage: "" }, $set: { updatedAt: new Date() } }
+      : { $set: { whatsappMessage: message, updatedAt: new Date() } },
+  );
+  return result.matchedCount === 1;
+}

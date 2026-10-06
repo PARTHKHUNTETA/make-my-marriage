@@ -8,6 +8,19 @@ import type { EventDeletePreview } from "@/modules/events/schema";
 
 const small = "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50";
 
+function describeLinks({ taskCount, guestCount }: EventDeletePreview) {
+  const parts: string[] = [];
+  if (guestCount > 0)
+    parts.push(
+      `${guestCount} ${guestCount === 1 ? "guest is" : "guests are"} invited to it. Their invitations and replies for this event will be deleted.`,
+    );
+  if (taskCount > 0)
+    parts.push(
+      `${taskCount} ${taskCount === 1 ? "task is" : "tasks are"} linked to it. ${taskCount === 1 ? "It stays" : "They stay"} on your list, without the event.`,
+    );
+  return parts.length > 0 ? parts.join(" ") : "Nothing else is linked to this event.";
+}
+
 // Asks the server what is linked first, then asks for confirmation (PRD 5.3).
 export function DeleteEventButton({ eventId, name }: { eventId: string; name: string }) {
   const router = useRouter();
@@ -42,10 +55,7 @@ export function DeleteEventButton({ eventId, name }: { eventId: string; name: st
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-ink">
           <p className="font-semibold">Delete &ldquo;{name}&rdquo;?</p>
           <p className="mt-1 text-[13px] text-ink-2">
-            {preview.taskCount === 0
-              ? "Nothing else is linked to this event."
-              : `${preview.taskCount} ${preview.taskCount === 1 ? "task is" : "tasks are"} linked to it. ${preview.taskCount === 1 ? "It stays" : "They stay"} on your list, without the event.`}{" "}
-            This can&rsquo;t be undone.
+            {describeLinks(preview)} This can&rsquo;t be undone.
           </p>
           <div className="mt-3 flex gap-2">
             <button

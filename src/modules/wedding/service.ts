@@ -11,6 +11,7 @@ import { addAdminMember, getMembership } from "@/modules/members/service";
 import {
   findWeddingById,
   insertWedding,
+  saveWhatsappMessage,
   updateWeddingDetails as saveWeddingDetails,
   type WeddingDoc,
 } from "./repository";
@@ -93,6 +94,7 @@ function toSummary(doc: WeddingDoc): WeddingSummary {
     venue: doc.venue,
     description: doc.description,
     slug: doc.website.slug,
+    whatsappMessage: doc.whatsappMessage,
   };
 }
 
@@ -128,4 +130,11 @@ export async function updateWeddingDetails(
     ],
   );
   if (!saved) throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
+}
+
+// Saves the WhatsApp share message for the whole wedding. A blank message restores the default.
+export async function setWhatsappMessage(weddingId: string, message: string): Promise<void> {
+  const trimmed = message.trim();
+  if (!(await saveWhatsappMessage(weddingId, trimmed || null)))
+    throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
 }

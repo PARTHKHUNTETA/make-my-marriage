@@ -49,4 +49,6 @@ export type WeddingSummary = {
   venue?: string;
   description?: string;
   slug: string;
+  // The couple's own WhatsApp share text, if they wrote one.
+  whatsappMessage?: string;
 };

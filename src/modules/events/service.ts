@@ -1,6 +1,7 @@
 import { inTransaction } from "@/lib/db";
 import { istDate } from "@/lib/dates";
 import { AppError } from "@/lib/errors";
+import { countGuestsInvitedToEvent, removeEventInvitations } from "@/modules/guests/service";
 import { taskCountForEvent, unlinkEvent } from "@/modules/tasks/service";
 import {
   deleteEvent as removeEvent,
@@ -17,8 +18,8 @@ import type { EventDeletePreview, EventInput, EventItem } from "./schema";
 // Business rules for the events module (PRD 5.3, api-design §5).
 //
 // Not built yet because their modules come in later phases: creating an event's photo album
-// (Phase 6) and removing its invitations, unlinking expenses and vendors, moving photos to General
-// when it is deleted (Phases 3, 4 and 6). Each of those adds its own step to deleteEvent.
+// (Phase 6), and on delete unlinking expenses and vendors and moving photos to General (Phases 4
+// and 6). Each of those adds its own step to deleteEvent.
 
 const NOT_FOUND = new AppError("NOT_FOUND", "That event no longer exists.");
 
@@ -65,6 +66,12 @@ export async function getEvent(weddingId: string, eventId: string): Promise<Even
   return doc ? toItem(doc) : null;
 }
 
+// The events with these ids that belong to this wedding, in date order. Unknown ids are ignored.
+export async function getEventsByIds(weddingId: string, ids: string[]): Promise<EventItem[]> {
+  const wanted = new Set(ids);
+  return (await listEvents(weddingId)).filter((e) => wanted.has(e.id));
+}
+
 export async function eventExists(weddingId: string, eventId: string): Promise<boolean> {
   return (await findEvent(weddingId, eventId)) !== null;
 }
@@ -90,13 +97,19 @@ export async function previewEventDelete(
   eventId: string,
 ): Promise<EventDeletePreview> {
   if (!(await eventExists(weddingId, eventId))) throw NOT_FOUND;
-  return { taskCount: await taskCountForEvent(weddingId, eventId) };
+  const [taskCount, guestCount] = await Promise.all([
+    taskCountForEvent(weddingId, eventId),
+    countGuestsInvitedToEvent(weddingId, eventId),
+  ]);
+  return { taskCount, guestCount };
 }
 
-// One transaction: the event goes, and its tasks lose the link but stay.
+// One transaction: the event goes with its invitations and RSVPs, and its tasks lose the link
+// but stay.
 export async function deleteEvent(weddingId: string, eventId: string): Promise<void> {
   await inTransaction(async (session) => {
     if (!(await removeEvent(weddingId, eventId, { session }))) throw NOT_FOUND;
+    await removeEventInvitations(weddingId, eventId, { session });
     await unlinkEvent(weddingId, eventId, { session });
   });
 }
