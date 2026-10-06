@@ -80,6 +80,7 @@ export type EventDeletePreview = {
   expenseCount: number;
   vendorCount: number;
   tableCount: number;
+  arrivalCount: number;
 };
 
 // "16:00" -> "4:00 PM"

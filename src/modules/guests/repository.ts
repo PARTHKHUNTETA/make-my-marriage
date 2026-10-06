@@ -480,3 +480,13 @@ export async function guestStats(weddingId: string): Promise<StatsRow> {
     .toArray();
   return row ?? { overall: [], perEvent: [] };
 }
+
+// The party whose invitation carries this entry QR, within one wedding (the member scanning it has
+// a wedding, so a code from another wedding finds nothing).
+export async function findGuestByEntryToken(
+  weddingId: string,
+  token: string,
+): Promise<GuestDoc | null> {
+  if (typeof token !== "string" || token.length < 10 || token.length > 64) return null;
+  return scoped(await guests(), { weddingId }).findOne({ "invitations.entryToken": token });
+}

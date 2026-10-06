@@ -112,6 +112,20 @@ export function EventReply({
         ) : null}
       </ul>
       {event.description ? <p className="mt-3 text-[15px] text-ink">{event.description}</p> : null}
+      {saved?.status === "attending" ? (
+        <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-line p-4 text-center">
+          {/* A small generated picture of the guest's entry code; the next/image optimiser adds nothing here. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/api/i/${encodeURIComponent(token)}/entry/${event.eventId}`}
+            alt={`Your entry code for ${event.name}`}
+            width={192}
+            height={192}
+            className="size-48"
+          />
+          <p className="text-[13px] text-ink-2">Show this code at the entrance to {event.name}.</p>
+        </div>
+      ) : null}
       {event.tableLabel && saved?.status === "attending" ? (
         <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-[15px] font-semibold text-plum">
           {event.tableLabel}

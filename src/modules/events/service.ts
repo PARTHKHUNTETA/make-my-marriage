@@ -4,6 +4,7 @@ import { AppError } from "@/lib/errors";
 import { countGuestsInvitedToEvent, removeEventInvitations } from "@/modules/guests/service";
 import { countExpensesForEvent, unlinkEventFromMoney } from "@/modules/money/service";
 import { taskCountForEvent, unlinkEvent } from "@/modules/tasks/service";
+import { countArrivalsForEvent, removeEventArrivals } from "@/modules/checkin/service";
 import { countTablesForEvent, removeEventTables } from "@/modules/seating/service";
 import { countVendorsForEvent, removeEventFromVendors } from "@/modules/vendors/service";
 import {
@@ -101,14 +102,16 @@ export async function previewEventDelete(
   eventId: string,
 ): Promise<EventDeletePreview> {
   if (!(await eventExists(weddingId, eventId))) throw NOT_FOUND;
-  const [taskCount, guestCount, expenseCount, vendorCount, tableCount] = await Promise.all([
-    taskCountForEvent(weddingId, eventId),
-    countGuestsInvitedToEvent(weddingId, eventId),
-    countExpensesForEvent(weddingId, eventId),
-    countVendorsForEvent(weddingId, eventId),
-    countTablesForEvent(weddingId, eventId),
-  ]);
-  return { taskCount, guestCount, expenseCount, vendorCount, tableCount };
+  const [taskCount, guestCount, expenseCount, vendorCount, tableCount, arrivalCount] =
+    await Promise.all([
+      taskCountForEvent(weddingId, eventId),
+      countGuestsInvitedToEvent(weddingId, eventId),
+      countExpensesForEvent(weddingId, eventId),
+      countVendorsForEvent(weddingId, eventId),
+      countTablesForEvent(weddingId, eventId),
+      countArrivalsForEvent(weddingId, eventId),
+    ]);
+  return { taskCount, guestCount, expenseCount, vendorCount, tableCount, arrivalCount };
 }
 
 // One transaction: the event goes with its invitations and RSVPs; its tasks and expenses lose the
@@ -121,6 +124,7 @@ export async function deleteEvent(weddingId: string, eventId: string): Promise<v
     await unlinkEventFromMoney(weddingId, eventId, { session });
     await removeEventFromVendors(weddingId, eventId, { session });
     await removeEventTables(weddingId, eventId, { session });
+    await removeEventArrivals(weddingId, eventId, { session });
   });
 }
 

@@ -31,7 +31,7 @@ const whenFormat = new Intl.DateTimeFormat("en-IN", {
   timeZone: "Asia/Kolkata",
 });
 
-export function describeEvent(event: EventItem) {
+export function describeEvent(event: EventItem, qrUrl?: string) {
   const place = [event.venueName, event.address].filter(Boolean).join(", ");
   return {
     name: event.name,
@@ -42,6 +42,7 @@ export function describeEvent(event: EventItem) {
     ...(place
       ? { mapUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}` }
       : {}),
+    ...(qrUrl ? { qrUrl } : {}),
   };
 }
 
@@ -104,7 +105,7 @@ export async function sendInvitationEmails(
           guestName: guest.name,
           couple,
           url: guestUrl(guest),
-          events: JSON.stringify(invited.map(describeEvent)),
+          events: JSON.stringify(invited.map((e) => describeEvent(e))),
         },
         meta: { guestId: guest.id, kind: "invitation" },
         dedupeKey: `invite:${guest.id}:${toIstYmd(now)}`,
@@ -156,7 +157,7 @@ export async function sendRsvpReminderEmails(
           guestName: guest.name,
           couple,
           url: guestUrl(guest),
-          events: JSON.stringify(waiting.map(describeEvent)),
+          events: JSON.stringify(waiting.map((e) => describeEvent(e))),
           unsubscribeUrl: absoluteUrl(`/unsubscribe/${guest.token}`),
         },
         meta: { guestId: guest.id, kind: "rsvp_reminder", by: "member" },
@@ -203,7 +204,17 @@ export async function runAutomaticReminders(
             guestName: guest.name,
             couple: wedding.couple,
             url: guestUrl(guest),
-            events: JSON.stringify(shown.map(describeEvent)),
+            // The day-before reminder carries each event's entry code, so the guest has it ready.
+            events: JSON.stringify(
+              shown.map((e) =>
+                describeEvent(
+                  e,
+                  item.kind === "event_reminder"
+                    ? absoluteUrl(`/api/i/${guest.token}/entry/${e.id}`)
+                    : undefined,
+                ),
+              ),
+            ),
             unsubscribeUrl: absoluteUrl(`/unsubscribe/${guest.token}`),
           },
           meta: { guestId: guest.id, kind: item.kind, by: "auto" },

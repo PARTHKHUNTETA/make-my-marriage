@@ -8,6 +8,7 @@ import {
   countInvitedToEvent,
   deleteGuest as removeGuest,
   findGuest,
+  findGuestByEntryToken,
   findGuestByPhone,
   findGuestByToken,
   findGuestsByIds,
@@ -273,4 +274,27 @@ export function recordInviteEmailed(weddingId: string, guestIds: string[]): Prom
 // A guest's own choice, from the link in a reminder email. False when the link is unknown.
 export function setGuestUnsubscribed(token: string, unsubscribed: boolean): Promise<boolean> {
   return setRemindersUnsubscribed(token, unsubscribed);
+}
+
+// What a scanned entry QR stands for: the party, and the one invitation (event) the code is for.
+export async function resolveEntry(
+  weddingId: string,
+  entryToken: string,
+): Promise<{ guest: GuestItem; eventId: string } | null> {
+  const doc = await findGuestByEntryToken(weddingId, entryToken);
+  const invitation = doc?.invitations.find((i) => i.entryToken === entryToken);
+  return doc && invitation
+    ? { guest: toItem(doc), eventId: invitation.eventId.toHexString() }
+    : null;
+}
+
+// The entry code for a guest's own invitation, found from their personal link. Only for a party
+// that has said it is coming; anyone else gets nothing.
+export async function getEntryTokenForGuest(
+  guestToken: string,
+  eventId: string,
+): Promise<string | null> {
+  const doc = await findGuestByToken(guestToken);
+  const invitation = doc?.invitations.find((i) => i.eventId.toHexString() === eventId);
+  return invitation && invitation.rsvpStatus === "attending" ? invitation.entryToken : null;
 }

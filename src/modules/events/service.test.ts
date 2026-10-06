@@ -18,6 +18,10 @@ const vendors = vi.hoisted(() => ({
   removeEventFromVendors: vi.fn(),
 }));
 const seating = vi.hoisted(() => ({ countTablesForEvent: vi.fn(), removeEventTables: vi.fn() }));
+const checkin = vi.hoisted(() => ({
+  countArrivalsForEvent: vi.fn(),
+  removeEventArrivals: vi.fn(),
+}));
 const inTransaction = vi.hoisted(() => vi.fn());
 vi.mock("./repository", () => repo);
 vi.mock("@/modules/tasks/service", () => tasks);
@@ -25,6 +29,7 @@ vi.mock("@/modules/guests/service", () => guests);
 vi.mock("@/modules/money/service", () => money);
 vi.mock("@/modules/vendors/service", () => vendors);
 vi.mock("@/modules/seating/service", () => seating);
+vi.mock("@/modules/checkin/service", () => checkin);
 vi.mock("@/lib/db", () => ({ inTransaction }));
 
 import { createEvent, deleteEvent, previewEventDelete, updateEvent } from "./service";
@@ -47,6 +52,7 @@ beforeEach(() => {
   Object.values(money).forEach((fn) => fn.mockReset());
   Object.values(vendors).forEach((fn) => fn.mockReset());
   Object.values(seating).forEach((fn) => fn.mockReset());
+  Object.values(checkin).forEach((fn) => fn.mockReset());
   inTransaction.mockReset().mockImplementation((work) => work(session));
 });
 
@@ -87,12 +93,14 @@ describe("deleting an event", () => {
     money.countExpensesForEvent.mockResolvedValue(5);
     vendors.countVendorsForEvent.mockResolvedValue(2);
     seating.countTablesForEvent.mockResolvedValue(4);
+    checkin.countArrivalsForEvent.mockResolvedValue(9);
     expect(await previewEventDelete("w1", "e1")).toEqual({
       taskCount: 3,
       guestCount: 12,
       expenseCount: 5,
       vendorCount: 2,
       tableCount: 4,
+      arrivalCount: 9,
     });
   });
 
@@ -103,6 +111,7 @@ describe("deleting an event", () => {
     expect(money.unlinkEventFromMoney).toHaveBeenCalledWith("w1", "e1", { session });
     expect(vendors.removeEventFromVendors).toHaveBeenCalledWith("w1", "e1", { session });
     expect(seating.removeEventTables).toHaveBeenCalledWith("w1", "e1", { session });
+    expect(checkin.removeEventArrivals).toHaveBeenCalledWith("w1", "e1", { session });
     expect(repo.deleteEvent).toHaveBeenCalledWith("w1", "e1", { session });
     expect(tasks.unlinkEvent).toHaveBeenCalledWith("w1", "e1", { session });
   });
@@ -115,5 +124,6 @@ describe("deleting an event", () => {
     expect(money.unlinkEventFromMoney).not.toHaveBeenCalled();
     expect(vendors.removeEventFromVendors).not.toHaveBeenCalled();
     expect(seating.removeEventTables).not.toHaveBeenCalled();
+    expect(checkin.removeEventArrivals).not.toHaveBeenCalled();
   });
 });

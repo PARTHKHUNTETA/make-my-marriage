@@ -116,6 +116,16 @@ the lint rule that protects tenant isolation), and Phase 1 (Foundation) is built
   CSV, or print / save as PDF from a clean print page. An optional per-event switch (off by
   default) shows "Your table" on the invitation page of parties who are coming.
 
+- **QR check-in:** a party that says it is coming gets an entry QR for that event on its
+  invitation page (and in the day-before reminder email). At the gate, members open Guests →
+  Check-in on a phone, pick the event and scan with the camera (or type the code, or search by
+  name or phone), enter how many arrived and tap Check in. A repeat scan says "Already checked in
+  at 7:42 PM, 3 people"; a code for another event, or a party not on the list, can be admitted as
+  a walk-in. A counter shows arrived against expected and refreshes every 15 seconds. Scans made
+  with no signal are kept on the phone and sent when it is back; each scan carries its own key,
+  so sending one twice never counts anyone twice. Gate volunteers must be members (invite them
+  as Managers).
+
 Still to come: deleting a wedding (Phase 1), Discover vendors (needs a Google Places key), listing
 photos (with file storage),
 budget alerts at 90% and 100% (Phase 7 notifications), and the event album, invitations, expenses and

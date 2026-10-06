@@ -24,6 +24,8 @@ const eventDetail = z.object({
   address: z.string().optional(),
   dressCode: z.string().optional(),
   mapUrl: link.optional(),
+  // The guest's entry QR for this event, as a picture address (event reminders only).
+  qrUrl: link.optional(),
 });
 export type EmailEvent = z.infer<typeof eventDetail>;
 const eventList = z
@@ -87,7 +89,12 @@ export function escapeHtml(value: string): string {
 // Collapses every run of whitespace, including any kind of line break, to a single space.
 const oneLine = (value: string) => value.split(/\s+/).join(" ").trim();
 
-type Block = { title: string; lines: string[]; link?: { label: string; url: string } };
+type Block = {
+  title: string;
+  lines: string[];
+  link?: { label: string; url: string };
+  image?: { url: string; alt: string };
+};
 
 type Layout = {
   heading: string;
@@ -114,6 +121,10 @@ function layout({ heading, paragraphs, blocks = [], cta, footnote, unsubscribeUr
           .join("")}${
           b.link
             ? `<div style="margin-top:6px;font-size:13px"><a href="${escapeHtml(b.link.url)}" style="color:#775a19">${escapeHtml(b.link.label)}</a></div>`
+            : ""
+        }${
+          b.image
+            ? `<div style="margin-top:10px"><img src="${escapeHtml(b.image.url)}" alt="${escapeHtml(b.image.alt)}" width="160" height="160" style="display:block;border:0"></div>`
             : ""
         }</td></tr></table>`,
     )
@@ -148,6 +159,7 @@ ${body}${cards}
       b.title,
       ...b.lines.map((line) => `  ${line}`),
       ...(b.link ? [`  ${b.link.label}: ${b.link.url}`] : []),
+      ...(b.image ? [`  ${b.image.alt}: ${b.image.url}`] : []),
       "",
     ]),
     `${cta.label}: ${cta.url}`,
@@ -252,6 +264,7 @@ function eventBlocks(events: EmailEvent[]): Block[] {
       ...(e.dressCode ? [`Dress code: ${e.dressCode}`] : []),
     ],
     ...(e.mapUrl ? { link: { label: "Open in Maps", url: e.mapUrl } } : {}),
+    ...(e.qrUrl ? { image: { url: e.qrUrl, alt: `Your entry code for ${e.name}` } } : {}),
   }));
 }
 

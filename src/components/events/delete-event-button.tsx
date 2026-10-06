@@ -14,6 +14,7 @@ function describeLinks({
   expenseCount,
   vendorCount,
   tableCount,
+  arrivalCount,
 }: EventDeletePreview) {
   const parts: string[] = [];
   if (guestCount > 0)
@@ -35,6 +36,10 @@ function describeLinks({
   if (tableCount > 0)
     parts.push(
       `${tableCount} seating ${tableCount === 1 ? "table" : "tables"} for it will be deleted.`,
+    );
+  if (arrivalCount > 0)
+    parts.push(
+      `${arrivalCount} ${arrivalCount === 1 ? "arrival" : "arrivals"} recorded at the gate will be deleted.`,
     );
   return parts.length > 0 ? parts.join(" ") : "Nothing else is linked to this event.";
 }
