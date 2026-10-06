@@ -33,7 +33,12 @@ export type VendorDoc = {
 };
 
 export type VendorFields = Pick<VendorDoc, "name" | "category"> &
-  Partial<Pick<VendorDoc, "phone" | "email" | "address" | "totalCost" | "eventIds" | "notes">>;
+  Partial<
+    Pick<
+      VendorDoc,
+      "phone" | "email" | "address" | "totalCost" | "eventIds" | "notes" | "listingId"
+    >
+  >;
 export type OptionalVendorField =
   "phone" | "email" | "address" | "totalCost" | "eventIds" | "notes";
 
@@ -44,6 +49,11 @@ function vendors(): Promise<Collection<VendorDoc>> {
     const col = (await getDb()).collection<VendorDoc>("vendors");
     await col.createIndex({ weddingId: 1, category: 1 });
     await col.createIndex({ weddingId: 1, eventIds: 1 });
+    // A marketplace vendor is added to My Vendors once: accepting two quotes cannot make two.
+    await col.createIndex(
+      { weddingId: 1, listingId: 1 },
+      { unique: true, partialFilterExpression: { listingId: { $exists: true } } },
+    );
     return col;
   })();
   ready.catch(() => {
@@ -54,10 +64,14 @@ function vendors(): Promise<Collection<VendorDoc>> {
 
 const oid = (id: string) => (ObjectId.isValid(id) ? new ObjectId(id) : null);
 
-export async function insertVendor(weddingId: string, fields: VendorFields): Promise<VendorDoc> {
+export async function insertVendor(
+  weddingId: string,
+  fields: VendorFields,
+  options?: { session?: ClientSession },
+): Promise<VendorDoc> {
   const now = new Date();
   const doc = { _id: new ObjectId(), ...fields, installments: [], createdAt: now, updatedAt: now };
-  await scoped(await vendors(), { weddingId }).insertOne(doc);
+  await scoped(await vendors(), { weddingId }).insertOne(doc, options);
   return { ...doc, weddingId: new ObjectId(weddingId) };
 }
 
@@ -232,4 +246,12 @@ export async function pullEvent(
 export async function countForEvent(weddingId: string, eventId: string): Promise<number> {
   const id = oid(eventId);
   return id ? scoped(await vendors(), { weddingId }).countDocuments({ eventIds: id }) : 0;
+}
+
+export async function findVendorByListing(
+  weddingId: string,
+  listingId: string,
+): Promise<VendorDoc | null> {
+  const id = oid(listingId);
+  return id ? scoped(await vendors(), { weddingId }).findOne({ listingId: id }) : null;
 }

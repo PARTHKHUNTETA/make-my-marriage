@@ -188,3 +188,143 @@ export type ListingView = {
   ratingCount: number;
   updatedAt: Date;
 };
+
+// ---- browsing the marketplace (members) ----
+
+export const SORTS = ["rating", "price_low", "price_high"] as const;
+export type Sort = (typeof SORTS)[number];
+export const SORT_LABELS: Record<Sort, string> = {
+  rating: "Highest rated",
+  price_low: "Price: low to high",
+  price_high: "Price: high to low",
+};
+export const LISTING_PAGE_SIZE = 12;
+
+export type ListingQuery = {
+  category?: (typeof VENDOR_CATEGORIES)[number];
+  city?: string;
+  minPrice?: number; // paise
+  maxPrice?: number; // paise
+  sort: Sort;
+  page: number;
+};
+
+export function parseListingQuery(
+  raw: Record<string, string | string[] | undefined>,
+): ListingQuery {
+  const one = (key: string) => (typeof raw[key] === "string" ? (raw[key] as string) : undefined);
+  const page = Number(one("page"));
+  const price = (key: string) => {
+    const value = one(key);
+    return value ? (parseRupees(value) ?? undefined) : undefined;
+  };
+  return {
+    category: VENDOR_CATEGORIES.find((c) => c === one("category")),
+    city: one("city")?.trim().slice(0, 60) || undefined,
+    minPrice: price("minPrice"),
+    maxPrice: price("maxPrice"),
+    sort: SORTS.find((s) => s === one("sort")) ?? "rating",
+    page: Number.isInteger(page) && page >= 1 && page <= 10_000 ? page : 1,
+  };
+}
+
+// ---- booking requests ----
+
+export const BOOKING_STATUSES = ["sent", "quoted", "accepted", "declined", "cancelled"] as const;
+export type BookingStatus = (typeof BOOKING_STATUSES)[number];
+export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
+  sent: "Sent",
+  quoted: "Quoted",
+  accepted: "Accepted",
+  declined: "Declined",
+  cancelled: "Cancelled",
+};
+
+const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, "Not a valid id");
+
+export const bookingRequestSchema = z.object({
+  listingId: objectId,
+  eventIds: z.preprocess(
+    (value) =>
+      typeof value === "string" ? [value] : value === false || value == null ? [] : value,
+    z.array(objectId).min(1, "Choose at least one event").max(20),
+  ),
+  city: z.preprocess(blank, z.string().trim().max(60, "That is too long").optional()),
+  expectedHeadcount: z.preprocess(
+    blank,
+    z.coerce
+      .number()
+      .int("Enter a whole number")
+      .min(1, "At least 1")
+      .max(100_000, "That is too many")
+      .optional(),
+  ),
+  message: z.preprocess(blank, z.string().trim().max(1000, "That is too long").optional()),
+  // Shared with the vendor only if the couple chooses to, so they can be reached.
+  contactName: z.preprocess(blank, z.string().trim().max(100, "That is too long").optional()),
+  contactPhone: z.preprocess(
+    blank,
+    z
+      .string()
+      .transform((value, ctx) => {
+        const phone = normalizePhone(value);
+        if (!phone) {
+          ctx.addIssue({ code: "custom", message: "Enter a valid phone number" });
+          return z.NEVER;
+        }
+        return phone;
+      })
+      .optional(),
+  ),
+});
+export type BookingRequestInput = z.output<typeof bookingRequestSchema>;
+export type BookingRequestFormValues = z.input<typeof bookingRequestSchema>;
+
+export const requestIdSchema = z.object({ requestId: objectId });
+export const quoteSchema = z.object({
+  requestId: objectId,
+  amount: z.string().transform((value, ctx) => {
+    const paise = parseRupees(value);
+    if (paise === null || paise > MAX_PAISE) {
+      ctx.addIssue({ code: "custom", message: "Enter a price in rupees, like 150000" });
+      return z.NEVER;
+    }
+    return paise;
+  }),
+});
+// The amount the couple saw is sent back, so a quote that changed in the meantime is not accepted
+// by mistake.
+export const acceptQuoteSchema = z.object({
+  requestId: objectId,
+  amount: z.number().int().positive(),
+});
+
+export type EventSnapshot = { name: string; date: Date };
+
+// What a couple sees about one of their requests.
+export type BookingView = {
+  id: string;
+  listingId: string;
+  businessName: string;
+  events: EventSnapshot[];
+  city?: string;
+  expectedHeadcount?: number;
+  message?: string;
+  quotedAmount?: number;
+  status: BookingStatus;
+  createdAt: Date;
+};
+
+// What a vendor sees: only what the couple chose to send. No wedding id, no names, nothing else.
+export type VendorBookingView = {
+  id: string;
+  events: EventSnapshot[];
+  city?: string;
+  expectedHeadcount?: number;
+  message?: string;
+  contactName?: string;
+  contactPhone?: string;
+  quotedAmount?: number;
+  status: BookingStatus;
+  createdAt: Date;
+};

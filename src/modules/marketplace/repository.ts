@@ -9,7 +9,7 @@ import {
   type UpdateFilter,
 } from "mongodb";
 import { getDb } from "@/lib/db";
-import type { ListingStatus } from "./schema";
+import type { BookingStatus, EventSnapshot, ListingQuery, ListingStatus } from "./schema";
 import type { VendorCategory } from "@/modules/vendors/schema";
 
 // All MongoDB access for the marketplace module. Unlike the wedding modules, these collections
@@ -291,4 +291,185 @@ export async function listListingsForStaff(): Promise<ListingDoc[]> {
   };
   const all = await (await listings()).find({}).sort({ updatedAt: -1 }).limit(500).toArray();
   return all.sort((a, b) => order[a.status] - order[b.status]);
+}
+
+// ---- browsing: only approved listings are ever shown to couples ----
+
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export async function searchApprovedListings(
+  query: ListingQuery,
+  pageSize: number,
+): Promise<{ docs: ListingDoc[]; total: number }> {
+  const match: Document = { status: "approved" };
+  if (query.category) match.category = query.category;
+  if (query.city)
+    match.cities = { $elemMatch: { $regex: `^${escapeRegex(query.city)}$`, $options: "i" } };
+  if (query.minPrice !== undefined || query.maxPrice !== undefined)
+    match.startingPrice = {
+      ...(query.minPrice !== undefined ? { $gte: query.minPrice } : {}),
+      ...(query.maxPrice !== undefined ? { $lte: query.maxPrice } : {}),
+    };
+  // Listings with no price go last when sorting by price, either way round.
+  const sort: Document =
+    query.sort === "rating"
+      ? { ratingAvg: -1, ratingCount: -1, _id: 1 }
+      : query.sort === "price_low"
+        ? { _price: 1, _id: 1 }
+        : { _price: -1, _id: 1 };
+  const missing = query.sort === "price_high" ? -1 : Number.MAX_SAFE_INTEGER;
+  const col = await listings();
+  const [docs, total] = await Promise.all([
+    col
+      .aggregate<ListingDoc>([
+        { $match: match },
+        { $addFields: { _price: { $ifNull: ["$startingPrice", missing] } } },
+        { $sort: sort },
+        { $skip: (query.page - 1) * pageSize },
+        { $limit: pageSize },
+        { $project: { _price: 0 } },
+      ])
+      .toArray(),
+    col.countDocuments(match),
+  ]);
+  return { docs, total };
+}
+
+export async function findApprovedListing(id: string): Promise<ListingDoc | null> {
+  const _id = oid(id);
+  return _id ? (await listings()).findOne({ _id, status: "approved" }) : null;
+}
+
+// ---- booking requests ----
+
+export type BookingRequestDoc = {
+  _id: ObjectId;
+  weddingId: ObjectId; // which wedding sent it: a reference, not a scope
+  listingId: ObjectId;
+  vendorAccountId: ObjectId;
+  businessName: string; // as it was when the request was sent
+  events: EventSnapshot[]; // what the vendor sees
+  eventIds: ObjectId[]; // for linking the vendor to events on acceptance; never shown to the vendor
+  city?: string;
+  expectedHeadcount?: number;
+  message?: string;
+  contactName?: string;
+  contactPhone?: string;
+  quotedAmount?: number;
+  status: BookingStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+let requestsReady: Promise<Collection<BookingRequestDoc>> | undefined;
+
+function requests(): Promise<Collection<BookingRequestDoc>> {
+  requestsReady ??= (async () => {
+    const col = (await getDb()).collection<BookingRequestDoc>("bookingRequests");
+    await col.createIndex({ weddingId: 1, createdAt: -1 });
+    await col.createIndex({ vendorAccountId: 1, createdAt: -1 });
+    // A wedding can have only one open request (sent or quoted) per listing, so a double click or
+    // a second tab cannot send the same vendor two.
+    await col.createIndex(
+      { weddingId: 1, listingId: 1 },
+      { unique: true, partialFilterExpression: { status: { $in: ["sent", "quoted"] } } },
+    );
+    return col;
+  })();
+  requestsReady.catch(() => {
+    requestsReady = undefined;
+  });
+  return requestsReady;
+}
+
+// Null when the wedding already has an open request to this listing.
+export async function insertRequest(
+  doc: Omit<BookingRequestDoc, "_id" | "status" | "createdAt" | "updatedAt">,
+): Promise<BookingRequestDoc | null> {
+  const now = new Date();
+  const full: BookingRequestDoc = {
+    _id: new ObjectId(),
+    status: "sent",
+    createdAt: now,
+    updatedAt: now,
+    ...doc,
+  };
+  try {
+    await (await requests()).insertOne(full);
+    return full;
+  } catch (err) {
+    if (err instanceof MongoServerError && err.code === 11000) return null;
+    throw err;
+  }
+}
+
+export async function listRequestsForWedding(weddingId: string): Promise<BookingRequestDoc[]> {
+  const id = oid(weddingId);
+  return id
+    ? (await requests()).find({ weddingId: id }).sort({ createdAt: -1 }).limit(200).toArray()
+    : [];
+}
+
+export async function findOpenRequestForListing(
+  weddingId: string,
+  listingId: string,
+): Promise<BookingRequestDoc | null> {
+  const [w, l] = [oid(weddingId), oid(listingId)];
+  if (!w || !l) return null;
+  return (await requests()).findOne({
+    weddingId: w,
+    listingId: l,
+    status: { $in: ["sent", "quoted"] },
+  });
+}
+
+export async function listRequestsForVendor(accountId: string): Promise<BookingRequestDoc[]> {
+  const id = oid(accountId);
+  return id
+    ? (await requests()).find({ vendorAccountId: id }).sort({ createdAt: -1 }).limit(200).toArray()
+    : [];
+}
+
+export async function findRequestForWedding(
+  weddingId: string,
+  id: string,
+): Promise<BookingRequestDoc | null> {
+  const [w, _id] = [oid(weddingId), oid(id)];
+  return w && _id ? (await requests()).findOne({ _id, weddingId: w }) : null;
+}
+
+// Moves a request between statuses, only from the statuses given and only for its rightful side
+// (the sending wedding or the receiving vendor), so a stale click or a guessed id changes nothing.
+export async function transitionRequest(
+  id: string,
+  side: { weddingId: string } | { vendorAccountId: string },
+  from: BookingStatus[],
+  to: BookingStatus,
+  extra: { quotedAmount?: number; onlyIfQuoted?: number } = {},
+  options?: { session?: ClientSession },
+): Promise<BookingRequestDoc | null> {
+  const _id = oid(id);
+  if (!_id) return null;
+  const query: Filter<BookingRequestDoc> = { _id, status: { $in: from } };
+  if ("weddingId" in side) {
+    const w = oid(side.weddingId);
+    if (!w) return null;
+    query.weddingId = w;
+  } else {
+    const v = oid(side.vendorAccountId);
+    if (!v) return null;
+    query.vendorAccountId = v;
+  }
+  if (extra.onlyIfQuoted !== undefined) query.quotedAmount = extra.onlyIfQuoted;
+  return (await requests()).findOneAndUpdate(
+    query,
+    {
+      $set: {
+        status: to,
+        updatedAt: new Date(),
+        ...(extra.quotedAmount !== undefined ? { quotedAmount: extra.quotedAmount } : {}),
+      },
+    },
+    { returnDocument: "after", ...options },
+  );
 }

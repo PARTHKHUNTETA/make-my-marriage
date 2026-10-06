@@ -83,8 +83,16 @@ the lint rule that protects tenant isolation), and Phase 1 (Foundation) is built
   signed-in member whose verified email is listed in `STAFF_EMAILS`; for everyone else the page
   is a 404. Set it in `.env.local` / Vercel (see `.env.example`).
 
-Still to come: deleting a wedding (Phase 1), Discover vendors, the marketplace for couples,
-booking requests and reviews (the rest of Phase 4), listing photos (with file storage),
+- **Marketplace and bookings:** couples browse approved listings (starting in the wedding's own
+  city) by category, city and price range, sorted by rating or price. A request names the events
+  they want the vendor at, with the city, an expected guest count, a message and, if they choose,
+  how to reach them. The vendor sees only that: event names and dates, never the couple's other
+  data. The vendor replies with a quote or declines; the couple accepts the quote, which adds the
+  vendor to My Vendors with the quote as total cost, linked to those events, in one transaction.
+  A quote that changed after the couple looked cannot be accepted by mistake.
+
+Still to come: deleting a wedding (Phase 1), Discover vendors and marketplace reviews (the rest
+of Phase 4), listing photos (with file storage),
 budget alerts at 90% and 100% (Phase 7 notifications), and the event album, invitations, expenses and
 vendor links that attach to events in later phases. Features are built
 in the PRD's seven release phases.

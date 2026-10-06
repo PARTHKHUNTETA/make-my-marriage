@@ -1,6 +1,8 @@
 import "server-only";
+import { inTransaction } from "@/lib/db";
 import { absoluteUrl } from "@/lib/app-url";
 import { queueEmail } from "@/lib/email";
+import { ObjectId } from "mongodb";
 import { AppError } from "@/lib/errors";
 import { burnPasswordCheck, hashPassword, verifyPassword } from "@/lib/passwords";
 import { generateToken, hashToken } from "@/lib/tokens";
@@ -10,9 +12,19 @@ import {
   findAccountByEmail,
   findAccountById,
   findAccountsByIds,
+  findApprovedListing,
   findListingByAccount,
+  findListingById,
+  findOpenRequestForListing,
+  findRequestForWedding,
   insertAccount,
+  insertRequest,
   listListingsForStaff,
+  listRequestsForVendor,
+  listRequestsForWedding,
+  searchApprovedListings,
+  transitionRequest,
+  type BookingRequestDoc,
   setResetToken,
   setVerifyToken,
   transitionListing,
@@ -20,6 +32,15 @@ import {
   type ListingDoc,
   type VendorAccountDoc,
 } from "./repository";
+import { createVendorFromBooking, isListingInMyVendors } from "@/modules/vendors/service";
+import {
+  LISTING_PAGE_SIZE,
+  type BookingRequestInput,
+  type BookingView,
+  type EventSnapshot,
+  type ListingQuery,
+  type VendorBookingView,
+} from "./schema";
 import type {
   ListingInput,
   ListingStatus,
@@ -242,4 +263,185 @@ export async function decideListing(
       "That listing was not found, or someone already changed it. Refresh and try again.",
     );
   return toListingView(doc);
+}
+
+// ---- the marketplace, for couples ----
+
+export async function browseListings(
+  query: ListingQuery,
+): Promise<{ items: ListingView[]; total: number; page: number; pageSize: number }> {
+  const { docs, total } = await searchApprovedListings(query, LISTING_PAGE_SIZE);
+  return { items: docs.map(toListingView), total, page: query.page, pageSize: LISTING_PAGE_SIZE };
+}
+
+// Only a live listing can be seen by couples; anything else looks the same as one that does not
+// exist.
+export async function getLiveListing(listingId: string): Promise<ListingView | null> {
+  const doc = await findApprovedListing(listingId);
+  return doc ? toListingView(doc) : null;
+}
+
+function toBookingView(doc: BookingRequestDoc): BookingView {
+  return {
+    id: doc._id.toHexString(),
+    listingId: doc.listingId.toHexString(),
+    businessName: doc.businessName,
+    events: doc.events,
+    city: doc.city,
+    expectedHeadcount: doc.expectedHeadcount,
+    message: doc.message,
+    quotedAmount: doc.quotedAmount,
+    status: doc.status,
+    createdAt: doc.createdAt,
+  };
+}
+
+// A couple sends a request: the events they chose (as snapshots), the city, an expected headcount,
+// a message and optionally how to reach them. That is everything the vendor will ever see.
+export async function sendBookingRequest(
+  weddingId: string,
+  input: BookingRequestInput,
+  events: { ids: string[]; snapshots: EventSnapshot[] },
+): Promise<BookingView> {
+  const listing = await findApprovedListing(input.listingId);
+  if (!listing) throw new AppError("NOT_FOUND", "That vendor is not available right now.");
+  if (await isListingInMyVendors(weddingId, input.listingId))
+    throw new AppError("VALIDATION_FAILED", "This vendor is already in your My Vendors.");
+  const doc = await insertRequest({
+    weddingId: new ObjectId(weddingId),
+    listingId: listing._id,
+    vendorAccountId: listing.vendorAccountId,
+    businessName: listing.businessName,
+    events: events.snapshots,
+    eventIds: events.ids.map((id) => new ObjectId(id)),
+    ...(input.city ? { city: input.city } : {}),
+    ...(input.expectedHeadcount ? { expectedHeadcount: input.expectedHeadcount } : {}),
+    ...(input.message ? { message: input.message } : {}),
+    ...(input.contactName ? { contactName: input.contactName } : {}),
+    ...(input.contactPhone ? { contactPhone: input.contactPhone } : {}),
+  });
+  if (!doc)
+    throw new AppError("VALIDATION_FAILED", "You already have an open request with this vendor.");
+  return toBookingView(doc);
+}
+
+export async function listBookings(weddingId: string): Promise<BookingView[]> {
+  return (await listRequestsForWedding(weddingId)).map(toBookingView);
+}
+
+// The open request (sent or quoted) a wedding has with a listing, if any.
+export async function getOpenBooking(
+  weddingId: string,
+  listingId: string,
+): Promise<BookingView | null> {
+  const doc = await findOpenRequestForListing(weddingId, listingId);
+  return doc ? toBookingView(doc) : null;
+}
+
+export async function cancelBooking(weddingId: string, requestId: string): Promise<void> {
+  const doc = await transitionRequest(requestId, { weddingId }, ["sent", "quoted"], "cancelled");
+  if (!doc)
+    throw new AppError("NOT_FOUND", "That request can't be cancelled. It may already be answered.");
+}
+
+// The couple accepts the vendor's quote. In one transaction the request becomes accepted and the
+// vendor is added to My Vendors with the agreed amount as its total cost. The amount the couple
+// saw must still be the current quote, so a quote changed a moment ago is not accepted by mistake.
+export async function acceptQuote(
+  weddingId: string,
+  requestId: string,
+  seenAmount: number,
+): Promise<void> {
+  const request = await findRequestForWedding(weddingId, requestId);
+  if (!request) throw new AppError("NOT_FOUND", "That request no longer exists.");
+  const [listing, account] = await Promise.all([
+    findListingById(request.listingId.toHexString()),
+    findAccountById(request.vendorAccountId.toHexString()),
+  ]);
+  if (!listing || !account) throw new AppError("NOT_FOUND", "That vendor is no longer available.");
+
+  await inTransaction(async (session) => {
+    const accepted = await transitionRequest(
+      requestId,
+      { weddingId },
+      ["quoted"],
+      "accepted",
+      { onlyIfQuoted: seenAmount },
+      { session },
+    );
+    if (!accepted)
+      throw new AppError(
+        "VALIDATION_FAILED",
+        "This quote has changed or is no longer open. Refresh to see the latest.",
+      );
+    await createVendorFromBooking(
+      weddingId,
+      {
+        listingId: listing._id.toHexString(),
+        name: listing.businessName,
+        category: listing.category,
+        phone: account.phone,
+        email: account.email,
+        totalCost: seenAmount,
+        eventIds: request.eventIds.map((e) => e.toHexString()),
+      },
+      { session },
+    );
+  });
+}
+
+// ---- booking requests, for vendors ----
+
+function toVendorBookingView(doc: BookingRequestDoc): VendorBookingView {
+  return {
+    id: doc._id.toHexString(),
+    events: doc.events,
+    city: doc.city,
+    expectedHeadcount: doc.expectedHeadcount,
+    message: doc.message,
+    contactName: doc.contactName,
+    contactPhone: doc.contactPhone,
+    quotedAmount: doc.quotedAmount,
+    status: doc.status,
+    createdAt: doc.createdAt,
+  };
+}
+
+export async function listVendorBookings(accountId: string): Promise<VendorBookingView[]> {
+  return (await listRequestsForVendor(accountId)).map(toVendorBookingView);
+}
+
+export async function quoteRequest(
+  accountId: string,
+  requestId: string,
+  amount: number,
+): Promise<void> {
+  const doc = await transitionRequest(
+    requestId,
+    { vendorAccountId: accountId },
+    ["sent", "quoted"],
+    "quoted",
+    {
+      quotedAmount: amount,
+    },
+  );
+  if (!doc)
+    throw new AppError(
+      "NOT_FOUND",
+      "That request can't be quoted. It may have been cancelled or answered.",
+    );
+}
+
+export async function declineRequest(accountId: string, requestId: string): Promise<void> {
+  const doc = await transitionRequest(
+    requestId,
+    { vendorAccountId: accountId },
+    ["sent", "quoted"],
+    "declined",
+  );
+  if (!doc)
+    throw new AppError(
+      "NOT_FOUND",
+      "That request can't be declined. It may have been cancelled or answered.",
+    );
 }

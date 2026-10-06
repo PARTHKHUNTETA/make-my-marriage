@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Mail, Phone, Plus } from "lucide-react";
 import { VendorFilters } from "@/components/vendors/vendor-filters";
+import { VendorsTabs } from "@/components/vendors/vendors-tabs";
 import { requireMember } from "@/lib/authz";
 import { formatRupees } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
@@ -45,6 +46,8 @@ export default async function VendorsPage({
           <Plus className="size-4" aria-hidden /> Add vendor
         </Link>
       </div>
+
+      <VendorsTabs active="mine" />
 
       <div className="mt-6">
         <VendorFilters events={events.map((e) => ({ id: e.id, name: e.name }))} />

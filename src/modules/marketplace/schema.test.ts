@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  acceptQuoteSchema,
+  bookingRequestSchema,
+  parseListingQuery,
+  quoteSchema,
   listingInputSchema,
   staffDecisionSchema,
   vendorLoginSchema,
@@ -110,5 +114,86 @@ describe("staffDecisionSchema", () => {
     expect(staffDecisionSchema.safeParse({ listingId: "x", decision: "approve" }).success).toBe(
       false,
     );
+  });
+});
+
+describe("parseListingQuery", () => {
+  it("reads filters, prices in rupees, sort and page", () => {
+    expect(
+      parseListingQuery({
+        category: "florist",
+        city: " Pune ",
+        minPrice: "10,000",
+        maxPrice: "50000",
+        sort: "price_low",
+        page: "2",
+      }),
+    ).toEqual({
+      category: "florist",
+      city: "Pune",
+      minPrice: 1_000_000,
+      maxPrice: 5_000_000,
+      sort: "price_low",
+      page: 2,
+    });
+  });
+  it("ignores junk and defaults to highest rated, page 1", () => {
+    expect(
+      parseListingQuery({ category: "x", minPrice: "abc", sort: "random", page: "-3" }),
+    ).toEqual({
+      category: undefined,
+      city: undefined,
+      minPrice: undefined,
+      maxPrice: undefined,
+      sort: "rating",
+      page: 1,
+    });
+  });
+});
+
+describe("bookingRequestSchema", () => {
+  const L = "507f1f77bcf86cd799439011";
+  const E = "507f1f77bcf86cd799439012";
+  it("needs a listing and at least one event, and takes one event as a string", () => {
+    expect(bookingRequestSchema.safeParse({ listingId: L, eventIds: [E] }).success).toBe(true);
+    const one = bookingRequestSchema.safeParse({ listingId: L, eventIds: E });
+    expect(one.success && one.data.eventIds).toEqual([E]);
+    expect(bookingRequestSchema.safeParse({ listingId: L, eventIds: [] }).success).toBe(false);
+    expect(bookingRequestSchema.safeParse({ listingId: L, eventIds: false }).success).toBe(false);
+    expect(bookingRequestSchema.safeParse({ listingId: "nope", eventIds: [E] }).success).toBe(
+      false,
+    );
+  });
+  it("treats blank optional fields as not set and normalises the phone", () => {
+    const r = bookingRequestSchema.safeParse({
+      listingId: L,
+      eventIds: [E],
+      city: "",
+      message: " ",
+      contactPhone: "98765 43210",
+      expectedHeadcount: "",
+    });
+    expect(r.success && r.data).toMatchObject({
+      city: undefined,
+      message: undefined,
+      contactPhone: "+919876543210",
+      expectedHeadcount: undefined,
+    });
+  });
+});
+
+describe("quote schemas", () => {
+  it("a quote is a positive amount in rupees, turned into paise", () => {
+    const L = "507f1f77bcf86cd799439011";
+    const r = quoteSchema.safeParse({ requestId: L, amount: "1,50,000" });
+    expect(r.success && r.data.amount).toBe(15_000_000);
+    for (const amount of ["0", "-5", "abc", ""])
+      expect(quoteSchema.safeParse({ requestId: L, amount }).success).toBe(false);
+  });
+  it("accepting names the exact amount that was shown", () => {
+    const L = "507f1f77bcf86cd799439011";
+    expect(acceptQuoteSchema.safeParse({ requestId: L, amount: 100 }).success).toBe(true);
+    expect(acceptQuoteSchema.safeParse({ requestId: L, amount: 1.5 }).success).toBe(false);
+    expect(acceptQuoteSchema.safeParse({ requestId: L }).success).toBe(false);
   });
 });

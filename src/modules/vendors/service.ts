@@ -13,6 +13,7 @@ import {
   countForEvent,
   deleteVendor as removeVendor,
   findVendor,
+  findVendorByListing,
   insertVendor,
   listVendorDocs,
   pullEvent,
@@ -294,4 +295,57 @@ export function removeEventFromVendors(
   options?: { session?: ClientSession },
 ): Promise<void> {
   return pullEvent(weddingId, eventId, options);
+}
+
+// ---- marketplace ----
+
+// Adds a marketplace vendor to My Vendors when a couple accepts a quote: the agreed amount is the
+// total cost and the events are the ones the request was for. Runs inside the marketplace
+// module's transaction. A listing can be added only once per wedding.
+export async function createVendorFromBooking(
+  weddingId: string,
+  input: {
+    listingId: string;
+    name: string;
+    category: VendorDoc["category"];
+    phone?: string;
+    email?: string;
+    totalCost: number;
+    eventIds: string[];
+  },
+  options: { session: ClientSession },
+): Promise<void> {
+  try {
+    await insertVendor(
+      weddingId,
+      {
+        name: input.name,
+        category: input.category,
+        ...(input.phone ? { phone: input.phone } : {}),
+        ...(input.email ? { email: input.email } : {}),
+        totalCost: input.totalCost,
+        eventIds: input.eventIds.map((e) => new ObjectId(e)),
+        listingId: new ObjectId(input.listingId),
+      },
+      options,
+    );
+  } catch (err) {
+    if (err instanceof Error && "code" in err && (err as { code?: number }).code === 11000)
+      throw new AppError("VALIDATION_FAILED", "This vendor is already in your My Vendors.");
+    throw err;
+  }
+}
+
+export async function isListingInMyVendors(weddingId: string, listingId: string): Promise<boolean> {
+  return (await findVendorByListing(weddingId, listingId)) !== null;
+}
+
+// The vendor a listing became, with its linked events, for the review rule (PRD 5.8: a review is
+// allowed only after the vendor's last linked event).
+export async function getVendorByListing(
+  weddingId: string,
+  listingId: string,
+): Promise<VendorItem | null> {
+  const doc = await findVendorByListing(weddingId, listingId);
+  return doc ? toItem(doc) : null;
 }
