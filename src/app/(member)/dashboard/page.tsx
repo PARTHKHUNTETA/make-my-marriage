@@ -3,20 +3,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowRight,
-  Camera,
-  Check,
+  CalendarPlus,
   CheckSquare,
   ChevronRight,
-  Eye,
-  FileText,
-  Flower2,
   Handshake,
   IndianRupee,
   ListChecks,
+  ListPlus,
   MapPin,
-  Music,
   PartyPopper,
-  ScanQrCode,
+  Camera,
   Send,
   Timer,
   UserPlus,
@@ -26,13 +22,17 @@ import {
 
 import { requireMember } from "@/lib/authz";
 import { daysUntil, formatLongDate } from "@/lib/dates";
+import { EVENT_TYPE_LABELS, eventStartsAt, formatTime } from "@/modules/events/schema";
+import { listEvents } from "@/modules/events/service";
+import { RSVP_LABELS } from "@/modules/guests/schema";
+import { getStats, listEveryGuest } from "@/modules/guests/service";
+import { listTasks } from "@/modules/tasks/service";
 import { getWedding } from "@/modules/wedding/service";
 
 export const metadata: Metadata = { title: "Dashboard — Make My Marriage" };
 
-// The hero (couple, date, place, countdown) shows the real wedding. Everything below it is
-// mock data from the design. Replace with module queries
-// (wedding, events, tasks, guests, money, vendors, photos) as those land.
+// Everything on this page is read from the wedding's own data: events, tasks and guests. Money,
+// vendors and photos show as "coming soon" until their release phases exist.
 
 const card = "rounded-xl bg-white p-4 shadow-sm transition-shadow hover:shadow-md";
 const eyebrow = "text-[11px] font-medium tracking-wider text-ink-2/60 uppercase";
@@ -44,109 +44,32 @@ const quickActions: {
   href: string;
   primary?: boolean;
 }[] = [
-  { label: "Add Guest", hint: "Invites & tables", icon: UserPlus, href: "/guests", primary: true },
-  { label: "Add Expense", hint: "Log payment voucher", icon: IndianRupee, href: "/money" },
-  { label: "Add Task", hint: "Assign runsheet item", icon: CheckSquare, href: "/tasks" },
-  { label: "Send Reminder", hint: "RSVP broadcast", icon: Send, href: "/guests" },
+  {
+    label: "Add Guest",
+    hint: "Invite a party",
+    icon: UserPlus,
+    href: "/guests/new",
+    primary: true,
+  },
+  { label: "Add Event", hint: "A new function", icon: CalendarPlus, href: "/events/new" },
+  { label: "Add Task", hint: "Checklist item", icon: ListPlus, href: "/tasks/new" },
+  { label: "Send Reminder", hint: "Emails to guests", icon: Send, href: "/guests/reminders" },
 ];
 
-const ceremonies = [
-  {
-    dow: "SUN",
-    day: "14",
-    time: "11:00 AM – 3:30 PM IST",
-    dayLabel: "Day 01",
-    tag: "Run-sheet locked",
-    tagTone: "ok",
-    title: "The Courtyard Mehendi & Welcome Lunch",
-    venue: "Guava Garden & Poolside Terrace, The Leela Palace, Udaipur",
-    attire: "Sunny Pastels & Leheriya",
-    attending: 164,
-    invited: 180,
-  },
-  {
-    dow: "MON",
-    day: "15",
-    time: "7:00 PM onwards IST",
-    dayLabel: "Day 02",
-    tag: "Soundcheck 4:00 PM",
-    tagTone: "warn",
-    title: "Royal Sangeet & Musical Night",
-    venue: "Grand Mewar Ballroom, The Leela Palace",
-    attire: "Indo-Western & Glamour",
-    attending: 412,
-    invited: 480,
-  },
-  {
-    dow: "TUE",
-    day: "16",
-    time: "4:30 PM – 8:00 PM IST",
-    dayLabel: "Day 03 • Principal Ritual",
-    tag: "Boat transfers scheduled",
-    tagTone: "warn",
-    title: "Lakeside Pheras & Wedding Ceremony",
-    venue: "Jagmandir Island Palace, Lake Pichola",
-    attire: "Traditional Formal & Regal",
-    attending: 448,
-    invited: 480,
-  },
-];
-
-const rsvps = [
-  {
-    name: "Dr. Vikram & Sunita Mehta",
-    meta: "Party of 2 • Udaipur Flight 6E-204",
-    events: "All 5 Events",
-    diet: "Strict Jain (No root)",
-    transfer: "Innova #12 Assigned",
-    transferTone: "text-bronze font-medium",
-    status: "Confirmed",
-  },
-  {
-    name: "Ananya Singhania",
-    meta: "Solo • Road transfer from Ahmedabad",
-    events: "Sangeet • Pheras",
-    diet: "Gluten Free",
-    transfer: "Self Arranged",
-    transferTone: "text-ink-2/60",
-    status: "Confirmed",
-  },
-  {
-    name: "Rajesh & Kavita Chopra",
-    meta: "Party of 4 • Awaiting Train Schedule",
-    events: "Mehendi • Reception",
-    diet: "No Restrictions",
-    transfer: "Pending Details",
-    transferTone: "text-ink-2",
-    status: "Pending Arrival",
-  },
-];
-
-const deliverables: {
-  icon: LucideIcon;
-  title: string;
-  meta: string;
-  action: "release" | "review" | "locked";
-}[] = [
-  {
-    icon: Music,
-    title: "DJ & Sound Setup Sign-off",
-    meta: "Mewar Sound Labs • Tranche 2 (₹1,50,000)",
-    action: "release",
-  },
-  {
-    icon: Camera,
-    title: "Candid Cinema Crew Shotlist",
-    meta: "Stories by Joseph • Family portraits list",
-    action: "review",
-  },
-  {
-    icon: Flower2,
-    title: "Mandap Floral Mockup",
-    meta: "Udaipur Botanicals • 3D rendering approved",
-    action: "locked",
-  },
-];
+const dayParts = (date: Date) => ({
+  dow: new Intl.DateTimeFormat("en-IN", { weekday: "short", timeZone: "Asia/Kolkata" }).format(
+    date,
+  ),
+  day: new Intl.DateTimeFormat("en-IN", { day: "numeric", timeZone: "Asia/Kolkata" }).format(date),
+  month: new Intl.DateTimeFormat("en-IN", { month: "short", timeZone: "Asia/Kolkata" }).format(
+    date,
+  ),
+});
+const shortDate = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  timeZone: "Asia/Kolkata",
+});
 
 function CardFooter({
   href,
@@ -155,7 +78,7 @@ function CardFooter({
 }: {
   href: string;
   label: string;
-  trailing: React.ReactNode;
+  trailing?: React.ReactNode;
 }) {
   return (
     <div className="-mx-4 mt-4 -mb-4 flex items-center justify-between rounded-b-xl bg-rose-50 px-4 py-2.5">
@@ -171,12 +94,60 @@ function CardFooter({
   );
 }
 
+function SoonCard({ title, icon: Icon, text }: { title: string; icon: LucideIcon; text: string }) {
+  return (
+    <div className="flex flex-col justify-between rounded-xl border border-dashed border-line bg-white/60 p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <span className={eyebrow}>{title}</span>
+        <Icon className="size-5 text-ink-2/50" />
+      </div>
+      <p className="text-[13px] text-ink-2">{text}</p>
+      <span className="mt-3 self-start rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-medium text-ink-2">
+        Coming soon
+      </span>
+    </div>
+  );
+}
+
 export default async function DashboardPage() {
   const ctx = await requireMember();
-  const wedding = await getWedding(ctx.weddingId);
+  const now = new Date();
+  const [wedding, events, tasks, stats, guests] = await Promise.all([
+    getWedding(ctx.weddingId),
+    listEvents(ctx.weddingId),
+    listTasks(ctx.weddingId, { view: "all" }, ctx.memberId),
+    getStats(ctx.weddingId),
+    listEveryGuest(ctx.weddingId),
+  ]);
   if (!wedding) notFound();
+
   const days = daysUntil(wedding.date);
   const daysShown = Math.abs(days);
+  const upcoming = events.filter((e) => eventStartsAt(e) > now);
+  const nextEvent = upcoming[0];
+  const nextDays = nextEvent ? daysUntil(nextEvent.date) : null;
+
+  const done = tasks.filter((t) => t.status === "completed").length;
+  const overdue = tasks.filter((t) => t.overdue);
+  const percentDone = tasks.length > 0 ? Math.round((done / tasks.length) * 100) : 0;
+  const eventNames = new Map(events.map((e) => [e.id, e.name]));
+  const statsByEvent = new Map(stats.perEvent.map((e) => [e.eventId, e]));
+
+  const attendingParties = guests.filter((g) =>
+    g.invitations.some((i) => i.rsvpStatus === "attending"),
+  ).length;
+  const declined = guests.filter(
+    (g) => g.invitations.length > 0 && g.invitations.every((i) => i.rsvpStatus === "not_attending"),
+  ).length;
+
+  const recentReplies = guests
+    .flatMap((g) =>
+      g.invitations
+        .filter((i) => i.rsvpStatus !== "pending" && i.respondedAt)
+        .map((i) => ({ guest: g, invitation: i })),
+    )
+    .sort((a, b) => b.invitation.respondedAt!.getTime() - a.invitation.respondedAt!.getTime())
+    .slice(0, 5);
 
   return (
     <main className="flex w-full flex-col pt-6">
@@ -218,12 +189,6 @@ export default async function DashboardPage() {
 
         <div className="relative z-10 flex flex-col justify-between gap-6 xl:flex-row xl:items-end">
           <div className="flex max-w-2xl flex-col">
-            <div className="mb-2 flex items-center gap-1">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium tracking-wider text-honey uppercase backdrop-blur-md">
-                <span className="size-1.5 rounded-full bg-honey" />
-                Orchestration Active
-              </span>
-            </div>
             <h1 className="mb-1 font-serif text-5xl leading-none tracking-tight">
               {wedding.brideName} &amp; {wedding.groomName}
             </h1>
@@ -235,21 +200,24 @@ export default async function DashboardPage() {
               <div className="flex items-center justify-between text-[13px]">
                 <span className="flex items-center gap-1.5 font-medium text-rose-300">
                   <CheckSquare className="size-4 text-honey" />
-                  Readiness Score: 78%
+                  {tasks.length > 0 ? `${done} of ${tasks.length} tasks done` : "No tasks yet"}
                 </span>
                 <span className="font-mono text-xs font-medium text-honey">
-                  +14 days ahead of scheduled milestones
+                  {tasks.length > 0 ? `${percentDone}%` : "Add tasks to track your progress"}
                 </span>
               </div>
               <div
                 role="progressbar"
-                aria-label="Readiness score"
-                aria-valuenow={78}
+                aria-label="Tasks completed"
+                aria-valuenow={percentDone}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 className="h-1.5 w-full overflow-hidden rounded-full bg-white/15"
               >
-                <div className="h-full w-[78%] rounded-full bg-[#fed488]" />
+                <div
+                  className="h-full rounded-full bg-[#fed488]"
+                  style={{ width: `${percentDone}%` }}
+                />
               </div>
             </div>
           </div>
@@ -273,12 +241,20 @@ export default async function DashboardPage() {
             <div className="h-px w-full bg-white/20 sm:h-12 sm:w-px" />
             <div className="flex flex-col gap-1">
               <span className="font-mono text-xs tracking-wider text-line-soft uppercase">
-                Upcoming Milestone
+                Next event
               </span>
-              <span className="text-sm font-semibold">The wedding day</span>
+              <span className="text-sm font-semibold">
+                {nextEvent ? nextEvent.name : "Nothing scheduled"}
+              </span>
               <span className="inline-flex items-center gap-1.5 font-mono text-xs text-honey">
                 <Timer className="size-3.5" />
-                {days > 0 ? `T-minus ${days}d` : days === 0 ? "Today" : `${daysShown}d ago`}
+                {nextEvent && nextDays !== null
+                  ? nextDays > 1
+                    ? `In ${nextDays} days`
+                    : nextDays === 1
+                      ? "Tomorrow"
+                      : "Today"
+                  : "Add an event"}
               </span>
             </div>
           </div>
@@ -315,39 +291,46 @@ export default async function DashboardPage() {
         ))}
       </section>
 
-      {/* Telemetry */}
+      {/* Status cards */}
       <section className="mb-10">
-        <div className="mb-4 flex items-baseline justify-between">
-          <div>
-            <h2 className="font-serif text-xl">Command Telemetry</h2>
-            <p className="text-[13px] text-ink-2">Real-time status across planning workstreams</p>
-          </div>
-          <span className="flex items-center gap-1 font-mono text-xs text-bronze">
-            <span className="size-2 animate-pulse rounded-full bg-bronze" />
-            Sync active (3 min ago)
-          </span>
+        <div className="mb-4">
+          <h2 className="font-serif text-xl">Where things stand</h2>
+          <p className="text-[13px] text-ink-2">Live from your events, tasks and guest list</p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className={`${card} flex flex-col justify-between`}>
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <span className={eyebrow}>Ceremonies</span>
+                <span className={eyebrow}>Events</span>
                 <PartyPopper className="size-5 text-plum" />
               </div>
               <div className="mb-1 flex items-baseline gap-2">
-                <span className="font-serif text-2xl">5</span>
-                <span className="text-[13px] text-ink-2">total functions</span>
+                <span className="font-serif text-2xl">{events.length}</span>
+                <span className="text-[13px] text-ink-2">
+                  {events.length === 1 ? "event" : "events"}
+                </span>
               </div>
-              <p className="text-[13px] text-ink-2">Haldi to Grand Reception</p>
+              <p className="text-[13px] text-ink-2">
+                {events.length === 0
+                  ? "Add the mehndi, sangeet, wedding and more."
+                  : events.length === 1
+                    ? events[0]!.name
+                    : `${events[0]!.name} to ${events[events.length - 1]!.name}`}
+              </p>
             </div>
             <CardFooter
-              href="/events"
-              label="View run-sheets"
+              href={events.length === 0 ? "/events/new" : "/events"}
+              label={events.length === 0 ? "Add an event" : "View events"}
               trailing={
-                <span className="rounded bg-rose-100 px-1.5 py-0.5 font-mono text-xs text-ink-2">
-                  Dec 14-17
-                </span>
+                events.length > 0 ? (
+                  <span className="rounded bg-rose-100 px-1.5 py-0.5 font-mono text-xs text-ink-2">
+                    {shortDate.format(events[0]!.date)}
+                    {events.length > 1
+                      ? ` – ${shortDate.format(events[events.length - 1]!.date)}`
+                      : ""}
+                  </span>
+                ) : null
               }
             />
           </div>
@@ -355,25 +338,32 @@ export default async function DashboardPage() {
           <div className={`${card} flex flex-col justify-between`}>
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <span className={eyebrow}>Tasks &amp; Milestones</span>
-                <span className="rounded-full bg-[#ffdad6] px-2 py-0.5 text-[11px] font-medium text-[#93000a]">
-                  3 overdue
-                </span>
+                <span className={eyebrow}>Tasks</span>
+                {overdue.length > 0 ? (
+                  <span className="rounded-full bg-[#ffdad6] px-2 py-0.5 text-[11px] font-medium text-[#93000a]">
+                    {overdue.length} overdue
+                  </span>
+                ) : null}
               </div>
               <div className="mb-1 flex items-baseline gap-2">
                 <span className="font-serif text-2xl">
-                  18 <span className="font-sans text-sm text-ink-2">/ 45</span>
+                  {done} <span className="font-sans text-sm text-ink-2">/ {tasks.length}</span>
                 </span>
                 <span className="text-[13px] text-ink-2">completed</span>
               </div>
               <div className="mt-2 mb-1 h-1.5 w-full overflow-hidden rounded-full bg-rose-100">
-                <div className="h-full w-[40%] rounded-full bg-bronze" />
+                <div
+                  className="h-full rounded-full bg-bronze"
+                  style={{ width: `${percentDone}%` }}
+                />
               </div>
-              <span className="font-mono text-xs text-ink-2">40% velocity</span>
+              <span className="font-mono text-xs text-ink-2">
+                {tasks.length === 0 ? "No tasks yet" : `${percentDone}% done`}
+              </span>
             </div>
             <CardFooter
-              href="/tasks"
-              label="Open task board"
+              href={tasks.length === 0 ? "/tasks/new" : "/tasks"}
+              label={tasks.length === 0 ? "Add a task" : "Open tasks"}
               trailing={<ListChecks className="size-4 text-ink-2/60" />}
             />
           </div>
@@ -381,335 +371,270 @@ export default async function DashboardPage() {
           <div className={`${card} flex flex-col justify-between`}>
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <span className={eyebrow}>Guest Coverage</span>
+                <span className={eyebrow}>Guests</span>
                 <Users className="size-5 text-plum" />
               </div>
               <div className="mb-1 flex items-baseline gap-2">
-                <span className="font-serif text-2xl">
-                  320 <span className="font-sans text-sm text-ink-2">/ 480</span>
+                <span className="font-serif text-2xl">{stats.parties}</span>
+                <span className="text-[13px] text-ink-2">
+                  {stats.parties === 1 ? "party invited" : "parties invited"}
                 </span>
-                <span className="text-[13px] font-medium text-bronze">66.7%</span>
               </div>
-              <p className="text-[13px] text-ink-2">168 parties invited • 480 expected</p>
+              <p className="text-[13px] text-ink-2">
+                {stats.headcount} {stats.headcount === 1 ? "person" : "people"} expected so far
+              </p>
             </div>
             <CardFooter
-              href="/guests"
-              label="Manage guest list"
-              trailing={<span className="font-mono text-xs text-ink-2/60">168 cards out</span>}
+              href={stats.parties === 0 ? "/guests/new" : "/guests"}
+              label={stats.parties === 0 ? "Add a guest" : "Manage guests"}
             />
           </div>
 
           <div className={`${card} flex flex-col justify-between`}>
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <span className={eyebrow}>RSVP Verification</span>
-                <span className="rounded-full bg-honey px-2 py-0.5 text-[11px] font-medium text-amber-deep">
-                  High Return
-                </span>
+                <span className={eyebrow}>Replies</span>
               </div>
               <div className="mb-1 flex items-baseline gap-2">
-                <span className="font-serif text-2xl">248</span>
-                <span className="text-[13px] font-medium text-bronze">Confirmed</span>
+                <span className="font-serif text-2xl">{stats.responded}</span>
+                <span className="text-[13px] font-medium text-bronze">
+                  of {stats.parties} replied
+                </span>
               </div>
-              <p className="text-[13px] text-ink-2">72 awaiting reply • 24 declined</p>
+              <p className="text-[13px] text-ink-2">
+                {attendingParties} coming • {declined} declined • {stats.pending} waiting
+              </p>
             </div>
             <CardFooter
-              href="/guests"
-              label="Track dietary & arrival"
-              trailing={<span className="font-mono text-xs text-ink-2/60">77.5% yes</span>}
-            />
-          </div>
-
-          <div className={`${card} flex flex-col justify-between md:col-span-2`}>
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className={eyebrow}>Financial Allocation</span>
-                <span className="rounded bg-rose-100 px-2 py-0.5 font-mono text-xs font-medium text-ink-2">
-                  Cap: ₹60,00,000
-                </span>
-              </div>
-              <div className="mb-1 flex flex-col justify-between gap-2 sm:flex-row sm:items-baseline">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-serif text-2xl">₹42,80,000</span>
-                  <span className="text-[13px] text-ink-2">committed</span>
-                </div>
-                <span className="font-mono text-xs font-medium text-bronze">
-                  ₹17,20,000 unallocated buffer
-                </span>
-              </div>
-              <div className="my-2 flex h-2 w-full overflow-hidden rounded-full bg-rose-100">
-                <div className="h-full w-[48%] bg-plum" title="Venues: 48%" />
-                <div className="h-full w-[15%] bg-bronze" title="Food & Bev: 15%" />
-                <div className="h-full w-[8%] bg-[#e9c176]" title="Production: 8%" />
-              </div>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-ink-2">
-                <span className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-plum" />
-                  Venues (48%)
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-bronze" />
-                  Food &amp; Bev (15%)
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-[#e9c176]" />
-                  Production (8%)
-                </span>
-              </div>
-            </div>
-            <CardFooter
-              href="/money"
-              label="Open financial ledger"
+              href="/guests/rsvp"
+              label="See replies"
               trailing={
-                <span className="font-mono text-xs font-medium text-bronze">71.3% Committed</span>
+                stats.parties > 0 ? (
+                  <span className="font-mono text-xs text-ink-2/60">
+                    {Math.round((stats.responded / stats.parties) * 100)}% replied
+                  </span>
+                ) : null
               }
             />
           </div>
+        </div>
 
-          <div className={`${card} flex flex-col justify-between`}>
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className={eyebrow}>Vendor Operations</span>
-                <Handshake className="size-5 text-plum" />
-              </div>
-              <div className="mb-1 flex items-baseline gap-2">
-                <span className="font-serif text-2xl">12</span>
-                <span className="text-[13px] text-ink-2">partners on-board</span>
-              </div>
-              <p className="text-[13px] text-ink-2">9 contracted • 3 shortlisted in review</p>
-            </div>
-            <CardFooter
-              href="/vendors"
-              label="Review contracts"
-              trailing={<FileText className="size-4 text-ink-2/60" />}
-            />
-          </div>
-
-          <div className={`${card} flex flex-col justify-between`}>
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className={eyebrow}>Live Guest Stream</span>
-                <ScanQrCode className="size-5 text-bronze" />
-              </div>
-              <div className="mb-1 flex items-baseline gap-2">
-                <span className="font-serif text-2xl">142</span>
-                <span className="text-[13px] font-medium text-bronze">Pending queue</span>
-              </div>
-              <p className="text-[13px] text-ink-2">Live QR uploads from trial shoot</p>
-            </div>
-            <CardFooter
-              href="/photos"
-              label="Open gallery review"
-              trailing={<span className="font-mono text-xs text-ink-2/60">Moderate</span>}
-            />
-          </div>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <SoonCard
+            title="Budget & expenses"
+            icon={IndianRupee}
+            text="Track what you've spent against your budget, with payment schedules and shared costs."
+          />
+          <SoonCard
+            title="Vendors"
+            icon={Handshake}
+            text="Keep your vendors, contracts and payments in one place."
+          />
+          <SoonCard
+            title="Photos"
+            icon={Camera}
+            text="Collect and approve photos from guests, in shared albums."
+          />
         </div>
       </section>
 
-      {/* Run-of-show */}
+      {/* Events */}
       <section className="mb-6">
         <div className="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
           <div>
-            <h2 className="font-serif text-2xl">Ceremonial Run-of-Show</h2>
-            <p className="text-[13px] text-ink-2">
-              Detailed itinerary, logistical parameters, and on-ground headcount
-            </p>
+            <h2 className="font-serif text-2xl">Coming up</h2>
+            <p className="text-[13px] text-ink-2">Your next events and who is coming</p>
           </div>
           <Link
             href="/events"
             className="flex items-center gap-0.5 text-sm font-semibold text-plum hover:underline"
           >
-            View full schedule
+            All events
             <ChevronRight className="size-4" />
           </Link>
         </div>
 
-        <div className="flex flex-col gap-4">
-          {ceremonies.map((c) => (
-            <article key={c.title} className={`${card} lg:p-6`}>
-              <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-                <div className="flex min-w-0 items-start gap-4">
-                  <div className="flex size-16 shrink-0 flex-col items-center justify-center rounded-xl bg-rose-50 p-1 text-plum">
-                    <span className="text-[11px] font-medium tracking-wider text-bronze uppercase">
-                      {c.dow}
-                    </span>
-                    <span className="font-serif text-2xl leading-none">{c.day}</span>
-                    <span className="font-mono text-[10px] text-ink-2/60">DEC</span>
-                  </div>
-                  <div className="flex min-w-0 flex-col">
-                    <div className="mb-1 flex flex-wrap items-center gap-1">
-                      <span className="font-mono text-xs font-medium text-bronze">{c.time}</span>
-                      <span className="text-ink-2/60">•</span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-ink">
-                        <span className="size-1.5 rounded-full bg-bronze" />
-                        {c.dayLabel}
-                      </span>
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                          c.tagTone === "ok"
-                            ? "bg-[#f2f7f2] text-forest"
-                            : "bg-honey text-amber-deep"
-                        }`}
-                      >
-                        {c.tag}
-                      </span>
+        {upcoming.length === 0 ? (
+          <div className="rounded-xl bg-white p-8 text-center shadow-sm">
+            <p className="font-serif text-xl text-ink">
+              {events.length === 0 ? "No events yet" : "No upcoming events"}
+            </p>
+            <p className="mt-1 text-sm text-ink-2">
+              {events.length === 0
+                ? "Add your events and they will show up here."
+                : "All your events have taken place."}
+            </p>
+            <Link
+              href="/events/new"
+              className="mt-4 inline-flex h-10 items-center rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
+            >
+              Add an event
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {upcoming.slice(0, 3).map((event) => {
+              const { dow, day, month } = dayParts(event.date);
+              const counts = statsByEvent.get(event.id);
+              return (
+                <article key={event.id} className={`${card} lg:p-6`}>
+                  <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+                    <div className="flex min-w-0 items-start gap-4">
+                      <div className="flex size-16 shrink-0 flex-col items-center justify-center rounded-xl bg-rose-50 p-1 text-plum">
+                        <span className="text-[11px] font-medium tracking-wider text-bronze uppercase">
+                          {dow}
+                        </span>
+                        <span className="font-serif text-2xl leading-none">{day}</span>
+                        <span className="font-mono text-[10px] text-ink-2/60 uppercase">
+                          {month}
+                        </span>
+                      </div>
+                      <div className="flex min-w-0 flex-col">
+                        <div className="mb-1 flex flex-wrap items-center gap-1">
+                          <span className="font-mono text-xs font-medium text-bronze">
+                            {formatTime(event.startTime)}
+                            {event.endTime ? ` – ${formatTime(event.endTime)}` : ""}
+                          </span>
+                          <span className="text-ink-2/60">•</span>
+                          <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-ink">
+                            {EVENT_TYPE_LABELS[event.type]}
+                          </span>
+                        </div>
+                        <h3 className="truncate font-serif text-xl">{event.name}</h3>
+                        <p className="mt-1 flex items-center gap-1 truncate text-[13px] text-ink-2">
+                          <MapPin className="size-4 shrink-0 text-ink-2/60" />
+                          {event.venueName ?? "Venue to be announced"}
+                        </p>
+                      </div>
                     </div>
-                    <h3 className="truncate font-serif text-xl">{c.title}</h3>
-                    <p className="mt-1 flex items-center gap-1 truncate text-[13px] text-ink-2">
-                      <MapPin className="size-4 shrink-0 text-ink-2/60" />
-                      {c.venue}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="flex shrink-0 flex-wrap items-center gap-4 pt-1 sm:flex-nowrap lg:justify-end lg:pt-0">
-                  <div className="flex flex-col">
-                    <span className="font-mono text-xs tracking-wider text-ink-2/60 uppercase">
-                      Prescribed Attire
-                    </span>
-                    <span className="text-sm font-semibold">{c.attire}</span>
+                    <div className="flex shrink-0 flex-wrap items-center gap-4 pt-1 sm:flex-nowrap lg:justify-end lg:pt-0">
+                      {event.dressCode ? (
+                        <>
+                          <div className="flex flex-col">
+                            <span className="font-mono text-xs tracking-wider text-ink-2/60 uppercase">
+                              Dress code
+                            </span>
+                            <span className="text-sm font-semibold">{event.dressCode}</span>
+                          </div>
+                          <div className="hidden h-8 w-px bg-rose-200 sm:block" />
+                        </>
+                      ) : null}
+                      <div className="flex flex-col">
+                        <span className="font-mono text-xs tracking-wider text-ink-2/60 uppercase">
+                          Guests
+                        </span>
+                        <span className="text-sm font-semibold">
+                          {counts?.headcount ?? 0} expected{" "}
+                          <span className="font-mono text-[11px] font-normal text-ink-2">
+                            ({counts?.invited ?? 0} invited, {counts?.pending ?? 0} waiting)
+                          </span>
+                        </span>
+                      </div>
+                      <Link
+                        href={`/events/${event.id}`}
+                        className="flex shrink-0 items-center gap-1 rounded-lg bg-rose-100 px-3 py-2 text-xs font-semibold text-ink transition-colors hover:bg-rose-200"
+                      >
+                        Open
+                      </Link>
+                    </div>
                   </div>
-                  <div className="hidden h-8 w-px bg-rose-200 sm:block" />
-                  <div className="flex flex-col">
-                    <span className="font-mono text-xs tracking-wider text-ink-2/60 uppercase">
-                      Attendance Status
-                    </span>
-                    <span className="text-sm font-semibold">
-                      {c.attending} attending{" "}
-                      <span className="font-mono text-[11px] font-normal text-ink-2">
-                        ({c.invited} invited)
-                      </span>
-                    </span>
-                  </div>
-                  <Link
-                    href="/events"
-                    className="flex shrink-0 items-center gap-1 rounded-lg bg-rose-100 px-2 py-2 text-xs font-semibold text-ink transition-colors hover:bg-rose-200"
-                  >
-                    <Eye className="size-4" />
-                    Run-sheet
-                  </Link>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </section>
 
-      {/* RSVP + vendors */}
+      {/* Recent replies + overdue tasks */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="flex flex-col rounded-xl bg-white p-4 shadow-sm lg:col-span-7">
           <div className="mb-2 flex items-center justify-between">
             <div>
-              <h3 className="font-serif text-xl">Recent RSVP Ingestion</h3>
-              <p className="text-[13px] text-ink-2">
-                Arrival logistics &amp; dietary notifications
-              </p>
+              <h3 className="font-serif text-xl">Recent replies</h3>
+              <p className="text-[13px] text-ink-2">The latest answers from your guests</p>
             </div>
-            <button type="button" className="text-xs font-semibold text-plum hover:underline">
-              Download CSV
-            </button>
+            <Link href="/guests/rsvp" className="text-xs font-semibold text-plum hover:underline">
+              All replies
+            </Link>
           </div>
-          <div className="-mx-4 overflow-x-auto">
-            <table className="w-full min-w-[500px] text-left text-[13px]">
-              <thead>
-                <tr className="bg-rose-50 text-[11px] font-medium tracking-wider text-ink-2 uppercase">
-                  <th className="px-4 py-2.5">Guest / Party</th>
-                  <th className="px-4 py-2.5">Ceremonies</th>
-                  <th className="px-4 py-2.5">Special Diet</th>
-                  <th className="px-4 py-2.5">Airport Transfer</th>
-                  <th className="px-4 py-2.5 text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rsvps.map((r) => (
-                  <tr key={r.name} className="transition-colors hover:bg-rose-50/50">
-                    <td className="px-4 py-3 font-medium">
-                      {r.name}
-                      <span className="block font-mono text-xs font-normal text-ink-2">
-                        {r.meta}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs">{r.events}</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded bg-rose-100 px-2 py-0.5 font-mono text-[11px]">
-                        {r.diet}
-                      </span>
-                    </td>
-                    <td className={`px-4 py-3 font-mono text-xs ${r.transferTone}`}>
-                      {r.transfer}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                          r.status === "Confirmed"
-                            ? "bg-[#f2f7f2] text-forest"
-                            : "bg-honey text-amber-deep"
-                        }`}
-                      >
-                        {r.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="flex flex-col justify-between rounded-xl bg-white p-4 shadow-sm lg:col-span-5">
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <div>
-                <h3 className="font-serif text-xl">Vendor Deliverables</h3>
-                <p className="text-[13px] text-ink-2">Immediate action gates &amp; deposits</p>
-              </div>
-              <span className="font-mono text-xs text-ink-2/60">Next 7 days</span>
-            </div>
-            <ul className="mt-2 flex flex-col gap-2">
-              {deliverables.map(({ icon: Icon, title, meta, action }) => (
+          {recentReplies.length === 0 ? (
+            <p className="py-6 text-center text-[13px] text-ink-2">
+              {stats.parties === 0
+                ? "Add guests and share their invitation links. Replies will appear here."
+                : "No replies yet. Share invitations or send a reminder."}
+            </p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {recentReplies.map(({ guest, invitation }) => (
                 <li
-                  key={title}
-                  className="flex items-start justify-between gap-2 rounded-lg bg-rose-50 p-2"
+                  key={`${guest.id}-${invitation.eventId}`}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-[13px]"
                 >
-                  <div className="flex items-start gap-1">
-                    <Icon className="mt-0.5 size-[18px] shrink-0 text-bronze" />
-                    <div className="flex flex-col">
-                      <span className="text-sm leading-tight font-medium">{title}</span>
-                      <span className="font-mono text-xs text-ink-2">{meta}</span>
-                    </div>
-                  </div>
-                  {action === "release" && (
-                    <button
-                      type="button"
-                      className="shrink-0 rounded bg-plum px-2 py-1 text-[11px] font-semibold text-white hover:opacity-95"
+                  <div className="min-w-0">
+                    <Link
+                      href={`/guests/${guest.id}`}
+                      className="font-medium text-ink hover:underline"
                     >
-                      Release
-                    </button>
-                  )}
-                  {action === "review" && (
-                    <button
-                      type="button"
-                      className="shrink-0 rounded bg-rose-100 px-2 py-1 text-[11px] font-semibold text-ink hover:bg-rose-200"
-                    >
-                      Review
-                    </button>
-                  )}
-                  {action === "locked" && (
-                    <span className="inline-flex shrink-0 items-center gap-1 font-mono text-xs font-medium text-forest">
-                      <Check className="size-4" />
-                      Locked
+                      {guest.name}
+                    </Link>
+                    <span className="block font-mono text-xs text-ink-2">
+                      {eventNames.get(invitation.eventId) ?? "Event"} •{" "}
+                      {shortDate.format(invitation.respondedAt!)}
                     </span>
-                  )}
+                  </div>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                      invitation.rsvpStatus === "attending"
+                        ? "bg-[#f2f7f2] text-forest"
+                        : "bg-rose-100 text-ink-2"
+                    }`}
+                  >
+                    {RSVP_LABELS[invitation.rsvpStatus]}
+                    {invitation.rsvpStatus === "attending" && invitation.numberAttending
+                      ? ` (${invitation.numberAttending})`
+                      : ""}
+                  </span>
                 </li>
               ))}
             </ul>
-          </div>
-          <div className="mt-4 flex items-center justify-between pt-4 text-[13px] text-ink-2">
-            <span>3 contracts due for milestone release</span>
-            <Link href="/vendors" className="text-sm font-semibold text-plum hover:underline">
-              Vendor hub →
+          )}
+        </div>
+
+        <div className="flex flex-col rounded-xl bg-white p-4 shadow-sm lg:col-span-5">
+          <div className="mb-2 flex items-center justify-between">
+            <div>
+              <h3 className="font-serif text-xl">Needs attention</h3>
+              <p className="text-[13px] text-ink-2">Tasks past their due date</p>
+            </div>
+            <Link href="/tasks" className="text-xs font-semibold text-plum hover:underline">
+              All tasks
             </Link>
           </div>
+          {overdue.length === 0 ? (
+            <p className="py-6 text-center text-[13px] text-ink-2">
+              {tasks.length === 0 ? "No tasks yet." : "Nothing is overdue. Nice work."}
+            </p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {overdue.slice(0, 5).map((task) => (
+                <li
+                  key={task.id}
+                  className="flex items-center justify-between gap-2 py-2.5 text-[13px]"
+                >
+                  <Link
+                    href={`/tasks/${task.id}`}
+                    className="min-w-0 truncate font-medium text-ink hover:underline"
+                  >
+                    {task.title}
+                  </Link>
+                  <span className="shrink-0 font-mono text-xs font-medium text-destructive">
+                    Due {task.dueDate ? shortDate.format(task.dueDate) : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
     </main>

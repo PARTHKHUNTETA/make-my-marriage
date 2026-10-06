@@ -34,7 +34,7 @@ const sections: { title: string; items: NavItem[] }[] = [
   },
   {
     title: "Guests & RSVPs",
-    items: [{ href: "/guests", label: "Guest List & RSVPs", icon: Users, badge: "340" }],
+    items: [{ href: "/guests", label: "Guest List & RSVPs", icon: Users }],
   },
   { title: "Vendors", items: [{ href: "/vendors", label: "Vendor Operations", icon: Store }] },
   {
