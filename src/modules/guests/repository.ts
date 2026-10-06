@@ -185,6 +185,31 @@ export async function listAllGuests(
     .toArray();
 }
 
+export async function findGuestsByIds(weddingId: string, ids: string[]): Promise<GuestDoc[]> {
+  const valid = ids.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id));
+  if (valid.length === 0) return [];
+  return scoped(await guests(), { weddingId }).find({ _id: { $in: valid } }).toArray();
+}
+
+export async function markInviteEmailed(weddingId: string, ids: string[]): Promise<void> {
+  const valid = ids.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id));
+  if (valid.length === 0) return;
+  await scoped(await guests(), { weddingId }).updateMany(
+    { _id: { $in: valid } },
+    { $set: { inviteEmailedAt: new Date() } },
+  );
+}
+
+// The one-click unsubscribe, which starts from the emailed link and so, like the invitation page,
+// is keyed on the guest's unguessable token. Returns false for an unknown link.
+export async function setRemindersUnsubscribed(token: string, value: boolean): Promise<boolean> {
+  if (typeof token !== "string" || token.length < 10 || token.length > 64) return false;
+  const result = await (
+    await guests()
+  ).updateOne({ token }, { $set: { remindersUnsubscribed: value, updatedAt: new Date() } });
+  return result.matchedCount === 1;
+}
+
 export async function findGuestByPhone(
   weddingId: string,
   phone: string,

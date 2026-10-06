@@ -26,6 +26,7 @@ export type WeddingDoc = {
   uploadsOn: boolean;
   liveStream?: { youtubeUrl: string; isOn: boolean };
   whatsappMessage?: string;
+  reminders?: { enabled: boolean; rsvpDays: number[] };
   overallBudget?: number; // paise
   deletedAt?: Date; // soft delete, hard-deleted within 30 days (db-design §14)
   createdAt: Date;
@@ -105,4 +106,26 @@ export async function saveWhatsappMessage(id: string, message: string | null): P
       : { $set: { whatsappMessage: message, updatedAt: new Date() } },
   );
   return result.matchedCount === 1;
+}
+
+export async function saveReminderSettings(
+  id: string,
+  settings: { enabled: boolean; rsvpDays: number[] },
+): Promise<boolean> {
+  if (!ObjectId.isValid(id)) return false;
+  const result = await (
+    await weddings()
+  ).updateOne(
+    { _id: new ObjectId(id), deletedAt: { $exists: false } },
+    { $set: { reminders: settings, updatedAt: new Date() } },
+  );
+  return result.matchedCount === 1;
+}
+
+// Weddings that have automatic reminders turned on, for the daily reminder run. This is a
+// cross-wedding read by design: the run is a system job, not a request from any one wedding.
+export async function listWeddingsWithReminders(): Promise<WeddingDoc[]> {
+  return (await weddings())
+    .find({ "reminders.enabled": true, deletedAt: { $exists: false } })
+    .toArray();
 }

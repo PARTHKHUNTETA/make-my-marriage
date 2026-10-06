@@ -38,6 +38,37 @@ export const suggestTitle = (brideName: string, groomName: string): string => {
   return bride && groom ? `${bride} weds ${groom}` : "";
 };
 
+// Automatic reminders (PRD 5.6): off by default. "rsvpDays" are how many days before an event a
+// guest who has not replied is emailed; the day-before event reminder goes to attending guests.
+export const DEFAULT_RSVP_REMINDER_DAYS = [14, 3];
+export const MAX_REMINDER_DAYS = 5;
+
+export type ReminderSettings = { enabled: boolean; rsvpDays: number[] };
+
+export const reminderSettingsSchema = z.object({
+  enabled: z.boolean(),
+  rsvpDays: z
+    .array(
+      z
+        .number({ error: "Enter days as whole numbers" })
+        .int("Enter days as whole numbers")
+        .min(1, "Use 1 day or more")
+        .max(60, "Use 60 days or fewer"),
+    )
+    .min(1, "Enter at least one day")
+    .max(MAX_REMINDER_DAYS, `Use at most ${MAX_REMINDER_DAYS} reminder days`)
+    // Largest first, no repeats: "14, 3, 14" is the same as "14, 3".
+    .transform((days) => [...new Set(days)].sort((a, b) => b - a)),
+});
+
+// "14, 3" or "14 3" -> [14, 3]. Anything that is not a number is kept as NaN so validation says so.
+export function parseDays(text: string): number[] {
+  return text
+    .split(/[\s,;]+/)
+    .filter(Boolean)
+    .map((part) => (/^\d+$/.test(part) ? Number(part) : NaN));
+}
+
 // What the app shows about the current wedding. Deliberately omits tokens and settings.
 export type WeddingSummary = {
   id: string;
@@ -51,4 +82,5 @@ export type WeddingSummary = {
   slug: string;
   // The couple's own WhatsApp share text, if they wrote one.
   whatsappMessage?: string;
+  reminders: ReminderSettings;
 };

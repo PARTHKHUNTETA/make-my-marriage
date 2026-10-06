@@ -14,6 +14,9 @@ export type EmailJobDoc = {
   type: string;
   toEmail: string;
   payload: Record<string, string>;
+  // Non-sensitive facts kept after sending (who it was for, why), so a log can be shown without
+  // the payload, which is wiped once the email is out.
+  meta?: Record<string, string>;
   status: EmailStatus;
   attempts: number;
   dedupeKey?: string; // unique: a re-run can never enqueue the same email twice
@@ -28,6 +31,7 @@ export type NewEmailJob = {
   type: string;
   toEmail: string;
   payload: Record<string, string>;
+  meta?: Record<string, string>;
   weddingId?: string;
   dedupeKey?: string;
 };
@@ -64,6 +68,7 @@ export async function enqueueEmail(job: NewEmailJob): Promise<string | null> {
     type: job.type,
     toEmail: job.toEmail,
     payload: job.payload,
+    ...(job.meta ? { meta: job.meta } : {}),
     status: "pending",
     attempts: 0,
     ...(job.dedupeKey ? { dedupeKey: job.dedupeKey } : {}),
@@ -160,4 +165,39 @@ export async function drainEmailQueue(
     else result.failed++;
   }
   return result;
+}
+
+export type EmailLogRow = {
+  id: string;
+  type: string;
+  toEmail: string;
+  status: EmailStatus;
+  meta: Record<string, string>;
+  createdAt: Date;
+  sentAt?: Date;
+};
+
+// The most recent emails of the given types for one wedding, newest first.
+export async function listEmailLog(
+  weddingId: string,
+  types: string[],
+  limit = 100,
+): Promise<EmailLogRow[]> {
+  if (!ObjectId.isValid(weddingId)) return [];
+  const rows = await (
+    await jobs()
+  )
+    .find({ weddingId: new ObjectId(weddingId), type: { $in: types } })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .toArray();
+  return rows.map((r) => ({
+    id: r._id.toHexString(),
+    type: r.type,
+    toEmail: r.toEmail,
+    status: r.status,
+    meta: r.meta ?? {},
+    createdAt: r.createdAt,
+    sentAt: r.sentAt,
+  }));
 }

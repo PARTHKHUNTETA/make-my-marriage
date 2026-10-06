@@ -11,11 +11,19 @@ import { addAdminMember, getMembership } from "@/modules/members/service";
 import {
   findWeddingById,
   insertWedding,
+  listWeddingsWithReminders,
+  saveReminderSettings,
   saveWhatsappMessage,
   updateWeddingDetails as saveWeddingDetails,
   type WeddingDoc,
 } from "./repository";
-import type { CreateWeddingInput, UpdateWeddingInput, WeddingSummary } from "./schema";
+import {
+  DEFAULT_RSVP_REMINDER_DAYS,
+  type CreateWeddingInput,
+  type ReminderSettings,
+  type UpdateWeddingInput,
+  type WeddingSummary,
+} from "./schema";
 
 // Business rules for the wedding module.
 
@@ -95,6 +103,7 @@ function toSummary(doc: WeddingDoc): WeddingSummary {
     description: doc.description,
     slug: doc.website.slug,
     whatsappMessage: doc.whatsappMessage,
+    reminders: doc.reminders ?? { enabled: false, rsvpDays: DEFAULT_RSVP_REMINDER_DAYS },
   };
 }
 
@@ -137,4 +146,23 @@ export async function setWhatsappMessage(weddingId: string, message: string): Pr
   const trimmed = message.trim();
   if (!(await saveWhatsappMessage(weddingId, trimmed || null)))
     throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
+}
+
+export async function setReminderSettings(
+  weddingId: string,
+  settings: ReminderSettings,
+): Promise<void> {
+  if (!(await saveReminderSettings(weddingId, settings)))
+    throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
+}
+
+// For the daily reminder run: every wedding with reminders on, with what it needs.
+export async function listRemindingWeddings(): Promise<
+  Array<{ id: string; couple: string; reminders: ReminderSettings }>
+> {
+  return (await listWeddingsWithReminders()).map((w) => ({
+    id: w._id.toHexString(),
+    couple: `${w.brideName} & ${w.groomName}`,
+    reminders: w.reminders ?? { enabled: false, rsvpDays: DEFAULT_RSVP_REMINDER_DAYS },
+  }));
 }

@@ -162,7 +162,7 @@ describe("queueEmail", () => {
     queue.enqueueEmail.mockResolvedValue("abc123");
     queue.sendEmailNow.mockRejectedValue(new Error("provider down"));
     const { queueEmail } = await load();
-    await expect(queueEmail(job)).resolves.toBeUndefined();
+    await expect(queueEmail(job)).resolves.toBe(true);
     log.mockRestore();
   });
 

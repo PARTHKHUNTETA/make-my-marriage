@@ -14,6 +14,8 @@ export type OutgoingEmail = {
   text: string;
   // Lets the provider ignore a duplicate if a retry happens after a crash mid-send.
   idempotencyKey?: string;
+  // Extra mail headers, e.g. List-Unsubscribe so mail apps can show an Unsubscribe button.
+  headers?: Record<string, string>;
 };
 
 // `retryable` tells the queue whether trying again can help (a rate limit or outage) or not
@@ -44,6 +46,7 @@ async function sendViaResend(mail: OutgoingEmail, apiKey: string, from: string):
         subject: mail.subject,
         html: mail.html,
         text: mail.text,
+        ...(mail.headers ? { headers: mail.headers } : {}),
       }),
     });
   } catch {
@@ -71,19 +74,35 @@ export async function sendEmail(mail: OutgoingEmail): Promise<void> {
 // What the queue calls for each claimed job.
 export async function deliverJob(job: EmailJobDoc): Promise<void> {
   const rendered = renderEmail(job.type, job.payload);
-  await sendEmail({ to: job.toEmail, ...rendered, idempotencyKey: job._id.toHexString() });
+  // Reminders carry a one-click unsubscribe link, also offered to the mail app itself (RFC 8058).
+  const unsubscribe = job.payload.unsubscribeUrl;
+  await sendEmail({
+    to: job.toEmail,
+    ...rendered,
+    idempotencyKey: job._id.toHexString(),
+    ...(unsubscribe
+      ? {
+          headers: {
+            "List-Unsubscribe": `<${unsubscribe}>`,
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+          },
+        }
+      : {}),
+  });
 }
 
 // Queues an email and makes one immediate attempt. A failure to send now is not an error for
 // the caller: the job stays queued and the cron retries it with backoff.
+// Returns false when an email with the same dedupeKey was already queued (nothing new is sent).
 export async function queueEmail(
   job: NewEmailJob,
   options?: { immediate?: boolean },
-): Promise<void> {
+): Promise<boolean> {
   const id = await enqueueEmail(job);
   if (id && options?.immediate !== false) {
     await sendEmailNow(id, deliverJob).catch((err) => {
       console.error("immediate email send failed", err instanceof Error ? err.name : "unknown");
     });
   }
+  return id !== null;
 }

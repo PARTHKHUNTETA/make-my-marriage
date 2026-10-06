@@ -9,14 +9,17 @@ import {
   findGuest,
   findGuestByPhone,
   findGuestByToken,
+  findGuestsByIds,
   findGuestsByPhones,
   guestStats,
   insertGuest,
   insertGuests,
   listAllGuests,
+  markInviteEmailed,
   markWhatsappShared,
   pullEventInvitations,
   searchGuests,
+  setRemindersUnsubscribed,
   updateGuest as saveGuest,
   type GuestDoc,
   type GuestFields,
@@ -249,4 +252,17 @@ export async function getGuestByToken(
 ): Promise<{ guest: GuestItem; weddingId: string } | null> {
   const doc = await findGuestByToken(token);
   return doc ? { guest: toItem(doc), weddingId: doc.weddingId.toHexString() } : null;
+}
+
+export async function getGuestsByIds(weddingId: string, ids: string[]): Promise<GuestItem[]> {
+  return (await findGuestsByIds(weddingId, unique(ids))).map(toItem);
+}
+
+export function recordInviteEmailed(weddingId: string, guestIds: string[]): Promise<void> {
+  return markInviteEmailed(weddingId, guestIds);
+}
+
+// A guest's own choice, from the link in a reminder email. False when the link is unknown.
+export function setGuestUnsubscribed(token: string, unsubscribed: boolean): Promise<boolean> {
+  return setRemindersUnsubscribed(token, unsubscribed);
 }
