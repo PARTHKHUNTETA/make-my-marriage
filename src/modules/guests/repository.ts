@@ -188,7 +188,9 @@ export async function listAllGuests(
 export async function findGuestsByIds(weddingId: string, ids: string[]): Promise<GuestDoc[]> {
   const valid = ids.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id));
   if (valid.length === 0) return [];
-  return scoped(await guests(), { weddingId }).find({ _id: { $in: valid } }).toArray();
+  return scoped(await guests(), { weddingId })
+    .find({ _id: { $in: valid } })
+    .toArray();
 }
 
 export async function markInviteEmailed(weddingId: string, ids: string[]): Promise<void> {

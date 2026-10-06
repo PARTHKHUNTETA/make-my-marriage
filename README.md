@@ -51,8 +51,14 @@ the lint rule that protects tenant isolation), and Phase 1 (Foundation) is built
   duplicate phone numbers, and nothing is added until you confirm. Duplicates are skipped unless
   you choose to add them.
 
-Still to come: deleting a wedding (Phase 1), invitation and reminder emails (the rest of Phase 3),
-and the event album, invitations, expenses and
+- **Emails and reminders:** email invitations to one guest, ticked guests or everyone with an
+  email; remind guests who have not replied; a log of every email sent. Automatic reminders are
+  off until turned on (Guests → Emails and reminders): a reply reminder N days before each event
+  (14 and 3 by default) and an event reminder the day before for attending guests. Each guest gets
+  at most one automatic email a day, and every reminder has a one-click unsubscribe link. A daily
+  cron (`/api/cron/send-reminders`) queues them; the per-minute cron sends them.
+
+Still to come: deleting a wedding (Phase 1), and the event album, invitations, expenses and
 vendor links that attach to events in later phases. Features are built
 in the PRD's seven release phases.
 

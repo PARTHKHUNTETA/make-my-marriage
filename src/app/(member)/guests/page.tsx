@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Upload, UserPlus } from "lucide-react";
 import { GuestFilters } from "@/components/guests/guest-filters";
-import { GuestRow } from "@/components/guests/guest-row";
+import { GuestList } from "@/components/guests/guest-list";
 import { GuestsHeader, StatCard } from "@/components/guests/guests-header";
 import { WhatsappMessageForm } from "@/components/guests/whatsapp-message-form";
 import { requireMember } from "@/lib/authz";
@@ -102,23 +102,20 @@ export default async function GuestsPage({
             {list.total} {list.total === 1 ? "guest" : "guests"}
             {filtered ? " match" : ""}
           </p>
-          <ul className="mt-2 divide-y divide-line rounded-xl bg-white shadow-[0_1px_3px_rgba(35,31,32,0.04)]">
-            {list.items.map((guest) => {
+          <GuestList
+            eventNames={eventNames}
+            entries={list.items.map((guest) => {
               const inviteUrl = absoluteUrl(`/i/${guest.token}`);
-              return (
-                <GuestRow
-                  key={guest.id}
-                  guest={guest}
-                  eventNames={eventNames}
-                  inviteUrl={inviteUrl}
-                  whatsappUrl={whatsappLink(
-                    guest.phone,
-                    renderWhatsappMessage(template, { name: guest.name, link: inviteUrl, couple }),
-                  )}
-                />
-              );
+              return {
+                guest,
+                inviteUrl,
+                whatsappUrl: whatsappLink(
+                  guest.phone,
+                  renderWhatsappMessage(template, { name: guest.name, link: inviteUrl, couple }),
+                ),
+              };
             })}
-          </ul>
+          />
           {pages > 1 ? (
             <nav aria-label="Pages" className="mt-4 flex items-center justify-between text-[13px]">
               {list.page > 1 ? (

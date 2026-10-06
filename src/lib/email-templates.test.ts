@@ -82,3 +82,51 @@ describe("escapeHtml", () => {
     expect(escapeHtml(`&<>"'`)).toBe("&amp;&lt;&gt;&quot;&#39;");
   });
 });
+
+describe("guest emails", () => {
+  const events = JSON.stringify([
+    {
+      name: "Sangeet <b>",
+      when: "Saturday, 13 February 2027 at 7:00 PM",
+      venue: "Royal Garden",
+      address: "1 Palace Road",
+      dressCode: "Green traditional",
+      mapUrl: "https://www.google.com/maps/search/?api=1&query=Royal%20Garden",
+    },
+    { name: "Wedding", when: "Sunday, 14 February 2027 at 8:00 PM" },
+  ]);
+  const base = { guestName: "Rajesh Sharma", couple: "Priya & Aarav", url, events };
+  const unsubscribeUrl = "https://makemymarriage.com/unsubscribe/abcTOKEN";
+
+  it("invitation shows each event, the link, and escapes what people typed", () => {
+    const mail = renderEmail("invitation", base);
+    expect(mail.subject).toBe("You're invited: Priya & Aarav");
+    expect(mail.html).toContain(url);
+    expect(mail.text).toContain(url);
+    expect(mail.html).toContain("Sangeet &lt;b&gt;");
+    expect(mail.html).not.toContain("Sangeet <b>");
+    expect(mail.text).toContain("Dress code: Green traditional");
+    expect(mail.text).toContain("Venue to be announced"); // an event with no venue
+    expect(mail.html).toContain("google.com/maps");
+    expect(mail.html).not.toContain("nsubscribe"); // an invitation is not a reminder
+  });
+
+  it.each(["rsvp_reminder", "event_reminder"])("%s carries a working unsubscribe link", (type) => {
+    const mail = renderEmail(type, { ...base, unsubscribeUrl });
+    expect(mail.html).toContain(unsubscribeUrl);
+    expect(mail.text).toContain(unsubscribeUrl);
+  });
+
+  it("subjects are one line and name the event for tomorrow's reminder", () => {
+    const mail = renderEmail("event_reminder", { ...base, unsubscribeUrl });
+    expect(mail.subject).toContain("Tomorrow:");
+    expect(mail.subject).not.toMatch(/[\r\n]/);
+  });
+
+  it("refuses a reminder with no unsubscribe link, or broken events", () => {
+    expect(() => renderEmail("rsvp_reminder", base)).toThrow();
+    expect(() => renderEmail("invitation", { ...base, events: "not json" })).toThrow();
+    expect(() => renderEmail("invitation", { ...base, events: "[]" })).toThrow();
+    expect(() => renderEmail("invitation", { ...base, url: "javascript:alert(1)" })).toThrow();
+  });
+});

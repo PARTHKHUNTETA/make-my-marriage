@@ -142,6 +142,35 @@ describe("deliverJob", () => {
   });
 });
 
+describe("reminder emails", () => {
+  it("send the unsubscribe link to the mail app as a one-click header", async () => {
+    fetchMock.mockResolvedValue(new Response("{}", { status: 200 }));
+    const { deliverJob } = await load({ RESEND_API_KEY: "re_test_key_1234567890" });
+    await deliverJob({
+      _id: new ObjectId(),
+      type: "rsvp_reminder",
+      toEmail: "g@example.com",
+      payload: {
+        guestName: "G",
+        couple: "A & B",
+        url: "https://app.test/i/abc",
+        unsubscribeUrl: "https://app.test/unsubscribe/abc",
+        events: JSON.stringify([{ name: "Sangeet", when: "Saturday" }]),
+      },
+      status: "sending",
+      attempts: 1,
+      sendAfter: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.headers).toEqual({
+      "List-Unsubscribe": "<https://app.test/unsubscribe/abc>",
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    });
+  });
+});
+
 describe("queueEmail", () => {
   const job = {
     type: "verify",

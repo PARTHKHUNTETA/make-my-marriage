@@ -5,10 +5,10 @@ export function GuestsHeader({
   active,
   action,
 }: {
-  active: "guests" | "rsvps";
+  active: "guests" | "rsvps" | "reminders";
   action?: React.ReactNode;
 }) {
-  const tab = (key: "guests" | "rsvps", href: string, label: string) => (
+  const tab = (key: "guests" | "rsvps" | "reminders", href: string, label: string) => (
     <Link
       href={href}
       aria-current={active === key ? "page" : undefined}
@@ -25,12 +25,18 @@ export function GuestsHeader({
         <div>
           <p className="text-xs font-semibold tracking-[0.6px] text-bronze uppercase">Guests</p>
           <h1 className="mt-1 font-serif text-4xl leading-11 tracking-tight text-plum">
-            {active === "guests" ? "Guest list" : "Replies"}
+            {active === "guests"
+              ? "Guest list"
+              : active === "rsvps"
+                ? "Replies"
+                : "Emails and reminders"}
           </h1>
           <p className="mt-1 text-sm text-ink-2">
             {active === "guests"
               ? "Each entry is one invited party. Choose which events they are invited to."
-              : "Who is coming to each event, and who has not answered yet."}
+              : active === "rsvps"
+                ? "Who is coming to each event, and who has not answered yet."
+                : "Email invitations, remind guests who have not replied, and see what has been sent."}
           </p>
         </div>
         {action}
@@ -38,6 +44,7 @@ export function GuestsHeader({
       <nav aria-label="Guest pages" className="mt-5 flex gap-2">
         {tab("guests", "/guests", "Guest list")}
         {tab("rsvps", "/guests/rsvp", "Replies")}
+        {tab("reminders", "/guests/reminders", "Emails and reminders")}
       </nav>
     </>
   );
