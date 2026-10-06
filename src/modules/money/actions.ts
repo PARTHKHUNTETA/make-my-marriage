@@ -5,6 +5,7 @@ import { safeAction } from "@/lib/action";
 import { requireMember } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
 import { eventExists } from "@/modules/events/service";
+import { vendorExists } from "@/modules/vendors/service";
 import { setOverallBudget, setSplitDefault } from "@/modules/wedding/service";
 import {
   categoryBudgetSchema,
@@ -34,6 +35,13 @@ async function checkEvent(weddingId: string, eventId: string | undefined) {
     });
 }
 
+async function checkVendor(weddingId: string, vendorId: string | undefined) {
+  if (vendorId && !(await vendorExists(weddingId, vendorId)))
+    throw new AppError("VALIDATION_FAILED", "That vendor no longer exists.", {
+      vendorId: ["Choose a vendor from the list"],
+    });
+}
+
 const refresh = () => revalidatePath("/", "layout");
 
 export async function createExpenseAction(input: unknown) {
@@ -41,6 +49,7 @@ export async function createExpenseAction(input: unknown) {
     const ctx = await requireMember();
     const parsed: ExpenseInput = expenseInputSchema.parse(input);
     await checkEvent(ctx.weddingId, parsed.eventId);
+    await checkVendor(ctx.weddingId, parsed.vendorId);
     const expense = await createExpense(ctx.weddingId, parsed);
     refresh();
     return { id: expense.id };
@@ -54,6 +63,7 @@ export async function updateExpenseAction(input: unknown) {
     const id = expenseIdSchema.parse({ expenseId }).expenseId;
     const parsed = expenseInputSchema.parse(fields);
     await checkEvent(ctx.weddingId, parsed.eventId);
+    await checkVendor(ctx.weddingId, parsed.vendorId);
     await updateExpense(ctx.weddingId, id, parsed);
     refresh();
     return {};

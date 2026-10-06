@@ -6,7 +6,7 @@ export function MoneyHeader({
   blurb,
   action,
 }: {
-  active: "expenses" | "budget" | "splits";
+  active: "expenses" | "payments" | "budget" | "splits";
   title: string;
   blurb: string;
   action?: React.ReactNode;
@@ -34,6 +34,7 @@ export function MoneyHeader({
       </div>
       <nav aria-label="Money pages" className="mt-5 flex gap-2">
         {tab("expenses", "/money", "Expenses")}
+        {tab("payments", "/money/payments", "Payments")}
         {tab("budget", "/money/budget", "Budget")}
         {tab("splits", "/money/splits", "Who paid")}
       </nav>

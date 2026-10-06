@@ -5,6 +5,7 @@ import { AppError } from "@/lib/errors";
 import { budgetRow, summarize, type BudgetRow, type Summary } from "./calc";
 import {
   countForEvent,
+  deleteExpenseForInstallment,
   deleteExpense as removeExpense,
   findExpense,
   insertExpense,
@@ -13,7 +14,9 @@ import {
   replaceExpenseFields,
   saveBudget,
   searchExpenses,
+  sumByVendor,
   unlinkEvent,
+  unlinkVendor,
   type ExpenseDoc,
   type ExpenseFields,
   type OptionalExpenseField,
@@ -42,6 +45,8 @@ function toItem(doc: ExpenseDoc): ExpenseItem {
     category: doc.category,
     paidBy: doc.paidBy,
     eventId: doc.eventId?.toHexString(),
+    vendorId: doc.vendorId?.toHexString(),
+    installmentId: doc.installmentId?.toHexString(),
     notes: doc.notes,
     splits: doc.splits,
   };
@@ -60,6 +65,8 @@ function toFields(input: ExpenseInput): { set: ExpenseFields; unset: OptionalExp
   const unset: OptionalExpenseField[] = [];
   if (input.eventId) set.eventId = new ObjectId(input.eventId);
   else unset.push("eventId");
+  if (input.vendorId) set.vendorId = new ObjectId(input.vendorId);
+  else unset.push("vendorId");
   if (input.notes) set.notes = input.notes;
   else unset.push("notes");
   // Splits belong to shared expenses only; switching to one payer drops them.
@@ -105,6 +112,7 @@ export async function listExpenses(
       category: query.category,
       paidBy: query.paidBy,
       eventId: query.eventId === "none" ? null : query.eventId,
+      vendorId: query.vendorId === "none" ? null : query.vendorId,
     },
     (query.page - 1) * EXPENSE_PAGE_SIZE,
     EXPENSE_PAGE_SIZE,
@@ -189,4 +197,58 @@ export function unlinkEventFromMoney(
   options?: { session?: ClientSession },
 ): Promise<void> {
   return unlinkEvent(weddingId, eventId, options);
+}
+
+// ---- vendors ----
+
+// Spent so far on each vendor: the sum of the expenses linked to it.
+export function spentByVendor(weddingId: string): Promise<Map<string, number>> {
+  return sumByVendor(weddingId);
+}
+
+// Marking an installment paid creates its expense. It runs inside the vendors module's
+// transaction, so the installment and the expense are saved together or not at all.
+export async function createInstallmentExpense(
+  weddingId: string,
+  input: {
+    title: string;
+    amount: number;
+    date: Date;
+    category: ExpenseCategory;
+    paidBy: "bride_family" | "groom_family" | "couple";
+    vendorId: string;
+    installmentId: string;
+  },
+  options: { session: ClientSession },
+): Promise<void> {
+  await insertExpense(
+    weddingId,
+    {
+      title: input.title,
+      amount: input.amount,
+      date: input.date,
+      category: input.category,
+      paidBy: input.paidBy,
+      vendorId: new ObjectId(input.vendorId),
+      installmentId: new ObjectId(input.installmentId),
+    },
+    options,
+  );
+}
+
+export function removeInstallmentExpense(
+  weddingId: string,
+  installmentId: string,
+  options: { session: ClientSession },
+): Promise<void> {
+  return deleteExpenseForInstallment(weddingId, installmentId, options);
+}
+
+// Called by the vendors module when a vendor is deleted.
+export function unlinkVendorFromMoney(
+  weddingId: string,
+  vendorId: string,
+  options?: { session?: ClientSession },
+): Promise<void> {
+  return unlinkVendor(weddingId, vendorId, options);
 }

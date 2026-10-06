@@ -8,6 +8,7 @@ import { requireMember } from "@/lib/authz";
 import { toIstYmd } from "@/lib/dates";
 import { toRupeeInput } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
+import { listVendors } from "@/modules/vendors/service";
 import { getExpense } from "@/modules/money/service";
 import type { ExpenseCategory, SplitDefault } from "@/modules/money/schema";
 import { getWedding } from "@/modules/wedding/service";
@@ -17,10 +18,11 @@ export const metadata: Metadata = { title: "Expense — Make My Marriage" };
 export default async function ExpensePage({ params }: { params: Promise<{ id: string }> }) {
   const ctx = await requireMember();
   const { id } = await params;
-  const [expense, events, wedding] = await Promise.all([
+  const [expense, events, wedding, vendors] = await Promise.all([
     getExpense(ctx.weddingId, id),
     listEvents(ctx.weddingId),
     getWedding(ctx.weddingId),
+    listVendors(ctx.weddingId),
   ]);
   if (!expense) notFound();
 
@@ -51,6 +53,9 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
             category: expense.category,
             paidBy: expense.paidBy,
             eventId: events.some((e) => e.id === expense.eventId) ? (expense.eventId ?? "") : "",
+            vendorId: vendors.some((v) => v.vendor.id === expense.vendorId)
+              ? (expense.vendorId ?? "")
+              : "",
             notes: expense.notes ?? "",
             splitMode: byAmount ? "amount" : "percentage",
             shareBride: share("bride_family"),
@@ -58,6 +63,7 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
             shareCouple: share("couple"),
           }}
           events={events.map((e) => ({ id: e.id, name: e.name }))}
+          vendors={vendors.map((v) => ({ id: v.vendor.id, name: v.vendor.name }))}
           splitDefaults={
             (wedding?.splitDefaults ?? {}) as Partial<Record<ExpenseCategory, SplitDefault>>
           }

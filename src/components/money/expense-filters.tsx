@@ -5,7 +5,13 @@ import { Select } from "@/components/ui/select";
 import { CATEGORY_LABELS, EXPENSE_CATEGORIES, PAID_BY, PAYER_LABELS } from "@/modules/money/schema";
 
 // Filters live in the URL, so a filtered list can be bookmarked. Changing one goes back to page 1.
-export function ExpenseFilters({ events }: { events: { id: string; name: string }[] }) {
+export function ExpenseFilters({
+  events,
+  vendors,
+}: {
+  events: { id: string; name: string }[];
+  vendors: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -20,7 +26,7 @@ export function ExpenseFilters({ events }: { events: { id: string; name: string 
   }
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
       <Select
         aria-label="Filter by category"
         value={params.get("category") ?? ""}
@@ -45,6 +51,20 @@ export function ExpenseFilters({ events }: { events: { id: string; name: string 
         {events.map((e) => (
           <option key={e.id} value={e.id}>
             {e.name}
+          </option>
+        ))}
+      </Select>
+      <Select
+        aria-label="Filter by vendor"
+        value={params.get("vendorId") ?? ""}
+        onChange={(e) => set("vendorId", e.target.value)}
+        className="h-9 text-[13px]"
+      >
+        <option value="">Any vendor</option>
+        <option value="none">No vendor</option>
+        {vendors.map((v) => (
+          <option key={v.id} value={v.id}>
+            {v.name}
           </option>
         ))}
       </Select>

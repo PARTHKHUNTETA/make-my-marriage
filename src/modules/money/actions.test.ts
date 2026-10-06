@@ -14,6 +14,8 @@ vi.mock("@/lib/authz", () => ({ requireMember }));
 vi.mock("./service", () => service);
 vi.mock("@/modules/events/service", () => ({ eventExists }));
 vi.mock("@/modules/wedding/service", () => wedding);
+const vendorExists = vi.hoisted(() => vi.fn());
+vi.mock("@/modules/vendors/service", () => ({ vendorExists }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import {
@@ -41,6 +43,7 @@ beforeEach(() => {
   Object.values(service).forEach((fn) => fn.mockReset().mockResolvedValue({ id: "x1" }));
   Object.values(wedding).forEach((fn) => fn.mockReset().mockResolvedValue(undefined));
   eventExists.mockReset().mockResolvedValue(true);
+  vendorExists.mockReset().mockResolvedValue(true);
 });
 
 describe("expense actions", () => {
@@ -83,6 +86,21 @@ describe("expense actions", () => {
       { payer: "bride_family", percentage: 50 },
       { payer: "groom_family", percentage: 50 },
     ]);
+  });
+});
+
+describe("vendor link on an expense", () => {
+  it("is refused for a vendor from another wedding", async () => {
+    vendorExists.mockResolvedValue(false);
+    expect(await createExpenseAction({ ...valid, vendorId: ID })).toMatchObject({
+      ok: false,
+      error: { code: "VALIDATION_FAILED" },
+    });
+    expect(vendorExists).toHaveBeenCalledWith("w1", ID);
+    expect(service.createExpense).not.toHaveBeenCalled();
+  });
+  it("is accepted for the wedding's own vendor", async () => {
+    expect(await createExpenseAction({ ...valid, vendorId: ID })).toMatchObject({ ok: true });
   });
 });
 

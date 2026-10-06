@@ -8,7 +8,7 @@ import type { EventDeletePreview } from "@/modules/events/schema";
 
 const small = "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50";
 
-function describeLinks({ taskCount, guestCount, expenseCount }: EventDeletePreview) {
+function describeLinks({ taskCount, guestCount, expenseCount, vendorCount }: EventDeletePreview) {
   const parts: string[] = [];
   if (guestCount > 0)
     parts.push(
@@ -21,6 +21,10 @@ function describeLinks({ taskCount, guestCount, expenseCount }: EventDeletePrevi
   if (expenseCount > 0)
     parts.push(
       `${expenseCount} ${expenseCount === 1 ? "expense is" : "expenses are"} linked to it. ${expenseCount === 1 ? "It stays" : "They stay"} in your totals, without the event, and this event's budget is removed.`,
+    );
+  if (vendorCount > 0)
+    parts.push(
+      `${vendorCount} ${vendorCount === 1 ? "vendor is" : "vendors are"} booked for it. ${vendorCount === 1 ? "They stay" : "They stay"} in My Vendors, without this event.`,
     );
   return parts.length > 0 ? parts.join(" ") : "Nothing else is linked to this event.";
 }

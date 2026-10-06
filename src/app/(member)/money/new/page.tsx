@@ -5,6 +5,7 @@ import { ExpenseForm } from "@/components/money/expense-form";
 import { requireMember } from "@/lib/authz";
 import { toIstYmd } from "@/lib/dates";
 import { listEvents } from "@/modules/events/service";
+import { listVendors } from "@/modules/vendors/service";
 import { getWedding } from "@/modules/wedding/service";
 import type { ExpenseCategory, SplitDefault } from "@/modules/money/schema";
 
@@ -17,9 +18,10 @@ export default async function NewExpensePage({
 }) {
   const ctx = await requireMember();
   const { eventId } = await searchParams;
-  const [events, wedding] = await Promise.all([
+  const [events, wedding, vendors] = await Promise.all([
     listEvents(ctx.weddingId),
     getWedding(ctx.weddingId),
+    listVendors(ctx.weddingId),
   ]);
   const preset = typeof eventId === "string" && events.some((e) => e.id === eventId) ? eventId : "";
   return (
@@ -39,6 +41,7 @@ export default async function NewExpensePage({
           category: "venue",
           paidBy: "couple",
           eventId: preset,
+          vendorId: "",
           notes: "",
           splitMode: "percentage",
           shareBride: "",
@@ -46,6 +49,7 @@ export default async function NewExpensePage({
           shareCouple: "",
         }}
         events={events.map((e) => ({ id: e.id, name: e.name }))}
+        vendors={vendors.map((v) => ({ id: v.vendor.id, name: v.vendor.name }))}
         splitDefaults={
           (wedding?.splitDefaults ?? {}) as Partial<Record<ExpenseCategory, SplitDefault>>
         }

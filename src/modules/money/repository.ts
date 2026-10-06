@@ -29,8 +29,8 @@ export type ExpenseDoc = {
 };
 
 export type ExpenseFields = Pick<ExpenseDoc, "title" | "amount" | "date" | "category" | "paidBy"> &
-  Partial<Pick<ExpenseDoc, "eventId" | "notes" | "splits">>;
-export type OptionalExpenseField = "eventId" | "notes" | "splits";
+  Partial<Pick<ExpenseDoc, "eventId" | "vendorId" | "installmentId" | "notes" | "splits">>;
+export type OptionalExpenseField = "eventId" | "vendorId" | "notes" | "splits";
 
 export type BudgetDoc = {
   _id: ObjectId;
@@ -75,10 +75,14 @@ function budgets(): Promise<Collection<BudgetDoc>> {
 
 const oid = (id: string) => (ObjectId.isValid(id) ? new ObjectId(id) : null);
 
-export async function insertExpense(weddingId: string, fields: ExpenseFields): Promise<ExpenseDoc> {
+export async function insertExpense(
+  weddingId: string,
+  fields: ExpenseFields,
+  options?: { session?: ClientSession },
+): Promise<ExpenseDoc> {
   const now = new Date();
   const doc = { _id: new ObjectId(), ...fields, createdAt: now, updatedAt: now };
-  await scoped(await expenses(), { weddingId }).insertOne(doc);
+  await scoped(await expenses(), { weddingId }).insertOne(doc, options);
   return { ...doc, weddingId: new ObjectId(weddingId) };
 }
 
@@ -114,6 +118,7 @@ export async function deleteExpense(weddingId: string, id: string): Promise<bool
 export type ExpenseFilter = {
   category?: ExpenseCategory;
   eventId?: string | null; // null: no event
+  vendorId?: string | null; // null: no vendor
   paidBy?: PaidBy;
 };
 
@@ -126,6 +131,12 @@ function filterOf(filter: ExpenseFilter): Filter<ExpenseDoc> | null {
     const id = oid(filter.eventId);
     if (!id) return null;
     query.eventId = id;
+  }
+  if (filter.vendorId === null) query.vendorId = { $exists: false };
+  else if (filter.vendorId) {
+    const id = oid(filter.vendorId);
+    if (!id) return null;
+    query.vendorId = id;
   }
   return query;
 }
@@ -210,4 +221,41 @@ export async function saveBudget(
       if (!(err instanceof MongoServerError && err.code === 11000) || attempt === 1) throw err;
     }
   }
+}
+
+// Total spent per vendor, from the expenses linked to each (db-design §7: computed, never stored).
+export async function sumByVendor(weddingId: string): Promise<Map<string, number>> {
+  const rows = await scoped(await expenses(), { weddingId })
+    .aggregate<{ _id: ObjectId; total: number }>([
+      { $match: { vendorId: { $exists: true } } },
+      { $group: { _id: "$vendorId", total: { $sum: "$amount" } } },
+    ])
+    .toArray();
+  return new Map(rows.map((r) => [r._id.toHexString(), r.total]));
+}
+
+// Deleting a vendor keeps its expenses and amounts and removes only the link (PRD 5.8).
+export async function unlinkVendor(
+  weddingId: string,
+  vendorId: string,
+  options?: { session?: ClientSession },
+): Promise<void> {
+  const id = oid(vendorId);
+  if (!id) return;
+  await scoped(await expenses(), { weddingId }).updateMany(
+    { vendorId: id },
+    { $unset: { vendorId: "", installmentId: "" }, $set: { updatedAt: new Date() } },
+    options,
+  );
+}
+
+// "Mark unpaid" removes the expense that marking the installment paid created.
+export async function deleteExpenseForInstallment(
+  weddingId: string,
+  installmentId: string,
+  options?: { session?: ClientSession },
+): Promise<void> {
+  const id = oid(installmentId);
+  if (!id) return;
+  await scoped(await expenses(), { weddingId }).deleteMany({ installmentId: id }, options);
 }

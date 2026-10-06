@@ -8,6 +8,8 @@ import { requireMember } from "@/lib/authz";
 import { toIstYmd } from "@/lib/dates";
 import { getEvent } from "@/modules/events/service";
 import { getStats, listEveryGuest } from "@/modules/guests/service";
+import { VENDOR_CATEGORY_LABELS } from "@/modules/vendors/schema";
+import { listVendors } from "@/modules/vendors/service";
 import { RSVP_LABELS } from "@/modules/guests/schema";
 import { listTeam } from "@/modules/members/service";
 import { PRIORITY_LABELS, STATUS_LABELS } from "@/modules/tasks/schema";
@@ -20,11 +22,12 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const event = await getEvent(ctx.weddingId, id);
   if (!event) notFound();
-  const [tasks, team, stats, guests] = await Promise.all([
+  const [tasks, team, stats, guests, vendors] = await Promise.all([
     listTasks(ctx.weddingId, { view: "all", eventId: event.id }, ctx.memberId),
     listTeam(ctx.weddingId),
     getStats(ctx.weddingId),
     listEveryGuest(ctx.weddingId, { eventId: event.id }),
+    listVendors(ctx.weddingId, { eventId: event.id }),
   ]);
   const mine = stats.perEvent.find((e) => e.eventId === event.id);
   const names = new Map(team.members.map((m) => [m.memberId, m.name]));
@@ -106,6 +109,38 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
         <section className="rounded-xl bg-white shadow-[0_1px_3px_rgba(35,31,32,0.04)]">
           <div className="flex items-center justify-between px-5 pt-5">
             <h2 className="font-serif text-xl text-ink">
+              Vendors <span className="font-sans text-sm text-ink-2">({vendors.length})</span>
+            </h2>
+            <Link href="/vendors" className="text-[13px] font-semibold text-bronze hover:underline">
+              All vendors
+            </Link>
+          </div>
+          {vendors.length === 0 ? (
+            <p className="px-5 pt-2 pb-5 text-[13px] text-ink-2">
+              No vendors are linked to this event. Tick it on a vendor&rsquo;s page.
+            </p>
+          ) : (
+            <ul className="mt-2 divide-y divide-line pb-2">
+              {vendors.map(({ vendor }) => (
+                <li key={vendor.id} className="flex flex-wrap items-center gap-3 px-5 py-2.5">
+                  <Link
+                    href={`/vendors/${vendor.id}`}
+                    className="min-w-0 flex-1 text-sm font-semibold text-ink hover:underline"
+                  >
+                    {vendor.name}
+                  </Link>
+                  <span className="text-[13px] text-ink-2">
+                    {VENDOR_CATEGORY_LABELS[vendor.category]}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="rounded-xl bg-white shadow-[0_1px_3px_rgba(35,31,32,0.04)]">
+          <div className="flex items-center justify-between px-5 pt-5">
+            <h2 className="font-serif text-xl text-ink">
               Tasks <span className="font-sans text-sm text-ink-2">({tasks.length})</span>
             </h2>
             <Link
@@ -138,7 +173,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             </ul>
           )}
           <p className="px-5 pt-1 pb-5 text-[13px] text-ink-2">
-            Vendors and the photo album for this event will appear here as those features arrive.
+            The photo album for this event will appear here when photos arrive.
           </p>
         </section>
 

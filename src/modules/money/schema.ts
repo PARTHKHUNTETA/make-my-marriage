@@ -76,6 +76,7 @@ export const expenseInputSchema = z
     category: z.enum(EXPENSE_CATEGORIES),
     paidBy: z.enum(PAID_BY),
     eventId: z.preprocess(blank, objectId.optional()),
+    vendorId: z.preprocess(blank, objectId.optional()),
     notes: z
       .string()
       .trim()
@@ -254,6 +255,7 @@ export const EXPENSE_PAGE_SIZE = 50;
 export type ExpenseQuery = {
   category?: ExpenseCategory;
   eventId?: string; // an event id, or "none"
+  vendorId?: string; // a vendor id, or "none"
   paidBy?: PaidBy;
   page: number;
 };
@@ -264,9 +266,11 @@ export function parseExpenseQuery(
   const one = (key: string) => (typeof raw[key] === "string" ? (raw[key] as string) : undefined);
   const page = Number(one("page"));
   const eventId = one("eventId");
+  const vendorId = one("vendorId");
   return {
     category: EXPENSE_CATEGORIES.find((c) => c === one("category")),
     eventId: eventId === "none" || objectId.safeParse(eventId).success ? eventId : undefined,
+    vendorId: vendorId === "none" || objectId.safeParse(vendorId).success ? vendorId : undefined,
     paidBy: PAID_BY.find((p) => p === one("paidBy")),
     page: Number.isInteger(page) && page >= 1 && page <= 10_000 ? page : 1,
   };
@@ -280,6 +284,9 @@ export type ExpenseItem = {
   category: ExpenseCategory;
   paidBy: PaidBy;
   eventId?: string;
+  vendorId?: string;
+  // Set when the expense was created by marking a payment-schedule installment paid.
+  installmentId?: string;
   notes?: string;
   splits?: Split[];
 };

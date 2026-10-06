@@ -7,6 +7,7 @@ import { requireMember } from "@/lib/authz";
 import { formatLongDate } from "@/lib/dates";
 import { formatRupees } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
+import { listVendors } from "@/modules/vendors/service";
 import {
   CATEGORY_LABELS,
   EXPENSE_CATEGORIES,
@@ -27,13 +28,15 @@ export default async function MoneyPage({
   const ctx = await requireMember();
   const raw = await searchParams;
   const query = parseExpenseQuery(raw);
-  const [events, summary, list] = await Promise.all([
+  const [events, vendors, summary, list] = await Promise.all([
     listEvents(ctx.weddingId),
+    listVendors(ctx.weddingId),
     getSummary(ctx.weddingId),
     listExpenses(ctx.weddingId, query),
   ]);
   const eventNames = new Map(events.map((e) => [e.id, e.name]));
-  const filtered = Boolean(query.category || query.eventId || query.paidBy);
+  const vendorNames = new Map(vendors.map((v) => [v.vendor.id, v.vendor.name]));
+  const filtered = Boolean(query.category || query.eventId || query.vendorId || query.paidBy);
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize));
   const categories = EXPENSE_CATEGORIES.filter((c) => summary.byCategory[c]).sort(
     (a, b) => (summary.byCategory[b] ?? 0) - (summary.byCategory[a] ?? 0),
@@ -47,7 +50,7 @@ export default async function MoneyPage({
 
   const pageHref = (page: number) => {
     const next = new URLSearchParams();
-    for (const key of ["category", "eventId", "paidBy"] as const) {
+    for (const key of ["category", "eventId", "vendorId", "paidBy"] as const) {
       const value = raw[key];
       if (typeof value === "string" && value) next.set(key, value);
     }
@@ -111,7 +114,10 @@ export default async function MoneyPage({
       ) : null}
 
       <div className="mt-6">
-        <ExpenseFilters events={events.map((e) => ({ id: e.id, name: e.name }))} />
+        <ExpenseFilters
+          events={events.map((e) => ({ id: e.id, name: e.name }))}
+          vendors={vendors.map((v) => ({ id: v.vendor.id, name: v.vendor.name }))}
+        />
       </div>
 
       {list.items.length === 0 ? (
@@ -145,6 +151,9 @@ export default async function MoneyPage({
                     {formatLongDate(e.date)} · {CATEGORY_LABELS[e.category]}
                     {e.eventId && eventNames.get(e.eventId)
                       ? ` · ${eventNames.get(e.eventId)}`
+                      : ""}
+                    {e.vendorId && vendorNames.get(e.vendorId)
+                      ? ` · ${vendorNames.get(e.vendorId)}`
                       : ""}
                   </p>
                 </div>

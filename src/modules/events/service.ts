@@ -4,6 +4,7 @@ import { AppError } from "@/lib/errors";
 import { countGuestsInvitedToEvent, removeEventInvitations } from "@/modules/guests/service";
 import { countExpensesForEvent, unlinkEventFromMoney } from "@/modules/money/service";
 import { taskCountForEvent, unlinkEvent } from "@/modules/tasks/service";
+import { countVendorsForEvent, removeEventFromVendors } from "@/modules/vendors/service";
 import {
   deleteEvent as removeEvent,
   findEvent,
@@ -19,7 +20,7 @@ import type { EventDeletePreview, EventInput, EventItem } from "./schema";
 // Business rules for the events module (PRD 5.3, api-design §5).
 //
 // Not built yet because their modules come in later phases: creating an event's photo album
-// (Phase 6), and on delete unlinking vendors and moving photos to General (Phases 4 and 6). Each of those adds its own step to deleteEvent.
+// (Phase 6), and on delete moving its photos to General (Phase 6). Each of those adds its own step to deleteEvent.
 
 const NOT_FOUND = new AppError("NOT_FOUND", "That event no longer exists.");
 
@@ -97,21 +98,23 @@ export async function previewEventDelete(
   eventId: string,
 ): Promise<EventDeletePreview> {
   if (!(await eventExists(weddingId, eventId))) throw NOT_FOUND;
-  const [taskCount, guestCount, expenseCount] = await Promise.all([
+  const [taskCount, guestCount, expenseCount, vendorCount] = await Promise.all([
     taskCountForEvent(weddingId, eventId),
     countGuestsInvitedToEvent(weddingId, eventId),
     countExpensesForEvent(weddingId, eventId),
+    countVendorsForEvent(weddingId, eventId),
   ]);
-  return { taskCount, guestCount, expenseCount };
+  return { taskCount, guestCount, expenseCount, vendorCount };
 }
 
 // One transaction: the event goes with its invitations and RSVPs; its tasks and expenses lose the
-// link but stay, and its budget line goes with it.
+// link but stay, its budget line goes with it, and vendors stop listing it.
 export async function deleteEvent(weddingId: string, eventId: string): Promise<void> {
   await inTransaction(async (session) => {
     if (!(await removeEvent(weddingId, eventId, { session }))) throw NOT_FOUND;
     await removeEventInvitations(weddingId, eventId, { session });
     await unlinkEvent(weddingId, eventId, { session });
     await unlinkEventFromMoney(weddingId, eventId, { session });
+    await removeEventFromVendors(weddingId, eventId, { session });
   });
 }

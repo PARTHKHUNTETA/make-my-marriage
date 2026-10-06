@@ -65,7 +65,17 @@ the lint rule that protects tenant isolation), and Phase 1 (Foundation) is built
   percent used, and over-budget lines in red. A "Who paid" page shows each side's contribution
   overall and by category. Deleting an event keeps its expenses and removes only the link.
 
-Still to come: deleting a wedding (Phase 1), payment schedules and vendors (the rest of Phase 4),
+- **My Vendors:** keep each vendor's category, contact details (tap to call or email), address,
+  total cost, related events and notes. Each shows "spent so far" from the expenses linked to it.
+  Each event page lists its vendors. Deleting a vendor keeps its expenses and removes only the link.
+- **Payment schedules:** plan installments (Advance, Final...) with due dates on each vendor.
+  Status is worked out from the date: upcoming, due soon (3 days), overdue, paid. Marking one paid
+  creates the linked expense in one transaction, and pressing it twice can never create two.
+  Marking it unpaid removes that expense. Money → Payments lists every installment by due date,
+  with each vendor's total, paid so far and balance.
+
+Still to come: deleting a wedding (Phase 1), Discover vendors and the marketplace and vendor
+portal (the rest of Phase 4),
 budget alerts at 90% and 100% (Phase 7 notifications), and the event album, invitations, expenses and
 vendor links that attach to events in later phases. Features are built
 in the PRD's seven release phases.

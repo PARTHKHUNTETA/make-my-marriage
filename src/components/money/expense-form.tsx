@@ -31,6 +31,7 @@ const FIELDS = [
   "category",
   "paidBy",
   "eventId",
+  "vendorId",
   "notes",
   "shareBride",
   "shareGroom",
@@ -41,11 +42,13 @@ export function ExpenseForm({
   initial,
   expenseId,
   events,
+  vendors,
   splitDefaults,
 }: {
   initial: ExpenseFormValues;
   expenseId?: string;
   events: { id: string; name: string }[];
+  vendors: { id: string; name: string }[];
   // Default percentages for shared expenses, by category (set on the Splits page).
   splitDefaults: Partial<Record<ExpenseCategory, SplitDefault>>;
 }) {
@@ -213,6 +216,20 @@ export function ExpenseForm({
             ))}
           </SelectField>
         </div>
+
+        <SelectField
+          id="vendorId"
+          label="Vendor (optional)"
+          error={errors.vendorId?.message as string | undefined}
+          {...register("vendorId")}
+        >
+          <option value="">No vendor</option>
+          {vendors.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.name}
+            </option>
+          ))}
+        </SelectField>
 
         <SelectField
           id="paidBy"
