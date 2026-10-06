@@ -69,6 +69,18 @@ export function parseDays(text: string): number[] {
     .map((part) => (/^\d+$/.test(part) ? Number(part) : NaN));
 }
 
+export const THEMES = ["classical", "minimal", "modern"] as const;
+export type Theme = (typeof THEMES)[number];
+
+// The website's settings as the app uses them. The live link is stored as a clean watch address.
+export type WebsiteSettings = {
+  slug: string;
+  theme: Theme;
+  isOn: boolean;
+  showLive: boolean;
+  youtubeUrl?: string;
+};
+
 // What the app shows about the current wedding. Deliberately omits tokens and settings.
 export type WeddingSummary = {
   id: string;
@@ -83,6 +95,7 @@ export type WeddingSummary = {
   // The couple's own WhatsApp share text, if they wrote one.
   whatsappMessage?: string;
   reminders: ReminderSettings;
+  website: WebsiteSettings;
   overallBudget?: number; // paise
   splitDefaults: Record<string, { bride_family: number; groom_family: number; couple: number }>;
 };

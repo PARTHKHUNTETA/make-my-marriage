@@ -1,5 +1,5 @@
 import "server-only";
-import { ObjectId, type ClientSession, type Collection } from "mongodb";
+import { MongoServerError, ObjectId, type ClientSession, type Collection } from "mongodb";
 import { getDb } from "@/lib/db";
 
 // All MongoDB access for the wedding module. `weddings` is the root collection: every other
@@ -167,4 +167,52 @@ export async function saveSplitDefault(
       : { $set: { [field]: shares, updatedAt: new Date() } },
   );
   return result.matchedCount === 1;
+}
+
+// Looks a wedding up by its public web address. The address is unique, so this returns at most one.
+// The public site is the one place a wedding is found by something other than its own id, so this
+// is separate and returns the whole document for the website module to pick the public fields from.
+export async function findWeddingBySlug(slug: string): Promise<WeddingDoc | null> {
+  if (typeof slug !== "string" || slug.length < 1 || slug.length > 60) return null;
+  return (await weddings()).findOne({ "website.slug": slug, deletedAt: { $exists: false } });
+}
+
+export type WebsiteChanges = {
+  slug?: string;
+  theme?: "classical" | "minimal" | "modern";
+  isOn?: boolean;
+  showLive?: boolean;
+  youtubeUrl?: string | null; // null removes it
+};
+
+// Changes the website settings. Returns "slug_taken" if another wedding already has the address
+// (the unique index decides, so two people choosing the same address at once cannot both win).
+export async function saveWebsiteSettings(
+  id: string,
+  changes: WebsiteChanges,
+): Promise<"ok" | "not_found" | "slug_taken"> {
+  if (!ObjectId.isValid(id)) return "not_found";
+  const set: Record<string, unknown> = { updatedAt: new Date() };
+  const unset: Record<string, ""> = {};
+  if (changes.slug !== undefined) set["website.slug"] = changes.slug;
+  if (changes.theme !== undefined) set["website.theme"] = changes.theme;
+  if (changes.isOn !== undefined) set["website.isOn"] = changes.isOn;
+  if (changes.showLive !== undefined) {
+    set["website.showLive"] = changes.showLive;
+    set["liveStream.isOn"] = changes.showLive;
+  }
+  if (changes.youtubeUrl === null) unset["liveStream.youtubeUrl"] = "";
+  else if (changes.youtubeUrl !== undefined) set["liveStream.youtubeUrl"] = changes.youtubeUrl;
+  try {
+    const result = await (
+      await weddings()
+    ).updateOne(
+      { _id: new ObjectId(id), deletedAt: { $exists: false } },
+      { $set: set, ...(Object.keys(unset).length > 0 ? { $unset: unset } : {}) },
+    );
+    return result.matchedCount === 1 ? "ok" : "not_found";
+  } catch (err) {
+    if (err instanceof MongoServerError && err.code === 11000) return "slug_taken";
+    throw err;
+  }
 }

@@ -96,6 +96,17 @@ the lint rule that protects tenant isolation), and Phase 1 (Foundation) is built
   public reply. The listing's rating is recomputed on every change, and anyone viewing a review
   sees no wedding identity. The team can remove abusive reviews from `/staff`.
 
+- **Wedding website:** every wedding has a public mini site at `/<address>` (and
+  `<address>.<root domain>`), in one of three themes (Classical Indian, Minimal Elegant, Modern
+  Celebration) that all show the same sections: the couple, date and city, the welcome message,
+  the events marked "show on website" with times and dress code, venues with Google Maps links,
+  and an optional live video. It is off until the couple turns it on, a hidden site is a plain
+  404, it is never indexed by search engines, and it has no RSVP form. Members preview it before
+  sharing, switch themes without losing content, and edit the address.
+- **Live stream:** paste a YouTube watch, live or youtu.be link; only the video id is kept and the
+  privacy-friendly embed is rebuilt from it. A small Content-Security-Policy lets pages frame only
+  that player.
+
 Still to come: deleting a wedding (Phase 1), Discover vendors (needs a Google Places key), listing
 photos (with file storage),
 budget alerts at 90% and 100% (Phase 7 notifications), and the event album, invitations, expenses and

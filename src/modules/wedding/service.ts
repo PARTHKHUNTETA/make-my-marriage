@@ -11,7 +11,10 @@ import { addAdminMember, getMembership } from "@/modules/members/service";
 import {
   findWeddingById,
   insertWedding,
+  findWeddingBySlug,
   listWeddingsWithReminders,
+  saveWebsiteSettings,
+  type WebsiteChanges,
   saveOverallBudget,
   saveReminderSettings,
   saveSplitDefault,
@@ -106,6 +109,13 @@ function toSummary(doc: WeddingDoc): WeddingSummary {
     slug: doc.website.slug,
     whatsappMessage: doc.whatsappMessage,
     reminders: doc.reminders ?? { enabled: false, rsvpDays: DEFAULT_RSVP_REMINDER_DAYS },
+    website: {
+      slug: doc.website.slug,
+      theme: doc.website.theme,
+      isOn: doc.website.isOn,
+      showLive: doc.website.showLive,
+      youtubeUrl: doc.liveStream?.youtubeUrl,
+    },
     overallBudget: doc.overallBudget,
     splitDefaults: doc.expenseSplitDefaults ?? {},
   };
@@ -183,4 +193,19 @@ export async function setSplitDefault(
 ): Promise<void> {
   if (!(await saveSplitDefault(weddingId, category, shares)))
     throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
+}
+
+// A wedding found by its public web address, for the website. Null if there is none.
+export async function getWeddingBySlug(slug: string): Promise<WeddingSummary | null> {
+  const doc = await findWeddingBySlug(slug);
+  return doc ? toSummary(doc) : null;
+}
+
+export async function updateWebsite(weddingId: string, changes: WebsiteChanges): Promise<void> {
+  const result = await saveWebsiteSettings(weddingId, changes);
+  if (result === "slug_taken")
+    throw new AppError("VALIDATION_FAILED", "That web address is already taken.", {
+      slug: ["That web address is already taken. Try another."],
+    });
+  if (result === "not_found") throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
 }
