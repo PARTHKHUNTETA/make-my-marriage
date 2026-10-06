@@ -20,7 +20,7 @@ import { getAuthEnv, getStorageEnv } from "@/lib/env";
 // types ever becomes part of a key.
 
 const KEY_PATTERN =
-  /^weddings\/[a-f0-9]{24}\/(photos\/[a-f0-9]{24}\/(original|display|thumb)|covers\/[a-f0-9]{24})$/;
+  /^(weddings\/[a-f0-9]{24}\/(photos\/[a-f0-9]{24}\/(original|display|thumb)|covers\/[a-f0-9]{24})|listings\/[a-f0-9]{24}\/[a-f0-9]{24})$/;
 export const UPLOAD_URL_SECONDS = 15 * 60;
 export const VIEW_URL_SECONDS = 60 * 60;
 
@@ -40,6 +40,13 @@ export function photoKey(weddingId: string, photoId: string, variant: PhotoVaria
 // picture never shows from a stale cache.
 export function coverKey(weddingId: string, coverId: string): string {
   const key = `weddings/${weddingId}/covers/${coverId}`;
+  assertKey(key);
+  return key;
+}
+
+// A photo on a marketplace listing. Vendors, not weddings, own these.
+export function listingPhotoKey(listingId: string, photoId: string): string {
+  const key = `listings/${listingId}/${photoId}`;
   assertKey(key);
   return key;
 }

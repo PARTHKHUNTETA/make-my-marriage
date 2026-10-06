@@ -252,6 +252,79 @@ export async function upsertListing(
   }
 }
 
+// ---- listing photos -------------------------------------------------------------------------
+
+export const MAX_LISTING_PHOTOS = 20;
+
+// Adds a photo to the end of the vendor's listing, only while there is room, and sends the listing
+// back for review (a suspended one stays suspended), all in one atomic write. "exists" means this
+// very photo was already added (a retry), "full" that there are already 20, "no_listing" that the
+// vendor has not saved a listing yet.
+export async function addListingPhoto(
+  accountId: string,
+  key: string,
+): Promise<"added" | "exists" | "full" | "no_listing"> {
+  const id = oid(accountId);
+  if (!id) return "no_listing";
+  const col = await listings();
+  const result = await col.updateOne(
+    {
+      vendorAccountId: id,
+      photoKeys: { $ne: key },
+      $expr: { $lt: [{ $size: { $ifNull: ["$photoKeys", []] } }, MAX_LISTING_PHOTOS] },
+    },
+    [
+      {
+        $set: {
+          photoKeys: { $concatArrays: [{ $ifNull: ["$photoKeys", []] }, [{ $literal: key }]] },
+          status: { $cond: [{ $eq: ["$status", "suspended"] }, "suspended", "pending"] },
+          reviewNote: { $cond: [{ $eq: ["$status", "suspended"] }, "$reviewNote", "$$REMOVE"] },
+          updatedAt: { $literal: new Date() },
+        },
+      },
+    ] as unknown as UpdateFilter<ListingDoc>,
+  );
+  if (result.modifiedCount === 1) return "added";
+  const doc = await col.findOne({ vendorAccountId: id });
+  if (!doc) return "no_listing";
+  return doc.photoKeys?.includes(key) ? "exists" : "full";
+}
+
+// Takes a photo off the listing. False if it was not on it. Removing needs no new review.
+export async function pullListingPhoto(accountId: string, key: string): Promise<boolean> {
+  const id = oid(accountId);
+  if (!id) return false;
+  const result = await (
+    await listings()
+  ).updateOne(
+    { vendorAccountId: id, photoKeys: key },
+    { $pull: { photoKeys: key }, $set: { updatedAt: new Date() } },
+  );
+  return result.modifiedCount === 1;
+}
+
+// Puts one of the listing's own photos first, which is the picture couples see in search.
+export async function moveListingPhotoFirst(accountId: string, key: string): Promise<boolean> {
+  const id = oid(accountId);
+  if (!id) return false;
+  const result = await (
+    await listings()
+  ).updateOne({ vendorAccountId: id, photoKeys: key }, [
+    {
+      $set: {
+        photoKeys: {
+          $concatArrays: [
+            [{ $literal: key }],
+            { $filter: { input: "$photoKeys", cond: { $ne: ["$$this", { $literal: key }] } } },
+          ],
+        },
+        updatedAt: { $literal: new Date() },
+      },
+    },
+  ] as unknown as UpdateFilter<ListingDoc>);
+  return result.modifiedCount === 1;
+}
+
 // Moves a listing between statuses, only from the statuses given, so a stale click cannot
 // overwrite a newer decision. Returns the updated listing, or null if it was not in one of them.
 export async function transitionListing(

@@ -12,6 +12,7 @@ import { formatRupees } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
 import { getStats } from "@/modules/guests/service";
 import { BOOKING_STATUS_LABELS, reviewEligibility } from "@/modules/marketplace/schema";
+import { listingPhotoUrls } from "@/modules/marketplace/photos";
 import {
   getListingReviews,
   getLiveListing,
@@ -30,6 +31,7 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const listing = await getLiveListing(id);
   if (!listing) notFound();
+  const photos = await listingPhotoUrls(listing.photoKeys);
 
   const [events, wedding, stats, open, mine, profile, reviews, myReview] = await Promise.all([
     listEvents(ctx.weddingId),
@@ -82,6 +84,23 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
             <span className="text-ink-2">No reviews yet</span>
           )}
         </p>
+        {photos.length > 0 ? (
+          <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {photos.map((p, i) => (
+              <li key={p.id} className={i === 0 ? "col-span-2 sm:col-span-3" : ""}>
+                <a href={p.url} target="_blank" rel="noopener noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={p.url}
+                    alt={`${listing.businessName} photo ${i + 1}`}
+                    loading={i === 0 ? "eager" : "lazy"}
+                    className={`w-full rounded-lg object-cover ${i === 0 ? "aspect-[16/9]" : "aspect-[4/3]"}`}
+                  />
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <p className="mt-4 text-[15px] whitespace-pre-line text-ink">{listing.description}</p>
         {listing.website || listing.instagram ? (
           <p className="mt-4 flex flex-wrap gap-3 text-[13px]">

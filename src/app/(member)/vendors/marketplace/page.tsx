@@ -6,6 +6,7 @@ import { VendorsTabs } from "@/components/vendors/vendors-tabs";
 import { requireMember } from "@/lib/authz";
 import { formatRupees } from "@/lib/money";
 import { parseListingQuery } from "@/modules/marketplace/schema";
+import { listingPhotoUrls } from "@/modules/marketplace/photos";
 import { browseListings } from "@/modules/marketplace/service";
 import { VENDOR_CATEGORY_LABELS } from "@/modules/vendors/schema";
 import { getWedding } from "@/modules/wedding/service";
@@ -24,6 +25,14 @@ export default async function MarketplacePage({
   const query = parseListingQuery(raw);
   const effective = { ...query, city: "city" in raw ? query.city : wedding?.city };
   const list = await browseListings(effective);
+  // Search results show each listing's cover (first) photo.
+  const covers = new Map(
+    await Promise.all(
+      list.items.map(
+        async (l) => [l.id, (await listingPhotoUrls(l.photoKeys.slice(0, 1)))[0]?.url] as const,
+      ),
+    ),
+  );
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize));
 
   const pageHref = (page: number) => {
@@ -66,32 +75,43 @@ export default async function MarketplacePage({
             {list.items.map((l) => (
               <li
                 key={l.id}
-                className="rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)]"
+                className="overflow-hidden rounded-xl bg-white shadow-[0_1px_3px_rgba(35,31,32,0.04)]"
               >
-                <span className="rounded-full bg-rose-200 px-2.5 py-0.5 text-[11px] font-semibold text-ink-2">
-                  {VENDOR_CATEGORY_LABELS[l.category]}
-                </span>
-                <h2 className="mt-2 font-serif text-xl text-ink">
-                  <Link href={`/vendors/marketplace/${l.id}`} className="hover:underline">
-                    {l.businessName}
-                  </Link>
-                </h2>
-                <p className="mt-0.5 text-[13px] text-ink-2">{l.cities.join(", ")}</p>
-                <p className="mt-2 line-clamp-2 text-[13px] text-ink-2">{l.description}</p>
-                <div className="mt-3 flex items-center justify-between text-[13px]">
-                  <span className="font-semibold text-ink">
-                    {l.startingPrice !== undefined
-                      ? `From ${formatRupees(l.startingPrice)}`
-                      : "Ask for a quote"}
+                {covers.get(l.id) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={covers.get(l.id)}
+                    alt=""
+                    loading="lazy"
+                    className="aspect-[16/9] w-full object-cover"
+                  />
+                ) : null}
+                <div className="p-5">
+                  <span className="rounded-full bg-rose-200 px-2.5 py-0.5 text-[11px] font-semibold text-ink-2">
+                    {VENDOR_CATEGORY_LABELS[l.category]}
                   </span>
-                  {l.ratingCount > 0 && l.ratingAvg ? (
-                    <span className="inline-flex items-center gap-1 text-ink-2">
-                      <Star className="size-3.5 fill-honey text-honey" aria-hidden />
-                      {l.ratingAvg.toFixed(1)} ({l.ratingCount})
+                  <h2 className="mt-2 font-serif text-xl text-ink">
+                    <Link href={`/vendors/marketplace/${l.id}`} className="hover:underline">
+                      {l.businessName}
+                    </Link>
+                  </h2>
+                  <p className="mt-0.5 text-[13px] text-ink-2">{l.cities.join(", ")}</p>
+                  <p className="mt-2 line-clamp-2 text-[13px] text-ink-2">{l.description}</p>
+                  <div className="mt-3 flex items-center justify-between text-[13px]">
+                    <span className="font-semibold text-ink">
+                      {l.startingPrice !== undefined
+                        ? `From ${formatRupees(l.startingPrice)}`
+                        : "Ask for a quote"}
                     </span>
-                  ) : (
-                    <span className="text-ink-2">No reviews yet</span>
-                  )}
+                    {l.ratingCount > 0 && l.ratingAvg ? (
+                      <span className="inline-flex items-center gap-1 text-ink-2">
+                        <Star className="size-3.5 fill-honey text-honey" aria-hidden />
+                        {l.ratingAvg.toFixed(1)} ({l.ratingCount})
+                      </span>
+                    ) : (
+                      <span className="text-ink-2">No reviews yet</span>
+                    )}
+                  </div>
                 </div>
               </li>
             ))}

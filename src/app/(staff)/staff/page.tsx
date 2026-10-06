@@ -6,6 +6,7 @@ import { StaffListingActions } from "@/components/marketplace/staff-listing-acti
 import { requireStaff } from "@/lib/authz";
 import { formatRupees } from "@/lib/money";
 import { LISTING_STATUS_LABELS } from "@/modules/marketplace/schema";
+import { listingPhotoUrls } from "@/modules/marketplace/photos";
 import { listForStaff, listReviewsForStaff } from "@/modules/marketplace/service";
 import { VENDOR_CATEGORY_LABELS } from "@/modules/vendors/schema";
 
@@ -21,6 +22,12 @@ export default async function StaffPage() {
     notFound();
   }
   const [listings, reviews] = await Promise.all([listForStaff(), listReviewsForStaff()]);
+  // The team looks at a listing's photos before approving it.
+  const photoUrls = new Map(
+    await Promise.all(
+      listings.map(async (l) => [l.id, await listingPhotoUrls(l.photoKeys)] as const),
+    ),
+  );
   const pending = listings.filter((l) => l.status === "pending").length;
 
   return (
@@ -52,6 +59,23 @@ export default async function StaffPage() {
                   </p>
                   <h2 className="mt-1 font-serif text-xl text-ink">{l.businessName}</h2>
                   <p className="mt-1 text-[13px] whitespace-pre-line text-ink-2">{l.description}</p>
+                  {(photoUrls.get(l.id) ?? []).length > 0 ? (
+                    <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Listing photos">
+                      {(photoUrls.get(l.id) ?? []).map((p, i) => (
+                        <li key={p.id}>
+                          <a href={p.url} target="_blank" rel="noopener noreferrer">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={p.url}
+                              alt={`${l.businessName} photo ${i + 1}`}
+                              loading="lazy"
+                              className="size-16 rounded object-cover"
+                            />
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                   <p className="mt-2 text-[13px] text-ink-2">
                     {l.startingPrice !== undefined
                       ? `From ${formatRupees(l.startingPrice)}`

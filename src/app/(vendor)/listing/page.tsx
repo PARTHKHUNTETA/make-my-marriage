@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { ListingPhotos } from "@/components/vendor-portal/listing-photos";
 import { ListingForm } from "@/components/vendor-portal/listing-form";
 import { PauseButton } from "@/components/vendor-portal/pause-button";
 import { requireVendor } from "@/lib/authz";
 import { toRupeeInput } from "@/lib/money";
 import { LISTING_STATUS_LABELS, type ListingStatus } from "@/modules/marketplace/schema";
+import { listingPhotoUrls } from "@/modules/marketplace/photos";
 import { getMyListing } from "@/modules/marketplace/service";
 
 export const metadata: Metadata = {
@@ -75,6 +77,7 @@ export default async function ListingPage() {
           instagram: listing?.instagram ?? "",
         }}
       />
+      {listing ? <ListingPhotos photos={await listingPhotoUrls(listing.photoKeys)} /> : null}
     </main>
   );
 }

@@ -187,6 +187,8 @@ export type ListingView = {
   reviewNote?: string;
   ratingAvg?: number;
   ratingCount: number;
+  // R2 keys of the listing's photos, first is the cover. Pages turn them into addresses.
+  photoKeys: string[];
   updatedAt: Date;
 };
 
@@ -382,3 +384,8 @@ export function reviewEligibility(
   const last = new Date(Math.max(...eventDates.map((d) => d.getTime())));
   return daysUntil(last, now) < 0 ? { state: "eligible" } : { state: "not_yet", lastEventOn: last };
 }
+
+export const photoSlotsSchema = z.object({ count: z.number().int().min(1).max(20) });
+export const listingPhotoSchema = z.object({
+  photoId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Not a valid id"),
+});

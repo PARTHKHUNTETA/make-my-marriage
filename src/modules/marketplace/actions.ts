@@ -10,6 +10,8 @@ import { getVendorByListing } from "@/modules/vendors/service";
 import { getWedding } from "@/modules/wedding/service";
 import {
   acceptQuoteSchema,
+  listingPhotoSchema,
+  photoSlotsSchema,
   bookingRequestSchema,
   listingInputSchema,
   pauseSchema,
@@ -21,6 +23,12 @@ import {
   reviewSchema,
   staffDecisionSchema,
 } from "./schema";
+import {
+  confirmListingPhoto,
+  makeListingPhotoFirst,
+  removeListingPhoto,
+  requestListingPhotoSlots,
+} from "./photos";
 import {
   acceptQuote,
   cancelBooking,
@@ -57,6 +65,50 @@ export async function pauseListingAction(input: unknown) {
     const listing = await setListingPaused(ctx.vendorAccountId, paused);
     refresh();
     return { status: listing.status };
+  });
+}
+
+// ---- the vendor's listing photos ----
+
+export async function requestListingPhotoSlotsAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireVendor();
+    await consumeRateLimit("listing-photo-slots", subjectKey("vendor", ctx.vendorAccountId), {
+      limit: 60,
+      windowSeconds: 15 * 60,
+    });
+    const { count } = photoSlotsSchema.parse(input);
+    return requestListingPhotoSlots(ctx.vendorAccountId, count);
+  });
+}
+
+export async function confirmListingPhotoAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireVendor();
+    const { photoId } = listingPhotoSchema.parse(input);
+    await confirmListingPhoto(ctx.vendorAccountId, photoId);
+    refresh();
+    return { added: true };
+  });
+}
+
+export async function removeListingPhotoAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireVendor();
+    const { photoId } = listingPhotoSchema.parse(input);
+    await removeListingPhoto(ctx.vendorAccountId, photoId);
+    refresh();
+    return { removed: true };
+  });
+}
+
+export async function makeListingPhotoFirstAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireVendor();
+    const { photoId } = listingPhotoSchema.parse(input);
+    await makeListingPhotoFirst(ctx.vendorAccountId, photoId);
+    refresh();
+    return { moved: true };
   });
 }
 

@@ -173,6 +173,11 @@ the slug `demo`. Chrome and Firefox resolve `*.localhost`; Safari does not.
   can have its own on its website card. Pictures are shrunk to a JPEG of at most 1920 px in the
   browser, checked by the server, and replacing or removing one (or deleting the event) deletes
   the old file.
+- **Vendor listing photos:** vendors add up to 20 photos to their listing (vendor portal → Your
+  listing); the first is the cover couples see in search, and couples see them all on the listing
+  page. Photos are shrunk to a JPEG in the browser and checked by the server. Adding a photo sends
+  the listing back for the team's review (they see the photos on the staff page); removing one does
+  not, and a suspended listing stays suspended.
 - **Guest gallery and uploads:** every wedding has one private link, `/g/<token>` (Photos → Share and
   QR), shown as a QR code to download (PNG or SVG) or print as an A4 poster or A5 table card.
   Guests need no account: they browse the approved photos (full-screen with swipe, download the

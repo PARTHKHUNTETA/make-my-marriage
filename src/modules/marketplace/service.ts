@@ -187,6 +187,7 @@ export function toListingView(doc: ListingDoc): ListingView {
     reviewNote: doc.reviewNote,
     ratingAvg: doc.ratingAvg,
     ratingCount: doc.ratingCount,
+    photoKeys: doc.photoKeys ?? [],
     updatedAt: doc.updatedAt,
   };
 }
