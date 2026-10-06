@@ -158,6 +158,19 @@ Atlas is reachable, or an `INTERNAL` error envelope when it is not.
 Wedding sites are served on subdomains. Locally, <http://demo.localhost:3000> shows the site for
 the slug `demo`. Chrome and Firefox resolve `*.localhost`; Safari does not.
 
+- **Photos (members):** Photos has one album per event plus General, created automatically; deleting
+  an event moves its photos to General. Members add photos in bulk (JPEG, PNG, HEIC, WebP, up to
+  25 MB each, 50 at a time). The browser makes fast 400 px and 1600 px copies, sends every file
+  straight to storage on a short-lived signed address, retries a dropped connection, and the
+  server then checks each file really is that kind of image (by its first bytes, not its name)
+  before it appears. Select, move between albums, delete (files included), full-screen view with
+  swipe, and download the original. Each wedding has a storage quota (`PHOTO_QUOTA_GB`, default 10);
+  a batch that would pass it is refused with `STORAGE_FULL`.
+- **Photo storage:** files live in Cloudflare R2 (set the four `R2_*` variables; all are required in
+  production). Without them, development uses a `.local-storage/` folder served by
+  `/api/dev-storage/*` behind signed, expiring addresses; that route does not exist in production.
+  The R2 bucket must allow `PUT` and `GET` from the site's origin in its CORS settings.
+
 ### Environment variables
 
 Defined in [`.env.example`](.env.example) and validated by [`src/lib/env.ts`](src/lib/env.ts).

@@ -28,6 +28,8 @@ import { RSVP_LABELS } from "@/modules/guests/schema";
 import { getStats, listEveryGuest } from "@/modules/guests/service";
 import { formatRupees } from "@/lib/money";
 import { getSummary as getMoneySummary } from "@/modules/money/service";
+import { getSummary as getPhotoSummary } from "@/modules/photos/service";
+import { formatBytes } from "@/lib/bytes";
 import { listTasks } from "@/modules/tasks/service";
 import { getWedding } from "@/modules/wedding/service";
 
@@ -114,13 +116,14 @@ function SoonCard({ title, icon: Icon, text }: { title: string; icon: LucideIcon
 export default async function DashboardPage() {
   const ctx = await requireMember();
   const now = new Date();
-  const [wedding, events, tasks, stats, guests, money] = await Promise.all([
+  const [wedding, events, tasks, stats, guests, money, photos] = await Promise.all([
     getWedding(ctx.weddingId),
     listEvents(ctx.weddingId),
     listTasks(ctx.weddingId, { view: "all" }, ctx.memberId),
     getStats(ctx.weddingId),
     listEveryGuest(ctx.weddingId),
     getMoneySummary(ctx.weddingId),
+    getPhotoSummary(ctx.weddingId),
   ]);
   if (!wedding) notFound();
 
@@ -469,11 +472,31 @@ export default async function DashboardPage() {
             icon={Handshake}
             text="Keep your vendors, contracts and payments in one place."
           />
-          <SoonCard
-            title="Photos"
-            icon={Camera}
-            text="Collect and approve photos from guests, in shared albums."
-          />
+          <div className={`${card} flex flex-col justify-between`}>
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className={eyebrow}>Photos</span>
+                <Camera className="size-5 text-plum" />
+              </div>
+              <div className="mb-1 flex items-baseline gap-2">
+                <span className="font-serif text-2xl">{photos.approved}</span>
+                <span className="text-[13px] text-ink-2">
+                  {photos.approved === 1 ? "photo" : "photos"}
+                </span>
+              </div>
+              <p className="text-[13px] text-ink-2">
+                {photos.pending > 0
+                  ? `${photos.pending} waiting for your approval`
+                  : photos.approved === 0
+                    ? "Nothing here yet."
+                    : `${formatBytes(photos.usage.usedBytes)} used`}
+              </p>
+            </div>
+            <CardFooter
+              href="/photos"
+              label={photos.pending > 0 ? "Review photos" : "Open photos"}
+            />
+          </div>
         </div>
       </section>
 

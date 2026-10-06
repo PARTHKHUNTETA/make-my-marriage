@@ -5,6 +5,7 @@ import { countGuestsInvitedToEvent, removeEventInvitations } from "@/modules/gue
 import { countExpensesForEvent, unlinkEventFromMoney } from "@/modules/money/service";
 import { taskCountForEvent, unlinkEvent } from "@/modules/tasks/service";
 import { countArrivalsForEvent, removeEventArrivals } from "@/modules/checkin/service";
+import { removeEventAlbum } from "@/modules/photos/service";
 import { countTablesForEvent, removeEventTables } from "@/modules/seating/service";
 import { countVendorsForEvent, removeEventFromVendors } from "@/modules/vendors/service";
 import {
@@ -125,6 +126,7 @@ export async function deleteEvent(weddingId: string, eventId: string): Promise<v
     await removeEventFromVendors(weddingId, eventId, { session });
     await removeEventTables(weddingId, eventId, { session });
     await removeEventArrivals(weddingId, eventId, { session });
+    await removeEventAlbum(weddingId, eventId, { session });
   });
 }
 

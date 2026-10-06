@@ -17,11 +17,14 @@
     "test:integration": "INTEGRATION=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run integration --no-file-parallelism"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1146.0",
+    "@aws-sdk/s3-request-presigner": "3.1146.0",
     "@hookform/resolvers": "5.9.1",
     "@node-rs/argon2": "2.2.1",
     "@tailwindcss/postcss": "4.3.3",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
+    "fflate": "0.8.3",
     "jose": "6.2.12",
     "jsqr": "1.4.0",
     "lucide-react": "1.52.0",

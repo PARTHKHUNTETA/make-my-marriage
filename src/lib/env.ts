@@ -40,11 +40,24 @@ const staffEnvSchema = z.object({
   STAFF_EMAILS: z.preprocess(blankIsUnset, z.string().optional()),
 });
 
+// Photo storage on Cloudflare R2 (system-design §8). All four are needed together. Without them,
+// development uses a signed folder on this computer instead; production without them fails loudly,
+// since a photo that cannot be stored must never look as if it was.
+const storageEnvSchema = z.object({
+  R2_ACCOUNT_ID: z.preprocess(blankIsUnset, z.string().min(1).optional()),
+  R2_ACCESS_KEY_ID: z.preprocess(blankIsUnset, z.string().min(1).optional()),
+  R2_SECRET_ACCESS_KEY: z.preprocess(blankIsUnset, z.string().min(1).optional()),
+  R2_BUCKET: z.preprocess(blankIsUnset, z.string().min(1).optional()),
+  // How much photo storage each wedding gets, in gigabytes (open question Q3 in the PRD).
+  PHOTO_QUOTA_GB: z.preprocess(blankIsUnset, z.coerce.number().positive().max(10_000).default(10)),
+});
+
 export type Env = z.infer<typeof envSchema>;
 export type AuthEnv = z.infer<typeof authEnvSchema>;
 export type EmailEnv = z.infer<typeof emailEnvSchema>;
 export type CronEnv = z.infer<typeof cronEnvSchema>;
 export type StaffEnv = z.infer<typeof staffEnvSchema>;
+export type StorageEnv = z.infer<typeof storageEnvSchema>;
 
 // Reports variable names only, never values.
 function parseEnv<S extends z.ZodType>(schema: S): z.infer<S> {
@@ -61,6 +74,7 @@ let cachedAuth: AuthEnv | undefined;
 let cachedEmail: EmailEnv | undefined;
 let cachedCron: CronEnv | undefined;
 let cachedStaff: StaffEnv | undefined;
+let cachedStorage: StorageEnv | undefined;
 
 // Parsed on first use rather than at import, so `next build` does not need secrets.
 export function getEnv(): Env {
@@ -90,4 +104,14 @@ export function getStaffEmails(): string[] {
     .split(/[\s,;]+/)
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
+}
+
+export function getStorageEnv(): StorageEnv {
+  cachedStorage ??= parseEnv(storageEnvSchema);
+  return cachedStorage;
+}
+
+// Bytes of photo storage per wedding.
+export function photoQuotaBytes(): number {
+  return Math.round(getStorageEnv().PHOTO_QUOTA_GB * 1024 ** 3);
 }

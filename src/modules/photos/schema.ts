@@ -1,2 +1,105 @@
-// Zod schemas and TypeScript types for the photos module.
-export {};
+import { z } from "zod";
+import { normalizeImageType, type ImageType } from "@/lib/image-types";
+
+// Zod schemas and types for the photos module (PRD 5.10, api-design §10).
+
+export const MAX_FILE_BYTES = 25 * 1024 * 1024; // each photo, as the PRD sets it
+export const MAX_FILES_PER_BATCH = 50;
+export const PAGE_SIZE = 48;
+
+const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, "Not a valid id");
+
+// Chosen by the phone for each file, so one sent twice (a retry after a dropped signal) is
+// recognised as the same photo and never saved twice.
+const clientKey = z
+  .string()
+  .min(8, "Missing key")
+  .max(64, "Missing key")
+  .regex(/^[A-Za-z0-9_-]+$/, "Bad key");
+
+export const uploadFileSchema = z.object({
+  clientKey,
+  name: z.string().trim().max(200).default("photo"),
+  type: z.string().transform((t, ctx): ImageType => {
+    const type = normalizeImageType(t);
+    if (!type) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Only JPEG, PNG, HEIC and WebP photos can be added",
+      });
+      return z.NEVER;
+    }
+    return type;
+  }),
+  size: z
+    .number()
+    .int()
+    .min(1, "That file is empty")
+    .max(MAX_FILE_BYTES, "Each photo can be up to 25 MB"),
+  // The browser makes a 1600 px and a 400 px copy for fast viewing. A browser that cannot read the
+  // format (HEIC on most desktops) sends the original alone.
+  hasDisplay: z.boolean().default(false),
+  hasThumb: z.boolean().default(false),
+});
+export type UploadFile = z.infer<typeof uploadFileSchema>;
+
+export const requestUploadsSchema = z.object({
+  albumId: objectId,
+  files: z
+    .array(uploadFileSchema)
+    .min(1, "Choose at least one photo")
+    .max(MAX_FILES_PER_BATCH, `Add up to ${MAX_FILES_PER_BATCH} photos at a time`),
+});
+export const confirmUploadsSchema = z.object({
+  photoIds: z.array(objectId).min(1).max(MAX_FILES_PER_BATCH),
+});
+export const photoIdsSchema = z.object({ photoIds: z.array(objectId).min(1).max(200) });
+export const movePhotosSchema = z.object({
+  photoIds: z.array(objectId).min(1).max(200),
+  albumId: objectId,
+});
+export const photoIdSchema = z.object({ photoId: objectId });
+export const listPhotosSchema = z.object({
+  albumId: objectId.optional(),
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+});
+
+export type AlbumSummary = {
+  id: string;
+  name: string;
+  eventId?: string;
+  isGeneral: boolean;
+  approvedCount: number;
+  pendingCount: number;
+};
+
+export type PhotoItem = {
+  id: string;
+  albumId: string;
+  albumName: string;
+  fileName: string;
+  contentType: ImageType;
+  sizeBytes: number;
+  uploaderType: "member" | "guest";
+  uploaderName?: string;
+  status: "pending" | "approved";
+  uploadedAt: string;
+  // Addresses that expire; a browser cannot show a HEIC without a made copy, so `viewable` says.
+  thumbUrl?: string;
+  displayUrl?: string;
+  viewable: boolean;
+};
+
+export type UploadSlot = {
+  clientKey: string;
+  photoId: string;
+  // "done" means this photo was already saved on an earlier try: send nothing.
+  state: "upload" | "done";
+  contentType: ImageType;
+  originalUrl?: string;
+  displayUrl?: string;
+  thumbUrl?: string;
+};
+
+export type ConfirmResult = { photoId: string; ok: boolean; error?: string };
+export type Usage = { usedBytes: number; quotaBytes: number };

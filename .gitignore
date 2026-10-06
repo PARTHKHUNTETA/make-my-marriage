@@ -21,3 +21,6 @@ coverage
 
 # os
 .DS_Store
+
+# local development file storage (stand-in for R2)
+.local-storage

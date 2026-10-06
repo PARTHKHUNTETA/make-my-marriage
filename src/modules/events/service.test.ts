@@ -18,6 +18,7 @@ const vendors = vi.hoisted(() => ({
   removeEventFromVendors: vi.fn(),
 }));
 const seating = vi.hoisted(() => ({ countTablesForEvent: vi.fn(), removeEventTables: vi.fn() }));
+const photos = vi.hoisted(() => ({ removeEventAlbum: vi.fn() }));
 const checkin = vi.hoisted(() => ({
   countArrivalsForEvent: vi.fn(),
   removeEventArrivals: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock("@/modules/money/service", () => money);
 vi.mock("@/modules/vendors/service", () => vendors);
 vi.mock("@/modules/seating/service", () => seating);
 vi.mock("@/modules/checkin/service", () => checkin);
+vi.mock("@/modules/photos/service", () => photos);
 vi.mock("@/lib/db", () => ({ inTransaction }));
 
 import { createEvent, deleteEvent, previewEventDelete, updateEvent } from "./service";
@@ -53,6 +55,7 @@ beforeEach(() => {
   Object.values(vendors).forEach((fn) => fn.mockReset());
   Object.values(seating).forEach((fn) => fn.mockReset());
   Object.values(checkin).forEach((fn) => fn.mockReset());
+  Object.values(photos).forEach((fn) => fn.mockReset());
   inTransaction.mockReset().mockImplementation((work) => work(session));
 });
 
@@ -112,6 +115,7 @@ describe("deleting an event", () => {
     expect(vendors.removeEventFromVendors).toHaveBeenCalledWith("w1", "e1", { session });
     expect(seating.removeEventTables).toHaveBeenCalledWith("w1", "e1", { session });
     expect(checkin.removeEventArrivals).toHaveBeenCalledWith("w1", "e1", { session });
+    expect(photos.removeEventAlbum).toHaveBeenCalledWith("w1", "e1", { session });
     expect(repo.deleteEvent).toHaveBeenCalledWith("w1", "e1", { session });
     expect(tasks.unlinkEvent).toHaveBeenCalledWith("w1", "e1", { session });
   });
@@ -125,5 +129,6 @@ describe("deleting an event", () => {
     expect(vendors.removeEventFromVendors).not.toHaveBeenCalled();
     expect(seating.removeEventTables).not.toHaveBeenCalled();
     expect(checkin.removeEventArrivals).not.toHaveBeenCalled();
+    expect(photos.removeEventAlbum).not.toHaveBeenCalled();
   });
 });
