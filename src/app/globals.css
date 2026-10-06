@@ -1,2 +1,137 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* shadcn components carry dark: classes. We have no dark theme, so tie the variant to a
+   class we never set (Tailwind's default would follow the OS setting). */
+@custom-variant dark (&:is(.dark *));
+
+/* Design tokens taken from the Figma landing page ("Modern Editorial Wedding OS").
+   Utilities such as bg-canvas, text-ink-2, border-line, font-serif come from these. */
+@theme {
+  --color-canvas: #fdfbf7;
+  --color-warm: #faf7f2;
+  --color-sand: #f8f5ee;
+  --color-blush: #fff8f8;
+
+  --color-rose-50: #fbf1f2;
+  --color-rose-100: #f5eced;
+  --color-rose-200: #efe6e7;
+  --color-rose-300: #e9e0e1;
+
+  --color-ink: #1e1b1c;
+  --color-ink-2: #4e4449;
+  --color-line: #e8e2d8;
+  --color-line-soft: #d1c3c9;
+
+  --color-plum: #2d1226;
+  --color-plum-hover: #3c1b33;
+  --color-bronze: #775a19;
+  --color-amber-ink: #846927;
+  --color-amber-deep: #261900;
+  --color-honey: #ffdea5;
+  --color-gold: #e5c378;
+  --color-gold-ring: #c5a059;
+  --color-forest: #285235;
+  --color-mint: #7dc89a;
+
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+  /* shadcn's CardTitle and similar use font-heading; headings are serif in the design. */
+  --font-heading: var(--font-serif);
+
+  --shadow-hair: 0 1px 1px rgb(0 0 0 / 0.05);
+}
+
+/* shadcn semantic tokens, mapped onto the design palette. Components read these
+   (bg-primary, text-muted-foreground, border-border, ...). */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --background: #fdfbf7;
+  --foreground: #1e1b1c;
+  --card: #ffffff;
+  --card-foreground: #1e1b1c;
+  --popover: #ffffff;
+  --popover-foreground: #1e1b1c;
+  --primary: #2d1226;
+  --primary-foreground: #ffffff;
+  --secondary: #f5eced;
+  --secondary-foreground: #1e1b1c;
+  --muted: #f5eced;
+  --muted-foreground: #4e4449;
+  --accent: #fbf1f2;
+  --accent-foreground: #1e1b1c;
+  --destructive: #ba1a1a;
+  --border: #e8e2d8;
+  --input: #e8e2d8;
+  --ring: #2d1226;
+  --chart-1: #2d1226;
+  --chart-2: #c5a059;
+  --chart-3: #775a19;
+  --chart-4: #e9e0e1;
+  --chart-5: #7dc89a;
+  /* Tailwind's default radius scale (rounded-lg = 8px, rounded-xl = 12px) is left untouched
+     so the Figma-matched pages keep their exact corners. */
+  --radius: 0.5rem;
+  --sidebar: #f8f5ee;
+  --sidebar-foreground: #1e1b1c;
+  --sidebar-primary: #2d1226;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f5eced;
+  --sidebar-accent-foreground: #1e1b1c;
+  --sidebar-border: #e8e2d8;
+  --sidebar-ring: #2d1226;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background font-sans text-foreground;
+  }
+  * {
+    @apply border-border;
+  }
+  :focus-visible {
+    outline: 2px solid rgb(45 18 38 / 0.35);
+    outline-offset: 2px;
+  }
+  [id] {
+    scroll-margin-top: 5rem;
+  }
+}
