@@ -6,8 +6,20 @@ vi.mock("@/lib/context", () => ({ resolveContext }));
 
 import { canManageMembers, requireAdmin, requireMember, requireUser, requireVendor } from "./authz";
 
-const admin: Context = { kind: "member", userId: "u1", weddingId: "w1", role: "admin" };
-const manager: Context = { kind: "member", userId: "u2", weddingId: "w1", role: "manager" };
+const admin: Context = {
+  kind: "member",
+  userId: "u1",
+  weddingId: "w1",
+  memberId: "m1",
+  role: "admin",
+};
+const manager: Context = {
+  kind: "member",
+  userId: "u2",
+  weddingId: "w1",
+  memberId: "m1",
+  role: "manager",
+};
 const vendor: Context = { kind: "vendor", vendorAccountId: "v1" };
 const guest: Context = { kind: "guest", weddingId: "w1", guestId: "g1" };
 const user: Context = { kind: "user", userId: "u3" };

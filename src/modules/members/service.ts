@@ -6,6 +6,7 @@ import { queueEmail } from "@/lib/email";
 import { AppError } from "@/lib/errors";
 import { burnPasswordCheck, hashPassword, verifyPassword } from "@/lib/passwords";
 import { generateToken, hashToken } from "@/lib/tokens";
+import { unassignMember } from "@/modules/tasks/service";
 import {
   cancelInvite,
   consumeInvite,
@@ -92,12 +93,19 @@ export async function getProfile(userId: string): Promise<PublicUser | null> {
   return user ? toPublicUser(user) : null;
 }
 
-export type Membership = { weddingId: string; role: MemberRole };
+export type Membership = { weddingId: string; memberId: string; role: MemberRole };
 
 // Which wedding (and role) an account belongs to, or null before first-time setup.
 export async function getMembership(userId: string): Promise<Membership | null> {
   const doc = await findMembershipByUserId(userId);
-  return doc ? { weddingId: doc.weddingId.toHexString(), role: doc.role } : null;
+  return doc
+    ? { weddingId: doc.weddingId.toHexString(), memberId: doc._id.toHexString(), role: doc.role }
+    : null;
+}
+
+// Whether this member belongs to this wedding (used to check who a task is assigned to).
+export async function memberExists(weddingId: string, memberId: string): Promise<boolean> {
+  return (await findMembership(weddingId, memberId)) !== null;
 }
 
 // Attaches the creator of a wedding to it as admin. Called inside the wedding-creation
@@ -322,6 +330,8 @@ export async function removeMember(input: { weddingId: string; memberId: string 
     if (target.role === "admin" && admins <= 1)
       throw new AppError("LAST_ADMIN", LAST_ADMIN_MESSAGE);
     await deleteMembership(input.weddingId, input.memberId, { session });
+    // Their tasks stay but belong to no one (PRD 5.4), in the same transaction as the removal.
+    await unassignMember(input.weddingId, input.memberId, { session });
   });
 }
 

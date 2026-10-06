@@ -1,0 +1,83 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const repo = vi.hoisted(() => ({
+  deleteEvent: vi.fn(),
+  findEvent: vi.fn(),
+  insertEvent: vi.fn(),
+  listEvents: vi.fn(),
+  replaceEventFields: vi.fn(),
+}));
+const tasks = vi.hoisted(() => ({ taskCountForEvent: vi.fn(), unlinkEvent: vi.fn() }));
+const inTransaction = vi.hoisted(() => vi.fn());
+vi.mock("./repository", () => repo);
+vi.mock("@/modules/tasks/service", () => tasks);
+vi.mock("@/lib/db", () => ({ inTransaction }));
+
+import { createEvent, deleteEvent, previewEventDelete, updateEvent } from "./service";
+import { eventInputSchema } from "./schema";
+
+const input = (over = {}) =>
+  eventInputSchema.parse({
+    type: "sangeet",
+    name: "Sangeet",
+    date: "2027-02-13",
+    startTime: "19:00",
+    ...over,
+  });
+const session = { id: "session" };
+
+beforeEach(() => {
+  Object.values(repo).forEach((fn) => fn.mockReset());
+  Object.values(tasks).forEach((fn) => fn.mockReset());
+  inTransaction.mockReset().mockImplementation((work) => work(session));
+});
+
+describe("saving events", () => {
+  it("stores the date as midnight in India", async () => {
+    repo.insertEvent.mockImplementation(async (_w, fields) => ({
+      _id: { toHexString: () => "e1" },
+      ...fields,
+    }));
+    await createEvent("w1", input());
+    expect(repo.insertEvent.mock.calls[0]![1].date.toISOString()).toBe("2027-02-12T18:30:00.000Z");
+  });
+
+  it("removes optional fields that were cleared", async () => {
+    repo.replaceEventFields.mockResolvedValue({
+      _id: { toHexString: () => "e1" },
+      date: new Date(),
+    });
+    await updateEvent("w1", "507f1f77bcf86cd799439011", input({ venueName: "Royal Garden" }));
+    const [, , set, unset] = repo.replaceEventFields.mock.calls[0]!;
+    expect(set.venueName).toBe("Royal Garden");
+    expect(unset).toEqual(["endTime", "address", "description", "dressCode"]);
+  });
+
+  it("reports NOT_FOUND when the event is not in this wedding", async () => {
+    repo.replaceEventFields.mockResolvedValue(null);
+    await expect(updateEvent("w1", "507f1f77bcf86cd799439011", input())).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+});
+
+describe("deleting an event", () => {
+  it("previews how many tasks are linked", async () => {
+    repo.findEvent.mockResolvedValue({});
+    tasks.taskCountForEvent.mockResolvedValue(3);
+    expect(await previewEventDelete("w1", "e1")).toEqual({ taskCount: 3 });
+  });
+
+  it("deletes the event and unlinks its tasks in one transaction", async () => {
+    repo.deleteEvent.mockResolvedValue(true);
+    await deleteEvent("w1", "e1");
+    expect(repo.deleteEvent).toHaveBeenCalledWith("w1", "e1", { session });
+    expect(tasks.unlinkEvent).toHaveBeenCalledWith("w1", "e1", { session });
+  });
+
+  it("changes nothing for an event that does not exist", async () => {
+    repo.deleteEvent.mockResolvedValue(false);
+    await expect(deleteEvent("w1", "e1")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(tasks.unlinkEvent).not.toHaveBeenCalled();
+  });
+});

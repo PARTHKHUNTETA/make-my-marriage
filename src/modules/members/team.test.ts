@@ -30,8 +30,10 @@ const repo = vi.hoisted(() => ({
   consumeVerifyToken: vi.fn(),
 }));
 const queueEmail = vi.hoisted(() => vi.fn());
+const unassignMember = vi.hoisted(() => vi.fn());
 vi.mock("./repository", () => repo);
 vi.mock("@/lib/email", () => ({ queueEmail }));
+vi.mock("@/modules/tasks/service", () => ({ unassignMember }));
 vi.mock("@/lib/app-url", () => ({ absoluteUrl: (path: string) => `http://app.test${path}` }));
 vi.mock("@/lib/db", () => ({ inTransaction: (work: (s: unknown) => unknown) => work(session) }));
 
@@ -259,6 +261,18 @@ describe("removeMember", () => {
     const target = member("manager");
     await run(target, 1);
     expect(repo.deleteMembership).toHaveBeenCalledWith(W, target._id.toHexString(), { session });
+  });
+
+  it("unassigns the removed member's tasks in the same transaction", async () => {
+    const target = member("manager");
+    await run(target, 1);
+    expect(unassignMember).toHaveBeenCalledWith(W, target._id.toHexString(), { session });
+  });
+
+  it("does not touch tasks when the removal is refused", async () => {
+    unassignMember.mockClear();
+    await expect(run(member("admin"), 1)).rejects.toMatchObject({ code: "LAST_ADMIN" });
+    expect(unassignMember).not.toHaveBeenCalled();
   });
 
   it("removes an admin while another admin remains", async () => {

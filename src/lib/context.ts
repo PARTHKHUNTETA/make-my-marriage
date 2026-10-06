@@ -10,7 +10,13 @@ import { getAuthState, getMembership } from "@/modules/members/service";
 // sign-up and the first-time wedding setup. Once the account has a wedding, the same
 // session resolves to `member`.
 export type Context =
-  | { kind: "member"; userId: string; weddingId: string; role: "admin" | "manager" }
+  | {
+      kind: "member";
+      userId: string;
+      weddingId: string;
+      memberId: string;
+      role: "admin" | "manager";
+    }
   | { kind: "user"; userId: string }
   | { kind: "vendor"; vendorAccountId: string }
   | { kind: "guest"; weddingId: string; guestId: string }

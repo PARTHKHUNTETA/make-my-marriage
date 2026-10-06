@@ -31,7 +31,15 @@ the lint rule that protects tenant isolation), and Phase 1 (Foundation) is built
 - **Wedding details:** any member can edit the names, title, date, city, venue and message under
   Settings → Wedding details. The web address (slug) never changes when the title does.
 
-Still to come in Phase 1: deleting a wedding. Features are built
+- **Events:** add, edit and delete events (engagement to reception, or a custom one), listed in
+  date order. Deleting one first shows what is linked, then keeps its tasks and removes only the link.
+- **Tasks:** a checklist with status, priority, due date, assignee and related event; views for
+  all, mine, completed and by event; filters that live in the URL. Overdue is worked out when
+  read (the due day has passed in India and the task is not completed). Removing a member
+  unassigns their tasks.
+
+Still to come: deleting a wedding (Phase 1), and the event album, invitations, expenses and
+vendor links that attach to events in later phases. Features are built
 in the PRD's seven release phases.
 
 ## Setup

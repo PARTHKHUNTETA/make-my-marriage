@@ -153,9 +153,11 @@ describe("getProfile", () => {
 describe("getMembership", () => {
   it("returns the wedding and role as plain strings", async () => {
     const weddingId = new ObjectId();
-    repo.findMembershipByUserId.mockResolvedValue({ weddingId, role: "admin" });
+    const _id = new ObjectId();
+    repo.findMembershipByUserId.mockResolvedValue({ _id, weddingId, role: "admin" });
     expect(await getMembership("u1")).toEqual({
       weddingId: weddingId.toHexString(),
+      memberId: _id.toHexString(),
       role: "admin",
     });
   });
