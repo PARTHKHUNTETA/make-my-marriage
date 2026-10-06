@@ -8,7 +8,8 @@ import { AppError } from "@/lib/errors";
 // document per "<action>:<subject>"; the TTL index deletes it once its window ends.
 type RateLimitDoc = { _id: string; count: number; expiresAt: Date };
 
-export type RateLimit = { limit: number; windowSeconds: number };
+// `cost` is how much one call counts for (default 1): a batch of 50 files can count as 50.
+export type RateLimit = { limit: number; windowSeconds: number; cost?: number };
 
 let ready: Promise<Collection<RateLimitDoc>> | undefined;
 
@@ -42,7 +43,7 @@ export function clientIp(headers: Headers): string {
 export async function consumeRateLimit(
   action: string,
   subject: string,
-  { limit, windowSeconds }: RateLimit,
+  { limit, windowSeconds, cost = 1 }: RateLimit,
 ): Promise<void> {
   const col = await collection();
   const now = new Date();
@@ -53,7 +54,11 @@ export async function consumeRateLimit(
       {
         $set: {
           count: {
-            $cond: [{ $gt: ["$expiresAt", now] }, { $add: [{ $ifNull: ["$count", 0] }, 1] }, 1],
+            $cond: [
+              { $gt: ["$expiresAt", now] },
+              { $add: [{ $ifNull: ["$count", 0] }, cost] },
+              cost,
+            ],
           },
           expiresAt: { $cond: [{ $gt: ["$expiresAt", now] }, "$expiresAt", windowEnd] },
         },

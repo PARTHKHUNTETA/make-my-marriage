@@ -145,6 +145,21 @@ export function SiteView({ site }: { site: SiteData }) {
         </section>
       ) : null}
 
+      {site.galleryUrl ? (
+        <section aria-labelledby="gallery" className={t.section}>
+          <h2 id="gallery" className={t.sectionTitle}>
+            Photo gallery
+          </h2>
+          {orn}
+          <p className={t.body}>See the photos from the wedding, and add your own.</p>
+          <p className="mt-4">
+            <a href={site.galleryUrl} target="_blank" rel="noopener noreferrer" className={t.link}>
+              Open the photo gallery
+            </a>
+          </p>
+        </section>
+      ) : null}
+
       <footer className={t.footer}>
         {site.brideName} &amp; {site.groomName} · {formatLongDate(site.date)}
       </footer>

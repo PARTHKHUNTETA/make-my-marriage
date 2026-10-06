@@ -39,6 +39,8 @@ export const websiteSettingsSchema = z.object({
       message: "That address is reserved. Try another.",
     }),
   showLive: z.boolean(),
+  // Adds a "Photo gallery" section that links to the private gallery.
+  showGallery: z.boolean().default(false),
   // Blank removes the link. Anything else must be a YouTube watch, live or youtu.be link.
   youtubeUrl: z
     .string()
@@ -85,5 +87,7 @@ export type SiteData = {
   events: SiteEvent[];
   // Present when the Live section is on and a link is set.
   live?: { embedUrl: string; watchUrl: string };
+  // Present when the Photo gallery section is on: the private gallery link.
+  galleryUrl?: string;
   isPreview: boolean;
 };

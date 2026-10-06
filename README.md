@@ -166,6 +166,17 @@ the slug `demo`. Chrome and Firefox resolve `*.localhost`; Safari does not.
   before it appears. Select, move between albums, delete (files included), full-screen view with
   swipe, and download the original. Each wedding has a storage quota (`PHOTO_QUOTA_GB`, default 10);
   a batch that would pass it is refused with `STORAGE_FULL`.
+- **Guest gallery and uploads:** every wedding has one private link, `/g/<token>` (Photos → Share and
+  QR), shown as a QR code to download (PNG or SVG) or print as an A4 poster or A5 table card.
+  Guests need no account: they browse the approved photos (full-screen with swipe, download the
+  original) and, while the couple has uploads switched on, add their own with an optional name
+  and an album. Uploads are per-device rate limited by calls and by file count. A guest's photos
+  stay invisible until a member approves them (Photos → To review, grouped by sender: approve or
+  reject one, many, or everything from one person). Rejecting deletes the photo and its files;
+  waiting photos count toward the storage quota; ones nobody reviews for 60 days are deleted by
+  the daily cron, with a warning on the review page from day 45. An admin can replace the link if it
+  leaks, which kills the old link and every printed QR at once. Websites can show a "Photo gallery"
+  section linking to it (off by default; anyone who can open the website can then open the gallery).
 - **Photo storage:** files live in Cloudflare R2 (set the four `R2_*` variables; all are required in
   production). Without them, development uses a `.local-storage/` folder served by
   `/api/dev-storage/*` behind signed, expiring addresses; that route does not exist in production.

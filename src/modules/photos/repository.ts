@@ -307,3 +307,59 @@ export async function findAbandonedSlots(
     .find({ status: "uploading", createdAt: { $lt: cutoff } }, { limit })
     .toArray();
 }
+
+// ---- moderation -----------------------------------------------------------------------------
+
+// Photos waiting for a decision, grouped by whoever added them (unnamed guests together).
+export async function listPending(weddingId: string, limit: number): Promise<PhotoDoc[]> {
+  return scoped(await photos(), { weddingId })
+    .find({ status: "pending" }, { sort: { uploaderName: 1, uploadedAt: 1, _id: 1 }, limit })
+    .toArray();
+}
+
+export async function countPendingBefore(weddingId: string, cutoff: Date): Promise<number> {
+  return scoped(await photos(), { weddingId }).countDocuments({
+    status: "pending",
+    uploadedAt: { $lt: cutoff },
+  });
+}
+
+// Only waiting photos change: approving something already approved, or still uploading, does nothing.
+export async function approvePhotos(weddingId: string, ids: string[]): Promise<number> {
+  const result = await scoped(await photos(), { weddingId }).updateMany(
+    { _id: { $in: ids.map(oid) }, status: "pending" },
+    { $set: { status: "approved", updatedAt: new Date() } },
+  );
+  return result.modifiedCount;
+}
+
+// Every waiting photo from one named person, or from the guests who gave no name (`null`).
+export async function approveFromUploader(weddingId: string, name: string | null): Promise<number> {
+  const result = await scoped(await photos(), { weddingId }).updateMany(
+    {
+      status: "pending",
+      ...(name === null ? { uploaderName: { $exists: false } } : { uploaderName: name }),
+    },
+    { $set: { status: "approved", updatedAt: new Date() } },
+  );
+  return result.modifiedCount;
+}
+
+// Removes waiting photos only, handing them back so the caller can delete their files. A photo
+// that was approved a moment earlier is left alone.
+export async function deletePendingDocs(weddingId: string, ids: string[]): Promise<PhotoDoc[]> {
+  const col = scoped(await photos(), { weddingId });
+  const docs = await col.find({ _id: { $in: ids.map(oid) }, status: "pending" }).toArray();
+  if (docs.length > 0) {
+    await col.deleteMany({ _id: { $in: docs.map((d) => d._id) }, status: "pending" });
+  }
+  return docs;
+}
+
+// A system job, not a request: waiting photos nobody decided on, across every wedding, oldest
+// first. Callers delete them per wedding through deletePendingDocs().
+export async function findStalePending(cutoff: Date, limit: number): Promise<PhotoDoc[]> {
+  return (await photos())
+    .find({ status: "pending", uploadedAt: { $lt: cutoff } }, { sort: { uploadedAt: 1 }, limit })
+    .toArray();
+}

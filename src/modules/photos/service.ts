@@ -12,7 +12,13 @@ import {
   signView,
 } from "@/lib/storage";
 import {
+  approveFromUploader,
+  approvePhotos,
   confirmSlot,
+  countPendingBefore,
+  deletePendingDocs,
+  findStalePending,
+  listPending,
   countByAlbum,
   deletePhotoDocs,
   ensureAlbums,
@@ -202,9 +208,14 @@ const clientKeyOf = (uploadKey: string) => uploadKey.replace(/^u:/, "");
 export async function confirmUploads(
   weddingId: string,
   photoIds: string[],
-  status: "approved" | "pending",
+  uploaderType: "member" | "guest",
 ): Promise<ConfirmResult[]> {
-  const docs = await findPhotos(weddingId, photoIds);
+  // Members' photos go live at once; a guest's wait for a member's decision.
+  const status = uploaderType === "member" ? "approved" : "pending";
+  // Each side confirms only its own uploads, so a guest cannot touch a member's photo in flight.
+  const docs = (await findPhotos(weddingId, photoIds)).filter(
+    (d) => d.uploaderType === uploaderType,
+  );
   const byId = new Map(docs.map((d) => [d._id.toHexString(), d]));
   const results: ConfirmResult[] = [];
   for (const photoId of photoIds) {
@@ -270,6 +281,33 @@ async function confirmOne(
 
 // ---- viewing and managing -------------------------------------------------------------------
 
+async function toItem(d: PhotoDoc, names: Map<string, string>): Promise<PhotoItem> {
+  const viewable = Boolean(d.displayKey) || d.contentType !== "image/heic";
+  return {
+    id: d._id.toHexString(),
+    albumId: d.albumId.toHexString(),
+    albumName: names.get(d.albumId.toHexString()) ?? "General",
+    fileName: d.fileName,
+    contentType: d.contentType,
+    sizeBytes: d.sizeBytes,
+    uploaderType: d.uploaderType,
+    ...(d.uploaderName ? { uploaderName: d.uploaderName } : {}),
+    status: d.status === "pending" ? "pending" : "approved",
+    uploadedAt: d.uploadedAt.toISOString(),
+    viewable,
+    ...(d.thumbKey
+      ? { thumbUrl: await signView(d.thumbKey) }
+      : viewable
+        ? { thumbUrl: await signView(d.originalKey) }
+        : {}),
+    ...(d.displayKey
+      ? { displayUrl: await signView(d.displayKey) }
+      : viewable
+        ? { displayUrl: await signView(d.originalKey) }
+        : {}),
+  };
+}
+
 export async function listPhotos(
   weddingId: string,
   filter: { albumId?: string; status: "approved" | "pending" },
@@ -280,34 +318,7 @@ export async function listPhotos(
   const names = new Map(
     (await findAlbumsByIds(weddingId, albumIds)).map((a) => [a._id.toHexString(), a.name]),
   );
-  const items = await Promise.all(
-    docs.map(async (d): Promise<PhotoItem> => {
-      const viewable = Boolean(d.displayKey) || d.contentType !== "image/heic";
-      return {
-        id: d._id.toHexString(),
-        albumId: d.albumId.toHexString(),
-        albumName: names.get(d.albumId.toHexString()) ?? "General",
-        fileName: d.fileName,
-        contentType: d.contentType,
-        sizeBytes: d.sizeBytes,
-        uploaderType: d.uploaderType,
-        ...(d.uploaderName ? { uploaderName: d.uploaderName } : {}),
-        status: d.status === "pending" ? "pending" : "approved",
-        uploadedAt: d.uploadedAt.toISOString(),
-        viewable,
-        ...(d.thumbKey
-          ? { thumbUrl: await signView(d.thumbKey) }
-          : viewable
-            ? { thumbUrl: await signView(d.originalKey) }
-            : {}),
-        ...(d.displayKey
-          ? { displayUrl: await signView(d.displayKey) }
-          : viewable
-            ? { displayUrl: await signView(d.originalKey) }
-            : {}),
-      };
-    }),
-  );
+  const items = await Promise.all(docs.map((d) => toItem(d, names)));
   return { items, total, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
 }
 
@@ -354,4 +365,82 @@ export async function getSummary(
     pending += c.pending;
   }
   return { approved, pending, usage: await getUsage(weddingId) };
+}
+
+// ---- moderation -----------------------------------------------------------------------------
+
+export const PENDING_KEEP_DAYS = 60;
+export const PENDING_WARN_DAYS = 45;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const REVIEW_LIMIT = 300;
+
+export type PendingGroup = { uploader: string | null; label: string; items: PhotoItem[] };
+
+// Waiting photos grouped by who added them, plus how many will soon be deleted unreviewed.
+export async function listPendingGroups(
+  weddingId: string,
+): Promise<{ groups: PendingGroup[]; total: number; expiring: number; daysLeft: number }> {
+  const docs = await listPending(weddingId, REVIEW_LIMIT);
+  const albumIds = [...new Map(docs.map((d) => [d.albumId.toHexString(), d.albumId])).values()];
+  const names = new Map(
+    (await findAlbumsByIds(weddingId, albumIds)).map((a) => [a._id.toHexString(), a.name]),
+  );
+  const items = await Promise.all(docs.map((d) => toItem(d, names)));
+  const groups = new Map<string, PendingGroup>();
+  items.forEach((item, i) => {
+    const uploader = docs[i]!.uploaderName ?? null;
+    const key = uploader ?? "\u0000anonymous";
+    const group = groups.get(key) ?? {
+      uploader,
+      label: uploader ?? "Guests who gave no name",
+      items: [],
+    };
+    group.items.push(item);
+    groups.set(key, group);
+  });
+  const oldest = docs[0]?.uploadedAt;
+  return {
+    groups: [...groups.values()],
+    total: (await getSummary(weddingId)).pending,
+    expiring: await countPendingBefore(
+      weddingId,
+      new Date(Date.now() - PENDING_WARN_DAYS * DAY_MS),
+    ),
+    daysLeft: oldest
+      ? Math.max(0, PENDING_KEEP_DAYS - Math.floor((Date.now() - oldest.getTime()) / DAY_MS))
+      : PENDING_KEEP_DAYS,
+  };
+}
+
+export async function approve(weddingId: string, photoIds: string[]): Promise<number> {
+  return approvePhotos(weddingId, photoIds);
+}
+
+export async function approveAllFrom(weddingId: string, uploader: string | null): Promise<number> {
+  return approveFromUploader(weddingId, uploader);
+}
+
+// Rejecting deletes for good, files included. Photos already decided are left alone.
+export async function reject(weddingId: string, photoIds: string[]): Promise<number> {
+  const docs = await deletePendingDocs(weddingId, photoIds);
+  await deleteObjects(docs.flatMap(keysOf));
+  return docs.length;
+}
+
+// The daily sweep: waiting photos that nobody reviewed for PENDING_KEEP_DAYS are deleted, files
+// included. Members are warned on the review page from PENDING_WARN_DAYS.
+export async function purgeStalePending(now = new Date()): Promise<{ deleted: number }> {
+  const cutoff = new Date(now.getTime() - PENDING_KEEP_DAYS * DAY_MS);
+  let deleted = 0;
+  for (let round = 0; round < 20; round++) {
+    const stale = await findStalePending(cutoff, 200);
+    if (stale.length === 0) break;
+    const byWedding = new Map<string, string[]>();
+    for (const doc of stale) {
+      const key = doc.weddingId.toHexString();
+      byWedding.set(key, [...(byWedding.get(key) ?? []), doc._id.toHexString()]);
+    }
+    for (const [weddingId, ids] of byWedding) deleted += await reject(weddingId, ids);
+  }
+  return { deleted };
 }

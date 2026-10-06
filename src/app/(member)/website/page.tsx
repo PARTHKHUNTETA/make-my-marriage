@@ -30,6 +30,7 @@ export default async function WebsitePage() {
           theme: site.theme,
           slug: site.slug,
           showLive: site.showLive,
+          showGallery: site.showGallery,
           youtubeUrl: site.youtubeUrl ?? "",
         }}
       />

@@ -54,6 +54,15 @@ describe("consumeRateLimit", () => {
     expect(options).toMatchObject({ upsert: true, returnDocument: "after" });
   });
 
+  it("counts a heavier call for what it costs", async () => {
+    const { consumeRateLimit } = await load();
+    findOneAndUpdate.mockResolvedValueOnce({ _id: "x", count: 50, expiresAt: new Date() });
+    await consumeRateLimit("photo-files", "ip:a", { limit: 300, windowSeconds: 900, cost: 50 });
+    const pipeline = JSON.stringify(findOneAndUpdate.mock.calls[0]![1]);
+    expect(pipeline).toContain('{"$add":[{"$ifNull":["$count",0]},50]}');
+    expect(pipeline).toContain(",50]");
+  });
+
   it("creates the TTL index once per instance", async () => {
     const { consumeRateLimit } = await load();
     findOneAndUpdate.mockResolvedValue({ _id: "x", count: 1, expiresAt: new Date() });

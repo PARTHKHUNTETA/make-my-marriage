@@ -103,3 +103,32 @@ export type UploadSlot = {
 
 export type ConfirmResult = { photoId: string; ok: boolean; error?: string };
 export type Usage = { usedBytes: number; quotaBytes: number };
+
+// What a guest with the gallery link sees of a photo: nothing about who added it.
+export type GuestPhoto = {
+  id: string;
+  albumName: string;
+  thumbUrl?: string;
+  displayUrl?: string;
+  viewable: boolean;
+};
+
+export const guestNameSchema = z
+  .string()
+  .transform((v) =>
+    v
+      .replace(/[\u0000-\u001f\u007f]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  )
+  .pipe(z.string().max(60, "That name is too long"))
+  .optional()
+  .transform((v) => (v ? v : undefined));
+
+export const guestSignSchema = requestUploadsSchema.extend({ name: guestNameSchema });
+export const reviewIdsSchema = z.object({ photoIds: z.array(objectId).min(1).max(300) });
+export const approveFromSchema = z.object({
+  // The uploader's name exactly as listed, or null for guests who gave none.
+  uploader: z.string().min(1).max(60).nullable(),
+});
+export const uploadsSwitchSchema = z.object({ on: z.boolean() });

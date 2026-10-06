@@ -182,6 +182,7 @@ export type WebsiteChanges = {
   theme?: "classical" | "minimal" | "modern";
   isOn?: boolean;
   showLive?: boolean;
+  showGallery?: boolean;
   youtubeUrl?: string | null; // null removes it
 };
 
@@ -197,6 +198,7 @@ export async function saveWebsiteSettings(
   if (changes.slug !== undefined) set["website.slug"] = changes.slug;
   if (changes.theme !== undefined) set["website.theme"] = changes.theme;
   if (changes.isOn !== undefined) set["website.isOn"] = changes.isOn;
+  if (changes.showGallery !== undefined) set["website.showGallery"] = changes.showGallery;
   if (changes.showLive !== undefined) {
     set["website.showLive"] = changes.showLive;
     set["liveStream.isOn"] = changes.showLive;
@@ -215,4 +217,33 @@ export async function saveWebsiteSettings(
     if (err instanceof MongoServerError && err.code === 11000) return "slug_taken";
     throw err;
   }
+}
+
+// The wedding a gallery link belongs to. Null for a link that never existed or was reset.
+export async function findWeddingByGalleryToken(token: string): Promise<WeddingDoc | null> {
+  if (typeof token !== "string" || token.length < 10 || token.length > 64) return null;
+  return (await weddings()).findOne({ galleryToken: token, deletedAt: { $exists: false } });
+}
+
+export async function saveUploadsOn(id: string, on: boolean): Promise<boolean> {
+  if (!ObjectId.isValid(id)) return false;
+  const result = await (
+    await weddings()
+  ).updateOne(
+    { _id: new ObjectId(id), deletedAt: { $exists: false } },
+    { $set: { uploadsOn: on, updatedAt: new Date() } },
+  );
+  return result.matchedCount === 1;
+}
+
+// Replaces the gallery token, so the old link and every printed QR stop working at once.
+export async function saveGalleryToken(id: string, token: string): Promise<boolean> {
+  if (!ObjectId.isValid(id)) return false;
+  const result = await (
+    await weddings()
+  ).updateOne(
+    { _id: new ObjectId(id), deletedAt: { $exists: false } },
+    { $set: { galleryToken: token, updatedAt: new Date() } },
+  );
+  return result.matchedCount === 1;
 }

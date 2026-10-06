@@ -11,7 +11,10 @@ import { addAdminMember, getMembership } from "@/modules/members/service";
 import {
   findWeddingById,
   insertWedding,
+  findWeddingByGalleryToken,
   findWeddingBySlug,
+  saveGalleryToken,
+  saveUploadsOn,
   listWeddingsWithReminders,
   saveWebsiteSettings,
   type WebsiteChanges,
@@ -113,6 +116,7 @@ function toSummary(doc: WeddingDoc): WeddingSummary {
       slug: doc.website.slug,
       theme: doc.website.theme,
       isOn: doc.website.isOn,
+      showGallery: doc.website.showGallery,
       showLive: doc.website.showLive,
       youtubeUrl: doc.liveStream?.youtubeUrl,
     },
@@ -208,4 +212,54 @@ export async function updateWebsite(weddingId: string, changes: WebsiteChanges):
       slug: ["That web address is already taken. Try another."],
     });
   if (result === "not_found") throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
+}
+
+// ---- the private photo gallery link ----------------------------------------------------------
+
+export type GallerySettings = { token: string; uploadsOn: boolean; showOnWebsite: boolean };
+
+// The gallery link and switches, for the couple's own Share page. Kept out of WeddingSummary so the
+// token cannot slip into a page that has no business showing it.
+export async function getGallerySettings(weddingId: string): Promise<GallerySettings> {
+  const doc = await findWeddingById(weddingId);
+  if (!doc) throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
+  return {
+    token: doc.galleryToken,
+    uploadsOn: doc.uploadsOn,
+    showOnWebsite: doc.website.showGallery,
+  };
+}
+
+// What a guest holding a gallery link may know: whose wedding it is and whether uploads are open.
+export type GalleryAccess = {
+  weddingId: string;
+  brideName: string;
+  groomName: string;
+  uploadsOn: boolean;
+  theme: "classical" | "minimal" | "modern";
+};
+
+export async function getGalleryByToken(token: string): Promise<GalleryAccess | null> {
+  const doc = await findWeddingByGalleryToken(token);
+  if (!doc) return null;
+  return {
+    weddingId: doc._id.toHexString(),
+    brideName: doc.brideName,
+    groomName: doc.groomName,
+    uploadsOn: doc.uploadsOn,
+    theme: doc.website.theme,
+  };
+}
+
+export async function setUploadsOn(weddingId: string, on: boolean): Promise<void> {
+  if (!(await saveUploadsOn(weddingId, on)))
+    throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
+}
+
+// A new gallery link. The old one, and any QR printed from it, stops working immediately.
+export async function resetGalleryToken(weddingId: string): Promise<string> {
+  const token = generateToken();
+  if (!(await saveGalleryToken(weddingId, token)))
+    throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
+  return token;
 }

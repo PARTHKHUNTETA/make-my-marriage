@@ -77,6 +77,7 @@ export type WebsiteSettings = {
   slug: string;
   theme: Theme;
   isOn: boolean;
+  showGallery: boolean;
   showLive: boolean;
   youtubeUrl?: string;
 };

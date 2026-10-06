@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const wedding = vi.hoisted(() => ({
   getWedding: vi.fn(),
   getWeddingBySlug: vi.fn(),
+  getGallerySettings: vi.fn(),
   updateWebsite: vi.fn(),
 }));
 const events = vi.hoisted(() => ({ listEvents: vi.fn() }));
 vi.mock("@/modules/wedding/service", () => wedding);
 vi.mock("@/modules/events/service", () => events);
+vi.mock("@/lib/app-url", () => ({ absoluteUrl: (path: string) => `https://example.test${path}` }));
 
 import { getPublicSite, getSitePreview, saveWebsiteSettings } from "./service";
 
@@ -25,6 +27,7 @@ const summary = (over: Record<string, unknown> = {}, website: Record<string, unk
     slug: "priya-weds-aarav",
     theme: "classical",
     isOn: true,
+    showGallery: false,
     showLive: false,
     ...website,
   },
@@ -43,6 +46,34 @@ const event = (id: string, over: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   Object.values(wedding).forEach((fn) => fn.mockReset());
   events.listEvents.mockReset().mockResolvedValue([]);
+});
+
+describe("the Photo gallery section", () => {
+  it("has no link while the section is off, and never asks for the token", async () => {
+    wedding.getWeddingBySlug.mockResolvedValue(summary());
+    const site = await getPublicSite("priya-weds-aarav");
+    expect(site?.galleryUrl).toBeUndefined();
+    expect(wedding.getGallerySettings).not.toHaveBeenCalled();
+  });
+  it("links to the private gallery when the section is on", async () => {
+    wedding.getWeddingBySlug.mockResolvedValue(summary({}, { showGallery: true }));
+    wedding.getGallerySettings.mockResolvedValue({
+      token: "TOKEN1234567890123456",
+      uploadsOn: true,
+      showOnWebsite: true,
+    });
+    const site = await getPublicSite("priya-weds-aarav");
+    expect(site?.galleryUrl).toMatch(/\/g\/TOKEN1234567890123456$/);
+  });
+  it("is also in the preview the couple sees", async () => {
+    wedding.getWedding.mockResolvedValue(summary({}, { showGallery: true, isOn: false }));
+    wedding.getGallerySettings.mockResolvedValue({
+      token: "TOKEN1234567890123456",
+      uploadsOn: false,
+      showOnWebsite: true,
+    });
+    expect((await getSitePreview("w1"))?.galleryUrl).toContain("/g/TOKEN1234567890123456");
+  });
 });
 
 describe("getPublicSite", () => {
@@ -136,6 +167,7 @@ describe("saveWebsiteSettings", () => {
       theme: "modern",
       slug: "our-day",
       showLive: true,
+      showGallery: true,
       youtubeUrl: null,
     });
     expect(wedding.updateWebsite).toHaveBeenCalledWith("w1", {
@@ -143,6 +175,7 @@ describe("saveWebsiteSettings", () => {
       theme: "modern",
       isOn: true,
       showLive: true,
+      showGallery: true,
       youtubeUrl: null,
     });
   });

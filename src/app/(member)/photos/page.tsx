@@ -4,7 +4,7 @@ import { PhotosHeader } from "@/components/photos/photos-header";
 import { requireMember } from "@/lib/authz";
 import { listEvents } from "@/modules/events/service";
 import { listPhotosSchema } from "@/modules/photos/schema";
-import { getUsage, listAlbums, listPhotos } from "@/modules/photos/service";
+import { getSummary, getUsage, listAlbums, listPhotos } from "@/modules/photos/service";
 
 export const metadata: Metadata = { title: "Photos — Make My Marriage" };
 export const dynamic = "force-dynamic";
@@ -24,13 +24,14 @@ export default async function PhotosPage({
   });
   const query = parsed.success ? parsed.data : { albumId: undefined, page: 1 };
   const albumId = albums.some((a) => a.id === query.albumId) ? query.albumId : undefined;
-  const [list, usage] = await Promise.all([
+  const [list, usage, summary] = await Promise.all([
     listPhotos(ctx.weddingId, { ...(albumId ? { albumId } : {}), status: "approved" }, query.page),
     getUsage(ctx.weddingId),
+    getSummary(ctx.weddingId),
   ]);
   return (
     <main className="mx-auto w-full max-w-5xl pt-6">
-      <PhotosHeader active="gallery" />
+      <PhotosHeader active="gallery" pending={summary.pending} />
       <PhotoGallery
         albums={albums}
         albumId={albumId}

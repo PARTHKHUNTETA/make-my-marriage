@@ -92,7 +92,7 @@ describe.skipIf(!enabled)("photos against MongoDB", () => {
     const album = await general(w1);
     const slot = await upload(w1, album);
     expect((await photos.listPhotos(w1, { albumId: album, status: "approved" }, 1)).total).toBe(0);
-    expect(await photos.confirmUploads(w1, [slot.photoId], "approved")).toEqual([
+    expect(await photos.confirmUploads(w1, [slot.photoId], "member")).toEqual([
       { photoId: slot.photoId, ok: true },
     ]);
     const list = await photos.listPhotos(w1, { albumId: album, status: "approved" }, 1);
@@ -116,8 +116,8 @@ describe.skipIf(!enabled)("photos against MongoDB", () => {
     expect(a![0]!.photoId).toBe(b![0]!.photoId);
     const doc = await repo.findPhoto(w1, a![0]!.photoId);
     await storage.localWrite(doc!.originalKey, JPEG);
-    await photos.confirmUploads(w1, [a![0]!.photoId], "approved");
-    await photos.confirmUploads(w1, [a![0]!.photoId], "approved"); // harmless
+    await photos.confirmUploads(w1, [a![0]!.photoId], "member");
+    await photos.confirmUploads(w1, [a![0]!.photoId], "member"); // harmless
     const [again] = await photos.requestUploads(w1, input, { type: "member", memberId: me });
     expect(again).toMatchObject({ photoId: a![0]!.photoId, state: "done" });
     expect(
@@ -130,7 +130,7 @@ describe.skipIf(!enabled)("photos against MongoDB", () => {
   it("refuses a file that is not really an image, and removes it", async () => {
     const album = await general(w1);
     const slot = await upload(w1, album, file({ name: "holiday.jpg" }), HTML);
-    const [result] = await photos.confirmUploads(w1, [slot.photoId], "approved");
+    const [result] = await photos.confirmUploads(w1, [slot.photoId], "member");
     expect(result).toMatchObject({ ok: false });
     expect(await repo.findPhoto(w1, slot.photoId)).toBeNull();
     expect(
@@ -148,7 +148,7 @@ describe.skipIf(!enabled)("photos against MongoDB", () => {
       { albumId: album, files: [file()] },
       { type: "member", memberId: me },
     );
-    const [result] = await photos.confirmUploads(w1, [slot!.photoId], "approved");
+    const [result] = await photos.confirmUploads(w1, [slot!.photoId], "member");
     expect(result!.ok).toBe(false);
     expect((await repo.findPhoto(w1, slot!.photoId))?.status).toBe("uploading");
   });
@@ -156,7 +156,7 @@ describe.skipIf(!enabled)("photos against MongoDB", () => {
   it("a claimed JPEG that is not one is refused", async () => {
     const album = await general(w1);
     const slot = await upload(w1, album, file({ type: "image/png" }), JPEG);
-    expect((await photos.confirmUploads(w1, [slot.photoId], "approved"))[0]!.ok).toBe(false);
+    expect((await photos.confirmUploads(w1, [slot.photoId], "member"))[0]!.ok).toBe(false);
   });
 
   it("made copies are kept only when they arrive and really are JPEGs", async () => {
@@ -165,7 +165,7 @@ describe.skipIf(!enabled)("photos against MongoDB", () => {
     const doc = await repo.findPhoto(w1, slot.photoId);
     await storage.localWrite(doc!.displayKey!, JPEG);
     await storage.localWrite(doc!.thumbKey!, HTML);
-    await photos.confirmUploads(w1, [slot.photoId], "approved");
+    await photos.confirmUploads(w1, [slot.photoId], "member");
     const after = await repo.findPhoto(w1, slot.photoId);
     expect(after?.displayKey).toBeTruthy();
     expect(after?.thumbKey).toBeUndefined();
@@ -194,7 +194,7 @@ describe.skipIf(!enabled)("photos against MongoDB", () => {
   it("one wedding can never see, move or delete another's photos", async () => {
     const mine = await general(w1);
     const slot = await upload(w1, mine);
-    await photos.confirmUploads(w1, [slot.photoId], "approved");
+    await photos.confirmUploads(w1, [slot.photoId], "member");
     const theirs = await general(w2);
     expect(await photos.deletePhotos(w2, [slot.photoId])).toBe(0);
     expect(await photos.moveToAlbum(w2, [slot.photoId], theirs)).toBe(0);
@@ -208,7 +208,7 @@ describe.skipIf(!enabled)("photos against MongoDB", () => {
   it("deleting removes the records and the files, and can be repeated", async () => {
     const album = await general(w1);
     const slot = await upload(w1, album);
-    await photos.confirmUploads(w1, [slot.photoId], "approved");
+    await photos.confirmUploads(w1, [slot.photoId], "member");
     const doc = await repo.findPhoto(w1, slot.photoId);
     expect(await storage.objectSize(doc!.originalKey)).toBe(JPEG.length);
     expect(await photos.deletePhotos(w1, [slot.photoId])).toBe(1);
@@ -219,7 +219,7 @@ describe.skipIf(!enabled)("photos against MongoDB", () => {
   it("a download is a save-as address for the original under a safe name", async () => {
     const album = await general(w1);
     const slot = await upload(w1, album, file({ name: "../../Haldi 1.jpeg" }));
-    await photos.confirmUploads(w1, [slot.photoId], "approved");
+    await photos.confirmUploads(w1, [slot.photoId], "member");
     const dl = await photos.getDownload(w1, slot.photoId);
     expect(dl.fileName).toBe("Haldi 1.jpg");
     expect(dl.url).toContain("d=Haldi+1.jpg");
@@ -229,7 +229,7 @@ describe.skipIf(!enabled)("photos against MongoDB", () => {
     const albums = await photos.listAlbums(w1, [{ id: ev1, name: "Haldi" }]);
     const haldi = albums.find((a) => a.eventId === ev1)!;
     const slot = await upload(w1, haldi.id);
-    await photos.confirmUploads(w1, [slot.photoId], "approved");
+    await photos.confirmUploads(w1, [slot.photoId], "member");
     const { inTransaction } = await import("@/lib/db");
     await inTransaction((session) => photos.removeEventAlbum(w1, ev1, { session }));
     const after = await photos.listAlbums(w1, []);

@@ -2,7 +2,13 @@ import { parseYouTube } from "@/lib/youtube";
 import { mapsUrl } from "@/lib/maps";
 import { listEvents } from "@/modules/events/service";
 import type { WeddingSummary } from "@/modules/wedding/schema";
-import { getWedding, getWeddingBySlug, updateWebsite } from "@/modules/wedding/service";
+import { absoluteUrl } from "@/lib/app-url";
+import {
+  getGallerySettings,
+  getWedding,
+  getWeddingBySlug,
+  updateWebsite,
+} from "@/modules/wedding/service";
 import type { SiteData, WebsiteSettingsInput } from "./schema";
 
 // Business rules for the website module (PRD 5.9, 5.11). The public site is built only from a
@@ -14,6 +20,9 @@ async function buildSite(wedding: WeddingSummary, isPreview: boolean): Promise<S
     wedding.website.showLive && wedding.website.youtubeUrl
       ? parseYouTube(wedding.website.youtubeUrl)
       : null;
+  const galleryUrl = wedding.website.showGallery
+    ? absoluteUrl(`/g/${(await getGallerySettings(wedding.id)).token}`)
+    : undefined;
   return {
     slug: wedding.website.slug,
     theme: wedding.website.theme,
@@ -34,6 +43,7 @@ async function buildSite(wedding: WeddingSummary, isPreview: boolean): Promise<S
       mapsUrl: mapsUrl(e.venueName, e.address),
     })),
     live: live ? { embedUrl: live.embedUrl, watchUrl: live.watchUrl } : undefined,
+    galleryUrl,
     isPreview,
   };
 }
@@ -61,6 +71,7 @@ export async function saveWebsiteSettings(
     theme: input.theme,
     isOn: input.isOn,
     showLive: input.showLive,
+    showGallery: input.showGallery,
     youtubeUrl: input.youtubeUrl,
   });
 }

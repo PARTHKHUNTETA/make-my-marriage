@@ -181,6 +181,25 @@ export function WebsiteSettingsForm({
         </section>
 
         <section className="rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)] sm:p-6">
+          <h2 className="font-serif text-xl text-ink">Photo gallery</h2>
+          <label className="mt-3 flex items-start gap-3 text-sm text-ink">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 accent-plum"
+              {...register("showGallery")}
+            />
+            <span>
+              Show a link to your photo gallery on the website
+              <span className="block text-xs text-ink-2">
+                Anyone who can open your website will be able to open the gallery and see the photos
+                you have approved. Leave this off to share the gallery link only with people you
+                choose.
+              </span>
+            </span>
+          </label>
+        </section>
+
+        <section className="rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)] sm:p-6">
           <h2 className="font-serif text-xl text-ink">Live stream</h2>
           <label className="mt-3 flex items-start gap-3 text-sm text-ink">
             <input

@@ -2,18 +2,24 @@
 
 import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
-import { requireMember } from "@/lib/authz";
+import { requireAdmin, requireMember } from "@/lib/authz";
 import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
 import { listEvents } from "@/modules/events/service";
+import { getWedding, resetGalleryToken, setUploadsOn } from "@/modules/wedding/service";
 import {
+  approveFromSchema,
   confirmUploadsSchema,
   listPhotosSchema,
   movePhotosSchema,
   photoIdSchema,
   photoIdsSchema,
   requestUploadsSchema,
+  reviewIdsSchema,
+  uploadsSwitchSchema,
 } from "./schema";
 import {
+  approve,
+  approveAllFrom,
   confirmUploads,
   deletePhotos,
   getDownload,
@@ -21,6 +27,7 @@ import {
   listAlbums,
   listPhotos,
   moveToAlbum,
+  reject,
   requestUploads,
 } from "./service";
 
@@ -64,7 +71,7 @@ export async function confirmUploadsAction(input: unknown) {
   return safeAction(async () => {
     const ctx = await requireMember();
     const { photoIds } = confirmUploadsSchema.parse(input);
-    const results = await confirmUploads(ctx.weddingId, photoIds, "approved");
+    const results = await confirmUploads(ctx.weddingId, photoIds, "member");
     refresh();
     return { results, usage: await getUsage(ctx.weddingId) };
   });
@@ -95,5 +102,67 @@ export async function getDownloadAction(input: unknown) {
     const ctx = await requireMember();
     const { photoId } = photoIdSchema.parse(input);
     return getDownload(ctx.weddingId, photoId);
+  });
+}
+
+// ---- moderation and sharing -------------------------------------------------------------------
+
+const refreshReview = () => {
+  revalidatePath("/photos");
+  revalidatePath("/photos/review");
+  revalidatePath("/dashboard");
+};
+
+export async function approvePhotosAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    const { photoIds } = reviewIdsSchema.parse(input);
+    const approved = await approve(ctx.weddingId, photoIds);
+    refreshReview();
+    return { approved };
+  });
+}
+
+export async function approveFromUploaderAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    const { uploader } = approveFromSchema.parse(input);
+    const approved = await approveAllFrom(ctx.weddingId, uploader);
+    refreshReview();
+    return { approved };
+  });
+}
+
+// Rejecting deletes the photos and their files for good.
+export async function rejectPhotosAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    const { photoIds } = reviewIdsSchema.parse(input);
+    const rejected = await reject(ctx.weddingId, photoIds);
+    refreshReview();
+    return { rejected, usage: await getUsage(ctx.weddingId) };
+  });
+}
+
+export async function setUploadsAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    const { on } = uploadsSwitchSchema.parse(input);
+    await setUploadsOn(ctx.weddingId, on);
+    revalidatePath("/photos/share");
+    return { on };
+  });
+}
+
+// A new link. Every printed or shared copy of the old one stops working.
+export async function resetGalleryLinkAction() {
+  return safeAction(async () => {
+    const ctx = await requireAdmin();
+    await resetGalleryToken(ctx.weddingId);
+    // The public website may show the old link; refresh it right away.
+    const wedding = await getWedding(ctx.weddingId);
+    if (wedding) revalidatePath(`/${wedding.website.slug}`);
+    revalidatePath("/photos/share");
+    return { reset: true };
   });
 }
