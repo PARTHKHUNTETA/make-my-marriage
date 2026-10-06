@@ -225,4 +225,41 @@ describe.skipIf(!enabled)("events and tasks against MongoDB", () => {
     for (const field of ["description", "dueDate", "eventId", "assignedMemberId"])
       expect(stored).not.toHaveProperty(field);
   });
+
+  it("records when a task was completed, keeps it while it stays completed, and clears it on reopening", async () => {
+    const t = await tasks.createTask(A, task({ title: "Pay the florist" }));
+    const completedAt = async () =>
+      (await db.collection("tasks").findOne({ _id: new ObjectId(t.id) }))?.completedAt as
+        Date | undefined;
+    expect(await completedAt()).toBeUndefined();
+
+    await tasks.changeTaskStatus(A, t.id, "completed");
+    const first = await completedAt();
+    expect(first).toBeInstanceOf(Date);
+    expect((await tasks.getTask(A, t.id))?.completedAt).toEqual(first);
+
+    // Completing again, or editing a completed task, does not move the time.
+    await new Promise((r) => setTimeout(r, 20));
+    await tasks.changeTaskStatus(A, t.id, "completed");
+    await tasks.updateTask(
+      A,
+      t.id,
+      task({ title: "Pay the florist (edited)", status: "completed" }),
+    );
+    expect(await completedAt()).toEqual(first);
+    expect((await tasks.getTask(A, t.id))?.title).toBe("Pay the florist (edited)");
+
+    await tasks.changeTaskStatus(A, t.id, "in_progress");
+    expect(await completedAt()).toBeUndefined();
+    expect((await tasks.getTask(A, t.id))?.completedAt).toBeUndefined();
+
+    // Completing through the edit form records it too, and removing an optional field still works.
+    await tasks.updateTask(A, t.id, task({ title: "Pay the florist", status: "completed" }));
+    expect(await completedAt()).toBeInstanceOf(Date);
+  });
+
+  it("a task created already completed has a completion time", async () => {
+    const t = await tasks.createTask(A, task({ title: "Done at once", status: "completed" }));
+    expect((await tasks.getTask(A, t.id))?.completedAt).toBeInstanceOf(Date);
+  });
 });

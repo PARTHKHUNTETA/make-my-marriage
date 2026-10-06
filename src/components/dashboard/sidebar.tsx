@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { postJson } from "@/components/auth/post-json";
 import {
   CalendarDays,
+  BarChart3,
   CheckCircle2,
   ChevronsUpDown,
   Globe,
@@ -42,6 +43,7 @@ const sections: { title: string; items: NavItem[] }[] = [
     items: [
       { href: "/website", label: "Wedding Website", icon: Globe },
       { href: "/photos", label: "Photos & QR Stream", icon: Images },
+      { href: "/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },
   {

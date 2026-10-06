@@ -200,6 +200,14 @@ the slug `demo`. Chrome and Firefox resolve `*.localhost`; Safari does not.
   run twice never repeats one), they never block the action that caused them, and they delete
   themselves after 90 days. The daily task and payment alerts run in the same daily cron as the
   reminders.
+- **Analytics:** one page (Analytics) turns the wedding's own data into seven charts, with nothing
+  extra to enter: spending by category against budget, spending over time (cumulative, by week),
+  contribution by payer, RSVP by event, expected headcount against checked-in, completed tasks over
+  time, and approved photos by event (members against guests). Filter by event and date range; the
+  filter lives in the address, so a view can be bookmarked. Every chart downloads as a PNG (drawn
+  from the same SVG) and its data as a CSV (money in rupees), and has a "view as a table" fallback.
+  Budgets are for the whole wedding, so they are hidden while a filter is on. Tasks now record when
+  they were completed (older completed tasks use their last change).
 - **Photo storage:** files live in Cloudflare R2 (set the four `R2_*` variables; all are required in
   production). Without them, development uses a `.local-storage/` folder served by
   `/api/dev-storage/*` behind signed, expiring addresses; that route does not exist in production.

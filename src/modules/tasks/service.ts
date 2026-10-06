@@ -38,6 +38,7 @@ export function toItem(doc: TaskDoc, now: Date = new Date()): TaskItem {
     priority: doc.priority,
     assignedMemberId: doc.assignedMemberId?.toHexString(),
     eventId: doc.eventId?.toHexString(),
+    completedAt: doc.status === "completed" ? (doc.completedAt ?? doc.updatedAt) : undefined,
     overdue: isOverdue(doc, now),
   };
 }

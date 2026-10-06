@@ -1,5 +1,12 @@
 import "server-only";
-import { ObjectId, type ClientSession, type Collection, type Filter } from "mongodb";
+import {
+  ObjectId,
+  type ClientSession,
+  type Collection,
+  type Document,
+  type Filter,
+  type UpdateFilter,
+} from "mongodb";
 import { getDb } from "@/lib/db";
 import { scoped } from "@/lib/scoped";
 import type { TaskPriority, TaskStatus } from "./schema";
@@ -16,6 +23,8 @@ export type TaskDoc = {
   priority: TaskPriority;
   assignedMemberId?: ObjectId;
   eventId?: ObjectId;
+  // When it was marked completed; cleared if it is reopened. Older tasks may lack it.
+  completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -45,7 +54,13 @@ const oid = (id: string) => (ObjectId.isValid(id) ? new ObjectId(id) : null);
 
 export async function insertTask(weddingId: string, fields: TaskFields): Promise<TaskDoc> {
   const now = new Date();
-  const doc = { _id: new ObjectId(), ...fields, createdAt: now, updatedAt: now };
+  const doc = {
+    _id: new ObjectId(),
+    ...fields,
+    ...(fields.status === "completed" ? { completedAt: now } : {}),
+    createdAt: now,
+    updatedAt: now,
+  };
   await scoped(await tasks(), { weddingId }).insertOne(doc);
   return { ...doc, weddingId: new ObjectId(weddingId) };
 }
@@ -64,12 +79,29 @@ export async function replaceTaskFields(
 ): Promise<TaskDoc | null> {
   const _id = oid(id);
   if (!_id) return null;
+  const now = new Date();
+  // One atomic pipeline, so "completed at" is kept while a task stays completed, set the moment it
+  // becomes completed, and cleared when it is reopened.
+  const stages: Document[] = [
+    {
+      $set: {
+        ...Object.fromEntries(Object.entries(set).map(([k, v]) => [k, { $literal: v }])),
+        updatedAt: { $literal: now },
+        ...(set.status
+          ? {
+              completedAt:
+                set.status === "completed"
+                  ? { $ifNull: ["$completedAt", { $literal: now }] }
+                  : "$$REMOVE",
+            }
+          : {}),
+      },
+    },
+    ...(unset.length > 0 ? [{ $unset: unset }] : []),
+  ];
   return scoped(await tasks(), { weddingId }).findOneAndUpdate(
     { _id },
-    {
-      $set: { ...set, updatedAt: new Date() },
-      ...(unset.length > 0 ? { $unset: Object.fromEntries(unset.map((f) => [f, ""])) } : {}),
-    },
+    stages as unknown as UpdateFilter<TaskDoc>,
     { returnDocument: "after" },
   );
 }
@@ -83,7 +115,18 @@ export async function setStatus(
   if (!_id) return null;
   return scoped(await tasks(), { weddingId }).findOneAndUpdate(
     { _id },
-    { $set: { status, updatedAt: new Date() } },
+    [
+      {
+        $set: {
+          status: { $literal: status },
+          updatedAt: { $literal: new Date() },
+          completedAt:
+            status === "completed"
+              ? { $ifNull: ["$completedAt", { $literal: new Date() }] }
+              : "$$REMOVE",
+        },
+      },
+    ] as unknown as UpdateFilter<TaskDoc>,
     { returnDocument: "after" },
   );
 }

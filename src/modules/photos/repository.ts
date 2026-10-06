@@ -407,3 +407,24 @@ export async function findApprovedForDownload(
     bytes: d.sizeBytes,
   }));
 }
+
+// Approved photos per album, split by who added them.
+export async function countApprovedByAlbumAndUploader(
+  weddingId: string,
+): Promise<Map<string, { member: number; guest: number }>> {
+  const rows = await scoped(await photos(), { weddingId })
+    .aggregate<{ _id: { albumId: ObjectId; type: string }; n: number }>([
+      { $match: { status: "approved" } },
+      { $group: { _id: { albumId: "$albumId", type: "$uploaderType" }, n: { $sum: 1 } } },
+    ])
+    .toArray();
+  const out = new Map<string, { member: number; guest: number }>();
+  for (const r of rows) {
+    const key = r._id.albumId.toHexString();
+    const entry = out.get(key) ?? { member: 0, guest: 0 };
+    if (r._id.type === "member") entry.member = r.n;
+    else entry.guest = r.n;
+    out.set(key, entry);
+  }
+  return out;
+}

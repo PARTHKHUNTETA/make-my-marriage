@@ -89,6 +89,8 @@ export type TaskItem = {
   priority: TaskPriority;
   assignedMemberId?: string;
   eventId?: string;
+  // When it was completed (older tasks fall back to their last change).
+  completedAt?: Date;
   // Worked out when read, never stored: not completed and the due day has passed (in India).
   overdue: boolean;
 };

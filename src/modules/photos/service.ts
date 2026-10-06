@@ -19,6 +19,7 @@ import {
   deletePendingDocs,
   findStalePending,
   listPending,
+  countApprovedByAlbumAndUploader,
   countByAlbum,
   deletePhotoDocs,
   ensureAlbums,
@@ -503,4 +504,28 @@ export async function getZipSelection(weddingId: string, photoIds: string[]): Pr
       url: await signView(r.originalKey, { seconds: 15 * 60 }),
     })),
   );
+}
+
+export type PhotoBreakdown = {
+  albumId: string;
+  name: string;
+  eventId?: string;
+  member: number;
+  guest: number;
+};
+
+// Approved photos per album, members' against guests', for the Analytics page.
+export async function getPhotoBreakdown(
+  weddingId: string,
+  events: { id: string; name: string }[],
+): Promise<PhotoBreakdown[]> {
+  const albums = await listAlbums(weddingId, events);
+  const counts = await countApprovedByAlbumAndUploader(weddingId);
+  return albums.map((a) => ({
+    albumId: a.id,
+    name: a.name,
+    ...(a.eventId ? { eventId: a.eventId } : {}),
+    member: counts.get(a.id)?.member ?? 0,
+    guest: counts.get(a.id)?.guest ?? 0,
+  }));
 }
