@@ -255,3 +255,45 @@ export async function findVendorByListing(
   const id = oid(listingId);
   return id ? scoped(await vendors(), { weddingId }).findOne({ listingId: id }) : null;
 }
+
+export type InstallmentAlertRow = {
+  weddingId: ObjectId;
+  vendorName: string;
+  installmentId: ObjectId;
+  label: string;
+  amount: number;
+  dueDate: Date;
+};
+
+// A system job, not a request: unpaid installments falling due before `cutoff`, across every
+// wedding. The caller works out who to tell, per wedding.
+export async function findInstallmentsDueBefore(
+  cutoff: Date,
+  limit: number,
+): Promise<InstallmentAlertRow[]> {
+  const rows = await (
+    await vendors()
+  )
+    .aggregate<{
+      weddingId: ObjectId;
+      name: string;
+      installments: InstallmentDoc;
+    }>([
+      {
+        $match: { installments: { $elemMatch: { status: "upcoming", dueDate: { $lt: cutoff } } } },
+      },
+      { $unwind: "$installments" },
+      { $match: { "installments.status": "upcoming", "installments.dueDate": { $lt: cutoff } } },
+      { $limit: limit },
+      { $project: { weddingId: 1, name: 1, installments: 1 } },
+    ])
+    .toArray();
+  return rows.map((r) => ({
+    weddingId: r.weddingId,
+    vendorName: r.name,
+    installmentId: r.installments._id,
+    label: r.installments.label,
+    amount: r.installments.amount,
+    dueDate: r.installments.dueDate,
+  }));
+}

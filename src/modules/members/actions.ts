@@ -5,6 +5,7 @@ import { safeAction } from "@/lib/action";
 import { requireAdmin, requireUser } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
 import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
+import { announceMemberJoined, notifyMembers } from "@/modules/notifications/service";
 import { getWedding } from "@/modules/wedding/service";
 import {
   acceptInviteSchema,
@@ -19,6 +20,7 @@ import {
   changeMemberRole,
   getProfile,
   inviteMember,
+  listTeam,
   removeMember,
   resendInvite,
 } from "./service";
@@ -98,7 +100,16 @@ export async function removeMemberAction(input: unknown) {
   return safeAction(async () => {
     const ctx = await requireAdmin();
     const { memberId } = memberIdSchema.parse(input);
+    const who = (await listTeam(ctx.weddingId)).members.find((m) => m.memberId === memberId);
     await removeMember({ weddingId: ctx.weddingId, memberId });
+    if (who)
+      await notifyMembers(ctx.weddingId, {
+        type: "member_change",
+        message: `${who.name} was removed from the wedding team.`,
+        link: "/settings/members",
+        audience: "admins",
+        exceptMemberId: ctx.memberId,
+      });
     revalidatePath(TEAM_PAGE);
     return {};
   });
@@ -109,6 +120,8 @@ export async function acceptInviteAction(input: unknown) {
   return safeAction(async () => {
     const ctx = await requireUser();
     const { token } = acceptInviteSchema.parse(input);
-    return acceptInvite(ctx.userId, token);
+    const joined = await acceptInvite(ctx.userId, token);
+    await announceMemberJoined(ctx.userId);
+    return joined;
   });
 }

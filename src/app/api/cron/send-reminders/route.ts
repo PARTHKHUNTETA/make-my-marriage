@@ -4,6 +4,7 @@ import { AppError } from "@/lib/errors";
 import { jsonError, jsonOk } from "@/lib/http";
 import { drainEmailQueue } from "@/lib/queue";
 import { runAutomaticReminders } from "@/modules/invitations/sending";
+import { runDailyAlerts } from "@/modules/notifications/alerts";
 import { purgeStalePending } from "@/modules/photos/service";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,9 @@ async function run(request: Request) {
     // Guest photos nobody reviewed in 60 days are deleted. A failure here must not stop the
     // reminders above, so it is reported rather than thrown.
     const photos = await purgeStalePending().catch(() => ({ deleted: 0, failed: true }));
-    return jsonOk({ ...queued, ...sent, photos });
+    // Task and payment alerts; like the sweep above, a failure here must not stop the reminders.
+    const alerts = await runDailyAlerts().catch(() => ({ tasks: 0, payments: 0, failed: true }));
+    return jsonOk({ ...queued, ...sent, photos, alerts });
   } catch (err) {
     return jsonError(err);
   }

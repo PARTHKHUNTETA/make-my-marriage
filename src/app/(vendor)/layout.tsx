@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { SignOutButton } from "@/components/sign-out-button";
 import { VerifyEmailBanner } from "@/components/verify-email-banner";
 import { resolveVendorContext } from "@/lib/context";
@@ -33,6 +34,7 @@ export default async function VendorLayout({ children }: Readonly<{ children: Re
             <Link href="/reviews" className={nav}>
               Reviews
             </Link>
+            <NotificationBell kind="vendor" />
             <SignOutButton endpoint="/api/vendor/logout" redirectTo="/vendor/login" />
           </nav>
         </div>

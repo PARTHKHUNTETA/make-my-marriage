@@ -65,6 +65,7 @@ describe.skipIf(!enabled)("listing photos against MongoDB", () => {
       listings.flatMap((l) => (l.photoKeys as string[] | undefined) ?? []),
     );
     await db.collection("listings").deleteMany({ _id: { $in: listings.map((l) => l._id) } });
+    await db.collection("notifications").deleteMany({ recipientId: { $in: accounts } });
     await db.collection("vendorAccounts").deleteMany({ _id: { $in: accounts } });
   };
 

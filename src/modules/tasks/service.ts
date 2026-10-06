@@ -1,8 +1,9 @@
 import type { ClientSession } from "mongodb";
 import { ObjectId } from "mongodb";
-import { istDate, toIstYmd } from "@/lib/dates";
+import { daysUntil, istDate, toIstYmd } from "@/lib/dates";
 import { AppError } from "@/lib/errors";
 import {
+  findTasksDueBefore,
   countByEvent,
   countForEvent,
   deleteTask as removeTask,
@@ -161,4 +162,31 @@ export function unassignMember(
   options?: { session?: ClientSession },
 ): Promise<number> {
   return unsetAssignee(weddingId, memberId, options);
+}
+
+export type TaskAlert = {
+  weddingId: string;
+  taskId: string;
+  title: string;
+  memberId: string;
+  daysLeft: number; // 0 today, 1 tomorrow, negative once overdue
+};
+
+// Unfinished assigned tasks due today or tomorrow, or already overdue, for the daily alerts.
+export async function listTasksForAlerts(now: Date = new Date()): Promise<TaskAlert[]> {
+  const cutoff = new Date(now.getTime() + 3 * 86_400_000);
+  const docs = await findTasksDueBefore(cutoff, 5000);
+  return docs.flatMap((d) =>
+    d.dueDate && d.assignedMemberId
+      ? [
+          {
+            weddingId: d.weddingId.toHexString(),
+            taskId: d._id.toHexString(),
+            title: d.title,
+            memberId: d.assignedMemberId.toHexString(),
+            daysLeft: daysUntil(d.dueDate, now),
+          },
+        ].filter((a) => a.daysLeft <= 1)
+      : [],
+  );
 }

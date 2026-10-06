@@ -25,6 +25,7 @@ import {
   insertMembership,
   insertUser,
   listMemberships,
+  setMutedTypes,
   listPendingInvites,
   lockAdmins,
   markEmailVerified,
@@ -430,4 +431,30 @@ export async function acceptInvite(userId: string, token: string): Promise<{ wed
     await markEmailVerified(userId, { session });
     return { weddingId };
   });
+}
+
+// ---- notifications ----
+
+export type Recipient = { memberId: string; role: MemberRole; muted: string[] };
+
+// Who to tell about something in this wedding, with the notification types each person muted.
+export async function listRecipients(weddingId: string): Promise<Recipient[]> {
+  return (await listMemberships(weddingId)).map((m) => ({
+    memberId: m._id.toHexString(),
+    role: m.role,
+    muted: m.mutedNotificationTypes ?? [],
+  }));
+}
+
+export async function getMutedTypes(weddingId: string, memberId: string): Promise<string[]> {
+  return (await findMembership(weddingId, memberId))?.mutedNotificationTypes ?? [];
+}
+
+export async function updateMutedTypes(
+  weddingId: string,
+  memberId: string,
+  types: string[],
+): Promise<void> {
+  if (!(await setMutedTypes(weddingId, memberId, types)))
+    throw new AppError("NOT_FOUND", "We couldn't find that member.");
 }

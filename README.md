@@ -189,6 +189,17 @@ the slug `demo`. Chrome and Firefox resolve `*.localhost`; Safari does not.
   the daily cron, with a warning on the review page from day 45. An admin can replace the link if it
   leaks, which kills the old link and every printed QR at once. Websites can show a "Photo gallery"
   section linking to it (off by default; anyone who can open the website can then open the gallery).
+- **Notification centre:** a bell in the top bar (and in the vendor portal) shows an unread count and
+  a list, newest first, refreshed every minute and when a page opens. Each item opens its page;
+  members can mark one or all as read, and choose which alerts they want under Settings →
+  Notifications. Members are told about guest replies, guest photos waiting (at most hourly), a task
+  given to them, their tasks due today or tomorrow or overdue, vendor payments due within 3 days or
+  overdue, spending passing 90% or 100% of a budget, vendors quoting or declining a request, and
+  (admins) people joining or being removed. Vendors are told about new booking requests, new
+  reviews and accepted quotes. Alerts are in-app only, each is stored once per person (a daily job
+  run twice never repeats one), they never block the action that caused them, and they delete
+  themselves after 90 days. The daily task and payment alerts run in the same daily cron as the
+  reminders.
 - **Photo storage:** files live in Cloudflare R2 (set the four `R2_*` variables; all are required in
   production). Without them, development uses a `.local-storage/` folder served by
   `/api/dev-storage/*` behind signed, expiring addresses; that route does not exist in production.

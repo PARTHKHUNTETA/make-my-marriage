@@ -12,6 +12,7 @@ const svc = vi.hoisted(() => ({
   changeMemberRole: vi.fn(),
   getProfile: vi.fn(),
   inviteMember: vi.fn(),
+  listTeam: vi.fn(),
   removeMember: vi.fn(),
   resendInvite: vi.fn(),
 }));
@@ -21,6 +22,8 @@ vi.mock("@/lib/ratelimit", async (orig) => ({
   consumeRateLimit,
 }));
 vi.mock("@/modules/wedding/service", () => ({ getWedding }));
+const notify = vi.hoisted(() => ({ notifyMembers: vi.fn(), announceMemberJoined: vi.fn() }));
+vi.mock("@/modules/notifications/service", () => notify);
 vi.mock("next/cache", () => ({ revalidatePath }));
 vi.mock("./service", () => svc);
 
@@ -35,7 +38,13 @@ import {
 
 const W = "a".repeat(24);
 const ID = "b".repeat(24);
-const admin = { kind: "member", userId: "u-admin", weddingId: W, role: "admin" };
+const admin = {
+  kind: "member",
+  userId: "u-admin",
+  weddingId: W,
+  memberId: "m-admin",
+  role: "admin",
+};
 
 beforeEach(() => {
   requireAdmin.mockReset().mockResolvedValue(admin);
@@ -44,6 +53,9 @@ beforeEach(() => {
   getWedding.mockReset().mockResolvedValue({ title: "Priya weds Aarav" });
   revalidatePath.mockReset();
   for (const fn of Object.values(svc)) fn.mockReset().mockResolvedValue({});
+  notify.notifyMembers.mockReset().mockResolvedValue(undefined);
+  notify.announceMemberJoined.mockReset().mockResolvedValue(undefined);
+  svc.listTeam.mockResolvedValue({ members: [{ memberId: ID, name: "Rahul Verma" }], invites: [] });
   svc.getProfile.mockResolvedValue({ name: "Priya Sharma" });
   svc.inviteMember.mockResolvedValue({ inviteId: "i1", renewed: false });
 });
@@ -165,6 +177,31 @@ describe("other team actions use the admin's own wedding", () => {
       memberId: ID,
       role: "manager",
     });
+  });
+
+  it("removing a member tells the other admins, but not the admin who did it", async () => {
+    await removeMemberAction({ memberId: ID });
+    expect(notify.notifyMembers).toHaveBeenCalledWith(
+      W,
+      expect.objectContaining({
+        type: "member_change",
+        audience: "admins",
+        exceptMemberId: "m-admin",
+        message: "Rahul Verma was removed from the wedding team.",
+      }),
+    );
+  });
+
+  it("does not announce a removal that failed", async () => {
+    svc.removeMember.mockRejectedValue(new AppError("NOT_FOUND", "Not found."));
+    await removeMemberAction({ memberId: ID });
+    expect(notify.notifyMembers).not.toHaveBeenCalled();
+  });
+
+  it("accepting an invitation tells the admins a member joined", async () => {
+    svc.acceptInvite.mockResolvedValue({ weddingId: W });
+    expect(await acceptInviteAction({ token: "t".repeat(30) })).toMatchObject({ ok: true });
+    expect(notify.announceMemberJoined).toHaveBeenCalledWith("u1");
   });
 
   it("removeMemberAction", async () => {

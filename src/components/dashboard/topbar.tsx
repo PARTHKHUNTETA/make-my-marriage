@@ -1,4 +1,5 @@
-import { Bell, Clock, Search, User, Zap } from "lucide-react";
+import { Clock, Search, User, Zap } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { SignOutButton } from "@/components/sign-out-button";
 
 export function Topbar() {
@@ -30,14 +31,7 @@ export function Topbar() {
           <Zap className="size-4 text-bronze" />
           Quick Action
         </button>
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="relative p-1 text-ink-2 transition-colors hover:text-ink"
-        >
-          <Bell className="size-5" />
-          <span className="absolute top-1 right-1 size-2 rounded-full bg-bronze" />
-        </button>
+        <NotificationBell />
         {/* The sidebar (with its sign-out) is hidden below lg, so small screens get one here. */}
         <div className="lg:hidden">
           <SignOutButton />

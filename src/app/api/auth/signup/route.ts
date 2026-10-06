@@ -3,6 +3,7 @@ import { clientIp, consumeRateLimit, subjectKey } from "@/lib/ratelimit";
 import { setSession } from "@/lib/session";
 import { inviteSignupSchema, signupSchema } from "@/modules/members/schema";
 import { signUp, signUpWithInvite } from "@/modules/members/service";
+import { announceMemberJoined } from "@/modules/notifications/service";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export async function POST(request: Request) {
     const user = fromInvite
       ? await signUpWithInvite(inviteSignupSchema.parse(body))
       : await signUp(signupSchema.parse(body));
+    if (fromInvite) await announceMemberJoined(user.id);
     await setSession(user.id, true);
     return jsonOk({ user, next: fromInvite ? "/dashboard" : "/setup" }, 201);
   } catch (err) {

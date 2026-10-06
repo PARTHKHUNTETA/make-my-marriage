@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronRight, Settings2, Trash2, Users } from "lucide-react";
+import { Bell, ChevronRight, Settings2, Trash2, Users } from "lucide-react";
 import { canManageMembers, requireMember } from "@/lib/authz";
 
 export const metadata: Metadata = { title: "Settings — Make My Marriage" };
@@ -41,6 +41,21 @@ export default async function SettingsPage() {
             <span className="block text-sm font-semibold text-ink">Wedding details</span>
             <span className="block text-[13px] text-ink-2">
               The couple&rsquo;s names, the date, city and venue, and your welcome message.
+            </span>
+          </span>
+          <ChevronRight className="size-4 text-ink-2" aria-hidden />
+        </Link>
+        <Link
+          href="/settings/notifications"
+          className={`${card} transition-colors hover:bg-rose-50`}
+        >
+          <span className="flex size-10 items-center justify-center rounded-lg bg-rose-100">
+            <Bell className="size-5 text-plum" aria-hidden />
+          </span>
+          <span className="flex-1">
+            <span className="block text-sm font-semibold text-ink">Notifications</span>
+            <span className="block text-[13px] text-ink-2">
+              Choose which alerts show in your bell.
             </span>
           </span>
           <ChevronRight className="size-4 text-ink-2" aria-hidden />

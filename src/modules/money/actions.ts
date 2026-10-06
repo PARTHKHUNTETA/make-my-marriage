@@ -7,6 +7,7 @@ import { AppError } from "@/lib/errors";
 import { eventExists } from "@/modules/events/service";
 import { vendorExists } from "@/modules/vendors/service";
 import { setOverallBudget, setSplitDefault } from "@/modules/wedding/service";
+import { checkBudgetAlerts } from "./alerts";
 import {
   categoryBudgetSchema,
   eventBudgetSchema,
@@ -51,6 +52,7 @@ export async function createExpenseAction(input: unknown) {
     await checkEvent(ctx.weddingId, parsed.eventId);
     await checkVendor(ctx.weddingId, parsed.vendorId);
     const expense = await createExpense(ctx.weddingId, parsed);
+    await checkBudgetAlerts(ctx.weddingId);
     refresh();
     return { id: expense.id };
   });
@@ -65,6 +67,7 @@ export async function updateExpenseAction(input: unknown) {
     await checkEvent(ctx.weddingId, parsed.eventId);
     await checkVendor(ctx.weddingId, parsed.vendorId);
     await updateExpense(ctx.weddingId, id, parsed);
+    await checkBudgetAlerts(ctx.weddingId);
     refresh();
     return {};
   });

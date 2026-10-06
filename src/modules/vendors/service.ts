@@ -1,6 +1,6 @@
 import { ObjectId, type ClientSession } from "mongodb";
 import { inTransaction } from "@/lib/db";
-import { istDate } from "@/lib/dates";
+import { daysUntil, istDate } from "@/lib/dates";
 import { AppError } from "@/lib/errors";
 import {
   createInstallmentExpense,
@@ -9,6 +9,7 @@ import {
   unlinkVendorFromMoney,
 } from "@/modules/money/service";
 import {
+  findInstallmentsDueBefore,
   changeInstallment,
   countForEvent,
   deleteVendor as removeVendor,
@@ -348,4 +349,28 @@ export async function getVendorByListing(
 ): Promise<VendorItem | null> {
   const doc = await findVendorByListing(weddingId, listingId);
   return doc ? toItem(doc) : null;
+}
+
+export type PaymentAlert = {
+  weddingId: string;
+  installmentId: string;
+  vendorName: string;
+  label: string;
+  amount: number;
+  daysLeft: number; // 0 today, up to 3, negative once overdue
+};
+
+// Unpaid installments due within 3 days, or already overdue, for the daily alerts.
+export async function listPaymentsForAlerts(now: Date = new Date()): Promise<PaymentAlert[]> {
+  const rows = await findInstallmentsDueBefore(new Date(now.getTime() + 5 * 86_400_000), 5000);
+  return rows
+    .map((r) => ({
+      weddingId: r.weddingId.toHexString(),
+      installmentId: r.installmentId.toHexString(),
+      vendorName: r.vendorName,
+      label: r.label,
+      amount: r.amount,
+      daysLeft: daysUntil(r.dueDate, now),
+    }))
+    .filter((a) => a.daysLeft <= 3);
 }

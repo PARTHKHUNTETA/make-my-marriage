@@ -6,13 +6,16 @@ const service = vi.hoisted(() => ({
   updateTask: vi.fn(),
   changeTaskStatus: vi.fn(),
   deleteTask: vi.fn(),
+  getTask: vi.fn(),
 }));
+const notifyMembers = vi.hoisted(() => vi.fn());
 const eventExists = vi.hoisted(() => vi.fn());
 const memberExists = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/authz", () => ({ requireMember }));
 vi.mock("./service", () => service);
 vi.mock("@/modules/events/service", () => ({ eventExists }));
 vi.mock("@/modules/members/service", () => ({ memberExists }));
+vi.mock("@/modules/notifications/service", () => ({ notifyMembers }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import {
@@ -32,6 +35,41 @@ beforeEach(() => {
   Object.values(service).forEach((fn) => fn.mockReset().mockResolvedValue({ id: "t1" }));
   eventExists.mockReset().mockResolvedValue(true);
   memberExists.mockReset().mockResolvedValue(true);
+  notifyMembers.mockReset().mockResolvedValue(undefined);
+  service.getTask.mockResolvedValue({ assignedMemberId: undefined });
+});
+
+describe("telling the assignee", () => {
+  const told = () => notifyMembers.mock.calls.map((c) => c[1].audience);
+
+  it("create: tells the person a task was given to, and only them", async () => {
+    await createTaskAction({ title: "Book band", assignedMemberId: OTHER });
+    expect(notifyMembers).toHaveBeenCalledTimes(1);
+    expect(notifyMembers).toHaveBeenCalledWith(
+      "w1",
+      expect.objectContaining({ type: "task_assigned", audience: { memberId: OTHER } }),
+    );
+  });
+
+  it("create: says nothing for an unassigned task or one you gave yourself", async () => {
+    await createTaskAction({ title: "No owner" });
+    await createTaskAction({ title: "Mine", assignedMemberId: "m1" });
+    expect(notifyMembers).not.toHaveBeenCalled();
+  });
+
+  it("update: tells a new assignee, but not when the assignee did not change", async () => {
+    service.getTask.mockResolvedValue({ assignedMemberId: OTHER });
+    await updateTaskAction({ taskId: ID, title: "Same owner", assignedMemberId: OTHER });
+    expect(notifyMembers).not.toHaveBeenCalled();
+    await updateTaskAction({ taskId: ID, title: "New owner", assignedMemberId: ID });
+    expect(told()).toEqual([{ memberId: ID }]);
+  });
+
+  it("does not tell anyone about a task that could not be saved", async () => {
+    service.createTask.mockRejectedValue(new Error("boom"));
+    await createTaskAction({ title: "x", assignedMemberId: OTHER }).catch(() => undefined);
+    expect(notifyMembers).not.toHaveBeenCalled();
+  });
 });
 
 describe("task actions", () => {

@@ -1,6 +1,7 @@
 import "server-only";
 import { AppError } from "@/lib/errors";
 import { signView } from "@/lib/storage";
+import { notifyMembers } from "@/modules/notifications/service";
 import { getGalleryByToken, type GalleryAccess } from "@/modules/wedding/service";
 import { findPhoto } from "./repository";
 import type { AlbumSummary, ConfirmResult, GuestPhoto, UploadFile, UploadSlot } from "./schema";
@@ -70,7 +71,18 @@ export async function guestConfirmUploads(
   photoIds: string[],
 ): Promise<ConfirmResult[]> {
   assertOpen(access);
-  return confirmUploads(access.weddingId, photoIds, "guest");
+  const results = await confirmUploads(access.weddingId, photoIds, "guest");
+  if (results.some((r) => r.ok)) {
+    // At most one alert an hour, however many photos arrive.
+    const hour = Math.floor(Date.now() / 3_600_000);
+    await notifyMembers(access.weddingId, {
+      type: "photo_pending",
+      message: "Guests have sent photos that are waiting for your approval.",
+      link: "/photos/review",
+      dedupeKey: `photo_pending:${hour}`,
+    });
+  }
+  return results;
 }
 
 // A save-as address for an approved photo's original. Waiting photos are not downloadable.

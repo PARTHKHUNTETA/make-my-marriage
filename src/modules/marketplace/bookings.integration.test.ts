@@ -56,6 +56,7 @@ describe.skipIf(!enabled)("marketplace and bookings against MongoDB", () => {
     await db.collection("bookingRequests").deleteMany({ weddingId: { $in: [wA, wB] } });
     await db.collection("vendors").deleteMany({ weddingId: { $in: [wA, wB] } });
     await db.collection("listings").deleteMany({ vendorAccountId: { $in: accounts } });
+    await db.collection("notifications").deleteMany({ recipientId: { $in: accounts } });
     await db.collection("vendorAccounts").deleteMany({ _id: { $in: accounts } });
   };
 

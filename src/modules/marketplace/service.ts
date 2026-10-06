@@ -311,6 +311,8 @@ function toBookingView(doc: BookingRequestDoc): BookingView {
 
 // A couple sends a request: the events they chose (as snapshots), the city, an expected headcount,
 // a message and optionally how to reach them. That is everything the vendor will ever see.
+import { notifyMembers, notifyVendor } from "@/modules/notifications/service";
+
 export async function sendBookingRequest(
   weddingId: string,
   input: BookingRequestInput,
@@ -335,6 +337,11 @@ export async function sendBookingRequest(
   });
   if (!doc)
     throw new AppError("VALIDATION_FAILED", "You already have an open request with this vendor.");
+  await notifyVendor(listing.vendorAccountId.toHexString(), {
+    type: "booking_request",
+    message: "You have a new booking request.",
+    link: "/bookings",
+  });
   return toBookingView(doc);
 }
 
@@ -401,6 +408,11 @@ export async function acceptQuote(
       { session },
     );
   });
+  await notifyVendor(request.vendorAccountId.toHexString(), {
+    type: "booking_update",
+    message: "A couple accepted your quote.",
+    link: "/bookings",
+  });
 }
 
 // ---- booking requests, for vendors ----
@@ -443,6 +455,11 @@ export async function quoteRequest(
       "NOT_FOUND",
       "That request can't be quoted. It may have been cancelled or answered.",
     );
+  await notifyMembers(doc.weddingId.toHexString(), {
+    type: "booking",
+    message: `${doc.businessName} sent you a quote.`,
+    link: "/vendors/bookings",
+  });
 }
 
 export async function declineRequest(accountId: string, requestId: string): Promise<void> {
@@ -457,6 +474,11 @@ export async function declineRequest(accountId: string, requestId: string): Prom
       "NOT_FOUND",
       "That request can't be declined. It may have been cancelled or answered.",
     );
+  await notifyMembers(doc.weddingId.toHexString(), {
+    type: "booking",
+    message: `${doc.businessName} declined your booking request.`,
+    link: "/vendors/bookings",
+  });
 }
 
 // ---- reviews ----
@@ -481,6 +503,11 @@ export async function saveReview(weddingId: string, input: ReviewInput): Promise
   const doc = await upsertReview(weddingId, input.listingId, input.rating, input.text);
   if (!doc) throw new AppError("INTERNAL", "We couldn't save your review. Please try again.");
   await recomputeRating(input.listingId);
+  await notifyVendor(listing.vendorAccountId.toHexString(), {
+    type: "review",
+    message: `You have a new ${input.rating}-star review.`,
+    link: "/reviews",
+  });
   return toReviewView(doc);
 }
 

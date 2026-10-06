@@ -172,3 +172,18 @@ export async function unsetAssignee(
   );
   return result.modifiedCount;
 }
+
+// A system job, not a request: unfinished tasks with an assignee that fall due before `cutoff`,
+// across every wedding. The caller works out who to tell, per wedding.
+export async function findTasksDueBefore(cutoff: Date, limit: number): Promise<TaskDoc[]> {
+  return (await tasks())
+    .find(
+      {
+        status: { $ne: "completed" },
+        assignedMemberId: { $exists: true },
+        dueDate: { $lt: cutoff },
+      },
+      { sort: { dueDate: 1 }, limit },
+    )
+    .toArray();
+}

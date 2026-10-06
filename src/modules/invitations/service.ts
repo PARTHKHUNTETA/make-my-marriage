@@ -5,6 +5,7 @@ import { eventStartsAt } from "@/modules/events/schema";
 import { getEventsByIds } from "@/modules/events/service";
 import type { RsvpInput } from "@/modules/guests/schema";
 import { getGuestByToken, submitRsvp } from "@/modules/guests/service";
+import { notifyMembers } from "@/modules/notifications/service";
 import { getWedding } from "@/modules/wedding/service";
 import type { InvitationView } from "./schema";
 
@@ -85,5 +86,15 @@ export async function submitGuestRsvp(
     status: input.status,
     numberAttending: input.numberAttending,
   });
+  const found = await getGuestByToken(token);
+  if (found)
+    await notifyMembers(found.weddingId, {
+      type: "rsvp",
+      message:
+        input.status === "attending"
+          ? `${view.guestName} will attend ${event.name} (${input.numberAttending ?? 1} ${(input.numberAttending ?? 1) === 1 ? "person" : "people"}).`
+          : `${view.guestName} can't attend ${event.name}.`,
+      link: `/guests/rsvp?eventId=${event.eventId}`,
+    });
   return (await getInvitation(token, now)) ?? Promise.reject(INVALID());
 }

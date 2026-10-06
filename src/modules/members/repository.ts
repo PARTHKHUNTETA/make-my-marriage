@@ -242,6 +242,19 @@ export async function listMemberships(weddingId: string): Promise<MembershipDoc[
     .toArray();
 }
 
+export async function setMutedTypes(
+  weddingId: string,
+  memberId: string,
+  types: string[],
+): Promise<boolean> {
+  if (!ObjectId.isValid(memberId)) return false;
+  const result = await scoped(await memberships(), { weddingId }).updateOne(
+    { _id: new ObjectId(memberId) },
+    { $set: { mutedNotificationTypes: types, updatedAt: new Date() } },
+  );
+  return result.matchedCount === 1;
+}
+
 export async function findMembership(
   weddingId: string,
   memberId: string,

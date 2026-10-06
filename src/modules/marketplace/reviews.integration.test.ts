@@ -58,6 +58,7 @@ describe.skipIf(!enabled)("reviews against MongoDB", () => {
     ).map((l) => l._id);
     await db.collection("reviews").deleteMany({ listingId: { $in: listings } });
     await db.collection("listings").deleteMany({ _id: { $in: listings } });
+    await db.collection("notifications").deleteMany({ recipientId: { $in: accounts } });
     await db.collection("vendorAccounts").deleteMany({ _id: { $in: accounts } });
   };
 
