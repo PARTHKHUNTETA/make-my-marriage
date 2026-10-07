@@ -157,3 +157,23 @@
     font-size: 16px;
   }
 }
+
+/* Dropdowns. The browser's own arrow sits hard against the text, and a short list ("Attending", "2")
+   ends up looking cramped. Every single-choice dropdown gets the same look: our own arrow, with room
+   between it and the text, and a little width of its own. Unlayered on purpose, like the rule above,
+   so it applies to selects styled with utility classes too. */
+select:not([multiple]):not([size]) {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 2.5rem;
+  min-width: 5.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234e4449' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 1rem 1rem;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+select:not([multiple]):not([size]):disabled {
+  cursor: not-allowed;
+}

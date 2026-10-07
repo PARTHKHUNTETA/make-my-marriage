@@ -47,6 +47,14 @@ describe("the member shell on phones", () => {
     expect(nav).toContain("<SidebarContent");
   });
 
+  it("every single-choice dropdown gets our own arrow and space before it, not the cramped browser one", () => {
+    const css = read("app/globals.css");
+    const rule = css.match(/select:not\(\[multiple\]\):not\(\[size\]\)\s*\{[^}]*\}/)?.[0] ?? "";
+    expect(rule).toMatch(/appearance:\s*none/);
+    expect(rule).toMatch(/padding-right:\s*2\.5rem/);
+    expect(rule).toMatch(/background-image:\s*url\("data:image\/svg\+xml/);
+  });
+
   it("form controls never grow past their container, and stay 16px on phones so iPhones do not zoom", () => {
     const css = read("app/globals.css");
     expect(css).toMatch(/select,\s*input,\s*textarea\s*\{\s*max-width:\s*100%/);
