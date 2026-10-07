@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { EntryCodes } from "@/components/guests/entry-codes";
 import { DeleteGuestButton } from "@/components/guests/delete-guest-button";
 import { GuestForm } from "@/components/guests/guest-form";
 import { requireMember } from "@/lib/authz";
@@ -43,6 +44,16 @@ export default async function GuestPage({ params }: { params: Promise<{ id: stri
           answeredEventIds={guest.invitations
             .filter((i) => i.rsvpStatus !== "pending")
             .map((i) => i.eventId)}
+        />
+        <EntryCodes
+          guestId={guest.id}
+          codes={guest.invitations
+            .filter((i) => i.rsvpStatus === "attending" && known.has(i.eventId))
+            .map((i) => ({
+              eventId: i.eventId,
+              eventName: events.find((e) => e.id === i.eventId)?.name ?? "Event",
+              people: i.numberAttending ?? 1,
+            }))}
         />
         <DeleteGuestButton guestId={guest.id} name={guest.name} />
       </div>

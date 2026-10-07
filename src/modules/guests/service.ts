@@ -306,3 +306,16 @@ export type { ReplyOverview } from "./repository";
 export function getReplyOverview(weddingId: string, recentLimit = 5) {
   return replyOverview(weddingId, recentLimit);
 }
+
+// The entry code of one party for one event, for a member who is looking at that guest. Only a party
+// that has said it is coming has one. The wedding comes from the member's session, so a guest from
+// another wedding is simply not found.
+export async function getEntryTokenForMember(
+  weddingId: string,
+  guestId: string,
+  eventId: string,
+): Promise<string | null> {
+  const doc = await findGuest(weddingId, guestId);
+  const invitation = doc?.invitations.find((i) => i.eventId.toHexString() === eventId);
+  return invitation && invitation.rsvpStatus === "attending" ? invitation.entryToken : null;
+}
