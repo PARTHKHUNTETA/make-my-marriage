@@ -54,9 +54,9 @@ describe("colour maths", () => {
 });
 
 describe("the palette list", () => {
-  it("has the six palettes, each once, and the default is the first", () => {
+  it("has the twelve palettes, each once, and the default is the first", () => {
     expect(PALETTES.map((p) => p.id)).toEqual([...PALETTE_IDS]);
-    expect(new Set(PALETTE_IDS).size).toBe(6);
+    expect(new Set(PALETTE_IDS).size).toBe(12);
     expect(DEFAULT_PALETTE).toBe("aubergine");
     expect(PALETTE_IDS[0]).toBe(DEFAULT_PALETTE);
   });

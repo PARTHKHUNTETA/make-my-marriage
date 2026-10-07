@@ -267,9 +267,11 @@ an error everywhere except `src/modules/**/repository.ts` and `src/lib/`.
 
 ## Colour themes
 
-Settings → Appearance lets each person choose how the planning screens look: Royal Aubergine &
-Champagne Gold (the default), Heritage Emerald & Antique Brass, Terracotta & Roasted Chestnut,
-Midnight Indigo & Moonlit Silver, Fig & Spiced Cardamom, or Royal Charcoal & Rose Gold. It is a
+Settings → Appearance lets each person choose how the planning screens look from twelve themes:
+Royal Aubergine & Champagne Gold (the default), Heritage Emerald & Antique Brass, Terracotta &
+Roasted Chestnut, Midnight Indigo & Moonlit Silver, Fig & Spiced Cardamom, Royal Charcoal & Rose
+Gold, Kumkum Sindoor & Basra Pearl, Neelambari & Raw Zari, Haldi & Sheesham Wood, Gulab Attar &
+Pistachio Pista, Jamdani Indigo & Chalk Chuna, and Kashi Sandstone & Marigold Thread. It is a
 personal setting (stored on your own team-member record), so changing yours never changes anyone
 else's, and it applies to the signed-in app only; guest pages, the wedding website (which has its own
 website themes), emails and the public pages keep their look.
