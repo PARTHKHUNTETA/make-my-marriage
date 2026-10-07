@@ -363,8 +363,12 @@ guest data is processed in India, not only stored there. In the Vercel project:
 - Set the Node.js version to 22.x.
 - Add the environment variables from `.env.example`, with production values. That includes
   `RESEND_API_KEY` and a verified sending domain in `EMAIL_FROM`, and `CRON_SECRET`.
-- The email queue is drained by Vercel Cron every minute (`vercel.json`). Cron jobs that run more
-  often than daily need a paid Vercel plan.
+- `vercel.json` has one cron, the daily job (`/api/cron/send-reminders`), which fits the free Hobby
+  plan. The email queue also needs draining every minute or so: on Hobby, create a free job at
+  cron-job.org that calls `GET https://<your domain>/api/cron/send-email` every minute with the
+  header `Authorization: Bearer <CRON_SECRET>`. On Vercel Pro you can instead add
+  `{ "path": "/api/cron/send-email", "schedule": "* * * * *" }` to `crons` in `vercel.json`.
+  Until the queue is drained, emails (verification, invitations) wait in it.
 - Point the wildcard domain (`*.makemymarriage.com`) at the project and let Vercel issue the
   wildcard certificate.
 

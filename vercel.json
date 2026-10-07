@@ -3,10 +3,6 @@
   "regions": ["bom1"],
   "crons": [
     {
-      "path": "/api/cron/send-email",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/cron/send-reminders",
       "schedule": "30 3 * * *"
     }
