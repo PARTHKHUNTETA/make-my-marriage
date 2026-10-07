@@ -14,6 +14,7 @@ import {
   Images,
   LayoutGrid,
   LogOut,
+  Radio,
   SlidersHorizontal,
   Store,
   User,
@@ -43,6 +44,7 @@ const sections: { title: string; items: NavItem[] }[] = [
     items: [
       { href: "/website", label: "Wedding Website", icon: Globe },
       { href: "/photos", label: "Photos & QR Stream", icon: Images },
+      { href: "/live", label: "Live Stream", icon: Radio },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { websiteSettingsSchema } from "./schema";
+import { liveSettingsSchema, websiteSettingsSchema } from "./schema";
 
 const ID = "dQw4w9WgXcQ";
 const valid = {
@@ -57,5 +57,38 @@ describe("websiteSettingsSchema", () => {
       "just text",
     ])
       expect(parse({ youtubeUrl }).success).toBe(false);
+  });
+});
+
+describe("liveSettingsSchema", () => {
+  const live = (over = {}) =>
+    liveSettingsSchema.safeParse({ showLive: true, youtubeUrl: `https://youtu.be/${ID}`, ...over });
+  it("takes a YouTube link and keeps only a clean watch address", () => {
+    const r = live({ youtubeUrl: `  https://www.youtube.com/live/${ID}?feature=share&t=5  ` });
+    expect(r.success && r.data.youtubeUrl).toBe(`https://www.youtube.com/watch?v=${ID}`);
+  });
+  it("needs a link to switch the live section on, and says so on the link field", () => {
+    const r = live({ youtubeUrl: "" });
+    expect(r.success).toBe(false);
+    if (!r.success)
+      expect(r.error.issues[0]).toMatchObject({
+        path: ["youtubeUrl"],
+        message: "Paste your YouTube link to show the live section",
+      });
+  });
+  it("lets the section be off, with or without a saved link", () => {
+    expect(live({ showLive: false, youtubeUrl: "" }).success).toBe(true);
+    expect(live({ showLive: false }).success).toBe(true);
+  });
+  it("refuses anything that is not a YouTube link", () => {
+    for (const bad of [
+      "https://evil.example.com/watch?v=" + ID,
+      "javascript:alert(1)",
+      "not a link",
+      `https://youtube.com.evil.test/watch?v=${ID}`,
+    ]) {
+      const r = live({ youtubeUrl: bad });
+      expect(r.success, bad).toBe(false);
+    }
   });
 });

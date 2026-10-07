@@ -21,6 +21,24 @@ export const THEME_INFO: Record<Theme, { name: string; feel: string }> = {
   },
 };
 
+// Blank removes the link. Anything else must be a YouTube watch, live or youtu.be link.
+const youtubeUrlField = z
+  .string()
+  .trim()
+  .max(300, "That link is too long")
+  .transform((value, ctx) => {
+    if (!value) return null;
+    const parsed = parseYouTube(value);
+    if (!parsed) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Paste a YouTube link: youtube.com/watch, youtube.com/live or youtu.be",
+      });
+      return z.NEVER;
+    }
+    return parsed.watchUrl;
+  });
+
 export const websiteSettingsSchema = z.object({
   isOn: z.boolean(),
   theme: z.enum(THEMES),
@@ -41,23 +59,7 @@ export const websiteSettingsSchema = z.object({
   showLive: z.boolean(),
   // Adds a "Photo gallery" section that links to the private gallery.
   showGallery: z.boolean().default(false),
-  // Blank removes the link. Anything else must be a YouTube watch, live or youtu.be link.
-  youtubeUrl: z
-    .string()
-    .trim()
-    .max(300, "That link is too long")
-    .transform((value, ctx) => {
-      if (!value) return null;
-      const parsed = parseYouTube(value);
-      if (!parsed) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Paste a YouTube link: youtube.com/watch, youtube.com/live or youtu.be",
-        });
-        return z.NEVER;
-      }
-      return parsed.watchUrl;
-    }),
+  youtubeUrl: youtubeUrlField,
 });
 export type WebsiteSettingsInput = z.output<typeof websiteSettingsSchema>;
 export type WebsiteSettingsFormValues = z.input<typeof websiteSettingsSchema>;
@@ -95,3 +97,13 @@ export type SiteData = {
   galleryUrl?: string;
   isPreview: boolean;
 };
+
+// The Live stream page: just the switch and the link. Turning the section on needs a link to show.
+export const liveSettingsSchema = z
+  .object({ showLive: z.boolean(), youtubeUrl: youtubeUrlField })
+  .refine((v) => !v.showLive || v.youtubeUrl !== null, {
+    message: "Paste your YouTube link to show the live section",
+    path: ["youtubeUrl"],
+  });
+export type LiveSettingsInput = z.output<typeof liveSettingsSchema>;
+export type LiveSettingsFormValues = z.input<typeof liveSettingsSchema>;

@@ -10,7 +10,7 @@ import {
   getWeddingBySlug,
   updateWebsite,
 } from "@/modules/wedding/service";
-import type { SiteData, WebsiteSettingsInput } from "./schema";
+import type { LiveSettingsInput, SiteData, WebsiteSettingsInput } from "./schema";
 
 // Business rules for the website module (PRD 5.9, 5.11). The public site is built only from a
 // wedding's details, its events marked "show on website", and its live link.
@@ -79,4 +79,9 @@ export async function saveWebsiteSettings(
     showGallery: input.showGallery,
     youtubeUrl: input.youtubeUrl,
   });
+}
+
+// Changes only the live stream (the switch and the link), leaving every other website setting alone.
+export async function saveLiveSettings(weddingId: string, input: LiveSettingsInput): Promise<void> {
+  await updateWebsite(weddingId, { showLive: input.showLive, youtubeUrl: input.youtubeUrl });
 }

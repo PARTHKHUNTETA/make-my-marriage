@@ -104,6 +104,48 @@ describe.skipIf(!enabled)("the wedding website against MongoDB", () => {
     );
   });
 
+  it("saving the live stream changes only the live stream, and shows it on the site", async () => {
+    await site.saveWebsiteSettings(
+      A,
+      settings({ slug: `${tag}-live-only`, theme: "modern", isOn: true, showGallery: true }),
+    );
+    const before = (await wedding.getWedding(A))!.website;
+    await site.saveLiveSettings(
+      A,
+      schema.liveSettingsSchema.parse({
+        showLive: true,
+        youtubeUrl: "https://youtu.be/dQw4w9WgXcQ",
+      }),
+    );
+    const after = (await wedding.getWedding(A))!.website;
+    expect(after).toMatchObject({
+      slug: before.slug,
+      theme: "modern",
+      isOn: true,
+      showGallery: true,
+      showLive: true,
+      youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    });
+    expect((await site.getPublicSite(`${tag}-live-only`))?.live?.embedUrl).toContain("dQw4w9WgXcQ");
+    // Switching it off keeps the link for next time, and the site stops showing the player.
+    await site.saveLiveSettings(
+      A,
+      schema.liveSettingsSchema.parse({
+        showLive: false,
+        youtubeUrl: "https://youtu.be/dQw4w9WgXcQ",
+      }),
+    );
+    expect((await site.getPublicSite(`${tag}-live-only`))?.live).toBeUndefined();
+    expect((await wedding.getWedding(A))!.website.youtubeUrl).toContain("dQw4w9WgXcQ");
+    // Removing the link clears it, and another wedding is never touched.
+    await site.saveLiveSettings(
+      A,
+      schema.liveSettingsSchema.parse({ showLive: false, youtubeUrl: "" }),
+    );
+    expect((await wedding.getWedding(A))!.website.youtubeUrl).toBeUndefined();
+    expect((await wedding.getWedding(B))!.website.showLive).toBe(false);
+  });
+
   it("settings never touch another wedding", async () => {
     const before = await db.collection("weddings").findOne({ _id: wB });
     await site.saveWebsiteSettings(A, settings({ slug: `${tag}-a2`, theme: "modern", isOn: true }));
