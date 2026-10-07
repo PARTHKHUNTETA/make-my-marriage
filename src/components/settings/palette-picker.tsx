@@ -3,7 +3,13 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
-import { PALETTES, paletteTokens, type PaletteDef, type PaletteId } from "@/lib/palettes";
+import {
+  PALETTE_GROUPS,
+  PALETTES,
+  paletteTokens,
+  type PaletteDef,
+  type PaletteId,
+} from "@/lib/palettes";
 import { setPaletteAction } from "@/modules/members/actions";
 
 // Paints a palette onto the app shell straight away, before the save finishes. It uses the shell's
@@ -96,52 +102,60 @@ export function PalettePicker({ current }: { current: PaletteId }) {
 
   return (
     <div>
-      <div
-        role="radiogroup"
-        aria-label="Colour theme"
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-      >
-        {PALETTES.map((palette) => {
-          const on = palette.id === selected;
-          const t = paletteTokens(palette.id);
-          return (
-            <label
-              key={palette.id}
-              className={`relative flex cursor-pointer flex-col gap-3 rounded-xl bg-white p-4 shadow-[0_1px_3px_rgba(35,31,32,0.04)] ring-2 transition-shadow has-[:focus-visible]:ring-plum/60 ${
-                on ? "ring-plum" : "ring-transparent hover:ring-line"
-              }`}
-            >
-              <input
-                type="radio"
-                name="palette"
-                value={palette.id}
-                checked={on}
-                disabled={busy && !on}
-                onChange={() => choose(palette.id)}
-                className="sr-only"
-              />
-              <Preview palette={palette} />
-              <div className="flex items-center gap-1.5" aria-hidden>
-                {[palette.primary, palette.accent, palette.canvas, palette.surface].map((c) => (
-                  <span
-                    key={c}
-                    className="size-5 rounded-full border"
-                    style={{ backgroundColor: c, borderColor: t["--color-line-soft"] }}
-                  />
-                ))}
-                {on ? (
-                  <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-plum px-2 py-0.5 text-[11px] font-semibold text-white">
-                    <Check className="size-3" aria-hidden /> Your theme
-                  </span>
-                ) : null}
-              </div>
-              <div>
-                <span className="block text-sm font-semibold text-ink">{palette.name}</span>
-                <span className="mt-0.5 block text-[13px] text-ink-2">{palette.vibe}</span>
-              </div>
-            </label>
-          );
-        })}
+      <div role="radiogroup" aria-label="Colour theme" className="flex flex-col gap-8">
+        {PALETTE_GROUPS.map((group) => (
+          <section key={group.id} aria-labelledby={`palettes-${group.id}`}>
+            <h2 id={`palettes-${group.id}`} className="font-serif text-xl text-ink">
+              {group.title}
+            </h2>
+            <p className="mt-0.5 mb-3 text-[13px] text-ink-2">{group.blurb}</p>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {PALETTES.filter((p) => p.group === group.id).map((palette) => {
+                const on = palette.id === selected;
+                const t = paletteTokens(palette.id);
+                return (
+                  <label
+                    key={palette.id}
+                    className={`relative flex cursor-pointer flex-col gap-3 rounded-xl bg-white p-4 shadow-[0_1px_3px_rgba(35,31,32,0.04)] ring-2 transition-shadow has-[:focus-visible]:ring-plum/60 ${
+                      on ? "ring-plum" : "ring-transparent hover:ring-line"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="palette"
+                      value={palette.id}
+                      checked={on}
+                      disabled={busy && !on}
+                      onChange={() => choose(palette.id)}
+                      className="sr-only"
+                    />
+                    <Preview palette={palette} />
+                    <div className="flex items-center gap-1.5" aria-hidden>
+                      {[palette.primary, palette.accent, palette.canvas, palette.surface].map(
+                        (c) => (
+                          <span
+                            key={c}
+                            className="size-5 rounded-full border"
+                            style={{ backgroundColor: c, borderColor: t["--color-line-soft"] }}
+                          />
+                        ),
+                      )}
+                      {on ? (
+                        <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-plum px-2 py-0.5 text-[11px] font-semibold text-white">
+                          <Check className="size-3" aria-hidden /> Your theme
+                        </span>
+                      ) : null}
+                    </div>
+                    <div>
+                      <span className="block text-sm font-semibold text-ink">{palette.name}</span>
+                      <span className="mt-0.5 block text-[13px] text-ink-2">{palette.vibe}</span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </div>
       <div className="mt-4 min-h-6" aria-live="polite">
         {message ? <p className="text-[13px] font-medium text-forest">{message}</p> : null}

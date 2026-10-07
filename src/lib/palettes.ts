@@ -92,8 +92,21 @@ export function darkenToContrast(hex: string, backgrounds: string[], min: number
 
 // ---- the palettes -----------------------------------------------------------------------------
 
+export type PaletteGroup = "classic" | "heritage";
+
+// How the picker sorts the palettes into sections, in the order they are shown.
+export const PALETTE_GROUPS: { id: PaletteGroup; title: string; blurb: string }[] = [
+  { id: "classic", title: "Classic", blurb: "Refined palettes in the spirit of modern software." },
+  {
+    id: "heritage",
+    title: "Indian heritage",
+    blurb: "Drawn from sindoor, silk, zari, haldi, rose attar, lime wash and sandstone.",
+  },
+];
+
 export type PaletteDef = {
   id: PaletteId;
+  group: PaletteGroup;
   name: string;
   vibe: string;
   // The four colours of the brief.
@@ -108,6 +121,7 @@ export type PaletteDef = {
 export const PALETTES: PaletteDef[] = [
   {
     id: "aubergine",
+    group: "classic",
     name: "Royal Aubergine & Champagne Gold",
     vibe: "Grand palace weddings, heritage luxury, quiet dignity.",
     primary: "#2d1226",
@@ -118,6 +132,7 @@ export const PALETTES: PaletteDef[] = [
   },
   {
     id: "emerald",
+    group: "classic",
     name: "Heritage Emerald & Antique Brass",
     vibe: "Courtyards and haveli stone, a timeless heirloom feel.",
     primary: "#122b24",
@@ -128,6 +143,7 @@ export const PALETTES: PaletteDef[] = [
   },
   {
     id: "terracotta",
+    group: "classic",
     name: "Terracotta & Roasted Chestnut",
     vibe: "Warm and earthy, sacred wood and clay, intimate celebrations.",
     primary: "#331812",
@@ -138,6 +154,7 @@ export const PALETTES: PaletteDef[] = [
   },
   {
     id: "indigo",
+    group: "classic",
     name: "Midnight Indigo & Moonlit Silver",
     vibe: "Crisp and modern, evening pheras under starlight.",
     primary: "#141a29",
@@ -148,6 +165,7 @@ export const PALETTES: PaletteDef[] = [
   },
   {
     id: "fig",
+    group: "classic",
     name: "Fig & Spiced Cardamom",
     vibe: "Boutique and artisanal, understated organic luxury.",
     primary: "#24141e",
@@ -158,6 +176,7 @@ export const PALETTES: PaletteDef[] = [
   },
   {
     id: "charcoal",
+    group: "classic",
     name: "Royal Charcoal & Rose Gold",
     vibe: "Minimal and editorial, a single blush undertone.",
     primary: "#1a181b",
@@ -168,6 +187,7 @@ export const PALETTES: PaletteDef[] = [
   },
   {
     id: "kumkum",
+    group: "heritage",
     name: "Kumkum Sindoor & Basra Pearl",
     vibe: "Deeply traditional and auspicious, reimagined as a high-fashion editorial house.",
     primary: "#3e121a",
@@ -178,6 +198,7 @@ export const PALETTES: PaletteDef[] = [
   },
   {
     id: "neelambari",
+    group: "heritage",
     name: "Neelambari & Raw Zari",
     vibe: "Majestic and serene, like temple corridors at dusk.",
     primary: "#0e1e28",
@@ -188,6 +209,7 @@ export const PALETTES: PaletteDef[] = [
   },
   {
     id: "haldi",
+    group: "heritage",
     name: "Haldi & Sheesham Wood",
     vibe: "Warm, welcoming and celebratory; tactile and organic.",
     primary: "#2b1b17",
@@ -198,6 +220,7 @@ export const PALETTES: PaletteDef[] = [
   },
   {
     id: "gulab",
+    group: "heritage",
     name: "Gulab Attar & Pistachio Pista",
     vibe: "Poetic, soft and contemporary: courtyard breakfasts and scented waters.",
     primary: "#291820",
@@ -208,6 +231,7 @@ export const PALETTES: PaletteDef[] = [
   },
   {
     id: "jamdani",
+    group: "heritage",
     name: "Jamdani Indigo & Chalk Chuna",
     vibe: "Sharp, editorial and architectural, like a design-studio monograph.",
     primary: "#131b2e",
@@ -218,6 +242,7 @@ export const PALETTES: PaletteDef[] = [
   },
   {
     id: "kashi",
+    group: "heritage",
     name: "Kashi Sandstone & Marigold Thread",
     vibe: "Timeless, sacred and monumental, with warm sunlight and quiet distinction.",
     primary: "#221e1f",

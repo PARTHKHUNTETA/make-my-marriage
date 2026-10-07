@@ -12,6 +12,7 @@ import {
   isPaletteId,
   luminance,
   mix,
+  PALETTE_GROUPS,
   PALETTE_IDS,
   PALETTES,
   paletteStyle,
@@ -68,6 +69,31 @@ describe("the palette list", () => {
     expect(toPaletteId("garbage")).toBe(DEFAULT_PALETTE);
     expect(toPaletteId(undefined)).toBe(DEFAULT_PALETTE);
     expect(getPalette("fig").id).toBe("fig");
+  });
+});
+
+describe("palette groups", () => {
+  it("puts every palette in a known group, and no group is empty", () => {
+    const known = PALETTE_GROUPS.map((g) => g.id);
+    for (const p of PALETTES) expect(known, p.id).toContain(p.group);
+    for (const g of PALETTE_GROUPS)
+      expect(PALETTES.filter((p) => p.group === g.id).length, g.id).toBeGreaterThan(0);
+  });
+  it("lists the groups in the order the palettes appear, with the default's group first", () => {
+    const seen = [...new Set(PALETTES.map((p) => p.group))];
+    expect(seen).toEqual(PALETTE_GROUPS.map((g) => g.id));
+    expect(getPalette(DEFAULT_PALETTE).group).toBe(PALETTE_GROUPS[0]!.id);
+  });
+  it("splits the twelve as six Classic and six Indian heritage", () => {
+    expect(PALETTES.filter((p) => p.group === "classic").map((p) => p.id)).toEqual([
+      "aubergine",
+      "emerald",
+      "terracotta",
+      "indigo",
+      "fig",
+      "charcoal",
+    ]);
+    expect(PALETTES.filter((p) => p.group === "heritage")).toHaveLength(6);
   });
 });
 
