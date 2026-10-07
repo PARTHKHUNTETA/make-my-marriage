@@ -59,6 +59,12 @@ export type CronEnv = z.infer<typeof cronEnvSchema>;
 export type StaffEnv = z.infer<typeof staffEnvSchema>;
 export type StorageEnv = z.infer<typeof storageEnvSchema>;
 
+// Where people write to us. Shown on the Privacy, Terms and Support pages.
+const legalEnvSchema = z.object({
+  SUPPORT_EMAIL: z.preprocess(blankIsUnset, z.string().email().optional()),
+});
+export type LegalEnv = z.infer<typeof legalEnvSchema>;
+
 // Reports variable names only, never values.
 function parseEnv<S extends z.ZodType>(schema: S): z.infer<S> {
   const result = schema.safeParse(process.env);
@@ -114,4 +120,12 @@ export function getStorageEnv(): StorageEnv {
 // Bytes of photo storage per wedding.
 export function photoQuotaBytes(): number {
   return Math.round(getStorageEnv().PHOTO_QUOTA_GB * 1024 ** 3);
+}
+
+export function getSupportEmail(): string | undefined {
+  try {
+    return parseEnv(legalEnvSchema).SUPPORT_EMAIL;
+  } catch {
+    return undefined; // a bad address must not take the legal pages down
+  }
 }

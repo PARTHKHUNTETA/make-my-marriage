@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import { ExpenseFilters } from "@/components/money/expense-filters";
 import { MoneyHeader } from "@/components/money/money-header";
 import { requireMember } from "@/lib/authz";
@@ -66,12 +66,21 @@ export default async function MoneyPage({
         title="Expenses"
         blurb="Everything spent on the wedding, by category, event and who paid."
         action={
-          <Link
-            href="/money/new"
-            className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
-          >
-            <Plus className="size-4" aria-hidden /> Add expense
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/api/money/export"
+              download
+              className="inline-flex h-11 items-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-ink shadow-[0_1px_3px_rgba(35,31,32,0.08)] hover:bg-rose-100"
+            >
+              <Download className="size-4" aria-hidden /> Export
+            </a>
+            <Link
+              href="/money/new"
+              className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
+            >
+              <Plus className="size-4" aria-hidden /> Add expense
+            </Link>
+          </div>
         }
       />
 

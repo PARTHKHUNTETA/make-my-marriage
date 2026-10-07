@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Mail, Phone, Plus } from "lucide-react";
+import { Download, Mail, Phone, Plus } from "lucide-react";
 import { VendorFilters } from "@/components/vendors/vendor-filters";
 import { VendorsTabs } from "@/components/vendors/vendors-tabs";
 import { requireMember } from "@/lib/authz";
@@ -39,12 +39,21 @@ export default async function VendorsPage({
             The photographer, caterer, decorator and everyone else you have chosen.
           </p>
         </div>
-        <Link
-          href="/vendors/new"
-          className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
-        >
-          <Plus className="size-4" aria-hidden /> Add vendor
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href="/api/vendors/export"
+            download
+            className="inline-flex h-11 items-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-ink shadow-[0_1px_3px_rgba(35,31,32,0.08)] hover:bg-rose-100"
+          >
+            <Download className="size-4" aria-hidden /> Export
+          </a>
+          <Link
+            href="/vendors/new"
+            className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
+          >
+            <Plus className="size-4" aria-hidden /> Add vendor
+          </Link>
+        </div>
       </div>
 
       <VendorsTabs active="mine" />

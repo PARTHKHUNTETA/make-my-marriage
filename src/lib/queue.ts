@@ -201,3 +201,20 @@ export async function listEmailLog(
     sentAt: r.sentAt,
   }));
 }
+
+// How long a finished email's record is kept. The log of who was emailed is useful for a while, and
+// the privacy policy promises it does not stay for ever.
+export const KEEP_EMAIL_RECORDS_DAYS = 30;
+
+// Deletes records of emails that were sent, or that gave up after their last attempt, more than
+// `days` ago. Emails still waiting to go are never touched. Returns how many were removed.
+export async function purgeFinishedEmails(
+  now: Date = new Date(),
+  days: number = KEEP_EMAIL_RECORDS_DAYS,
+): Promise<number> {
+  const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const result = await (
+    await jobs()
+  ).deleteMany({ status: { $in: ["sent", "failed"] }, updatedAt: { $lt: cutoff } });
+  return result.deletedCount;
+}

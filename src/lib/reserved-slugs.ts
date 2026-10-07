@@ -16,6 +16,10 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   "live",
   "analytics",
   "settings",
+  // legal and help pages
+  "privacy",
+  "terms",
+  "support",
   // vendor portal
   "listing",
   "bookings",

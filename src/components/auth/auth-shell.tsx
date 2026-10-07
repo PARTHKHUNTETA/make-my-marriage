@@ -38,9 +38,15 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
             aria-label="Legal"
             className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 sm:justify-start"
           >
-            <span>Privacy Policy</span>
-            <span>Terms of Service</span>
-            <span>Support Concierge</span>
+            <Link href="/privacy" className="hover:text-ink hover:underline">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="hover:text-ink hover:underline">
+              Terms of Service
+            </Link>
+            <Link href="/support" className="hover:text-ink hover:underline">
+              Support
+            </Link>
           </nav>
           <span className="font-mono text-xs text-ink-2/60">
             © Make My Marriage. All rights reserved.

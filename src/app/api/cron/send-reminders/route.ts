@@ -2,7 +2,7 @@ import { isCronAuthorized } from "@/lib/cron";
 import { deliverJob } from "@/lib/email";
 import { AppError } from "@/lib/errors";
 import { jsonError, jsonOk } from "@/lib/http";
-import { drainEmailQueue } from "@/lib/queue";
+import { drainEmailQueue, purgeFinishedEmails } from "@/lib/queue";
 import { runAutomaticReminders } from "@/modules/invitations/sending";
 import { runDailyAlerts } from "@/modules/notifications/alerts";
 import { purgeStalePending } from "@/modules/photos/service";
@@ -21,7 +21,9 @@ async function run(request: Request) {
     const photos = await purgeStalePending().catch(() => ({ deleted: 0, failed: true }));
     // Task and payment alerts; like the sweep above, a failure here must not stop the reminders.
     const alerts = await runDailyAlerts().catch(() => ({ tasks: 0, payments: 0, failed: true }));
-    return jsonOk({ ...queued, ...sent, photos, alerts });
+    // Records of emails sent more than 30 days ago are cleared out.
+    const emailRecords = await purgeFinishedEmails().catch(() => -1);
+    return jsonOk({ ...queued, ...sent, photos, alerts, emailRecords });
   } catch (err) {
     return jsonError(err);
   }

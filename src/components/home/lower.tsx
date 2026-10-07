@@ -8,6 +8,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { containerClass, Eyebrow, SectionHeading, START_HREF } from "./ui";
 
 const steps = [
@@ -211,6 +212,13 @@ const footerColumns = [
   },
 ];
 
+// The footer lines that lead somewhere; the rest are descriptions of the product.
+const FOOTER_LINKS: Record<string, string> = {
+  "Privacy Promise": "/privacy",
+  "Terms of Service": "/terms",
+  "Concierge Desk": "/support",
+};
+
 export function Footer() {
   return (
     <footer className="border-t border-line bg-canvas">
@@ -246,11 +254,21 @@ export function Footer() {
                 <p className="text-xs leading-4 font-semibold tracking-[0.6px] text-ink uppercase">
                   {c.title}
                 </p>
-                {c.links.map((l) => (
-                  <p key={l} className="text-[13px] leading-[18px] text-ink-2">
-                    {l}
-                  </p>
-                ))}
+                {c.links.map((l) =>
+                  FOOTER_LINKS[l] ? (
+                    <Link
+                      key={l}
+                      href={FOOTER_LINKS[l]}
+                      className="text-[13px] leading-[18px] text-ink-2 hover:text-ink hover:underline"
+                    >
+                      {l}
+                    </Link>
+                  ) : (
+                    <p key={l} className="text-[13px] leading-[18px] text-ink-2">
+                      {l}
+                    </p>
+                  ),
+                )}
               </div>
             ))}
           </div>
@@ -258,9 +276,15 @@ export function Footer() {
         <div className="flex flex-col gap-3 border-t border-line pt-[25px] text-[13px] leading-[18px] text-ink-2 sm:flex-row sm:items-center sm:justify-between">
           <p>© 2025 Make My Marriage Technologies Private Limited. All rights reserved.</p>
           <div className="flex items-center gap-6">
-            <span>Privacy</span>
-            <span>Terms</span>
-            <span>Security</span>
+            <Link href="/privacy" className="hover:text-ink hover:underline">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-ink hover:underline">
+              Terms
+            </Link>
+            <Link href="/support" className="hover:text-ink hover:underline">
+              Support
+            </Link>
           </div>
         </div>
       </div>

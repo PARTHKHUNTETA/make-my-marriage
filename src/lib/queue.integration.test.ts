@@ -130,4 +130,26 @@ describe.skipIf(!enabled)("email queue against MongoDB", () => {
     const [a, b] = [await make(), await make()];
     expect(a).not.toBe(b);
   });
+
+  it("clears out records of finished emails older than 30 days, and nothing else", async () => {
+    const DAY = 86_400_000;
+    const ago = (days: number) => new Date(Date.now() - days * DAY);
+    const mk = async (status: string, days: number) => {
+      const id = await make();
+      await col.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status: status as never, updatedAt: ago(days) } },
+      );
+      return id;
+    };
+    const oldSent = await mk("sent", 31);
+    const oldFailed = await mk("failed", 45);
+    const recentSent = await mk("sent", 29);
+    const stillWaiting = await mk("pending", 90);
+    expect(await queue.purgeFinishedEmails()).toBeGreaterThanOrEqual(2);
+    expect(await get(oldSent)).toBeNull();
+    expect(await get(oldFailed)).toBeNull();
+    expect(await get(recentSent)).not.toBeNull();
+    expect(await get(stillWaiting)).not.toBeNull(); // never touches an email that has not gone yet
+  });
 });
