@@ -265,6 +265,17 @@ inserts, refuses updates that rewrite it and starts every aggregation with a `$m
 lint rule keeps raw collection access out of everything else: importing `getDb` from `@/lib/db` is
 an error everywhere except `src/modules/**/repository.ts` and `src/lib/`.
 
+## Phones and tablets
+
+The app is built to be used on a phone. Below the `lg` breakpoint (1024 px) the sidebar is replaced
+by a menu button in the top bar that opens the same menu as a drawer (closes on a choice, on
+Escape, or a tap outside); everything else stacks into one column. Pages were checked at 375 px
+(phone) and 768 px (tablet) with no sideways scrolling, including the guest invitation, the
+gallery and the public wedding website. Charts keep a readable size and scroll sideways inside
+their card. Form fields are 16 px on phones so iPhones do not zoom in when one is tapped.
+`src/components/layout-rules.test.ts` guards the two mistakes that broke phones before: a row of
+tabs that cannot wrap, and a top bar with no menu.
+
 ## Security
 
 How the app protects people, and what to know before going live.

@@ -127,11 +127,33 @@
   * {
     @apply border-border;
   }
+  /* A dropdown is as wide as its longest option, so one long event name could push a whole phone
+     screen sideways. Form controls never grow past the space they are given. */
+  select,
+  input,
+  textarea {
+    max-width: 100%;
+  }
+  /* ...and the label around a control may shrink below the control's natural width too. */
+  label {
+    min-width: 0;
+    max-width: 100%;
+  }
   :focus-visible {
     outline: 2px solid rgb(45 18 38 / 0.35);
     outline-offset: 2px;
   }
   [id] {
     scroll-margin-top: 5rem;
+  }
+}
+
+/* Phones zoom the page in when a field smaller than 16px gets focus, which then has to be zoomed
+   back out by hand. Unlayered on purpose, so it beats the utility classes (text-sm) on each field. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
   }
 }

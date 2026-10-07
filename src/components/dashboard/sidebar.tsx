@@ -52,12 +52,29 @@ const sections: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-export function Sidebar({
+export type SidebarUser = { name: string };
+export type SidebarWedding = { couple: string; place: string; countdown: string };
+
+// The desktop sidebar: always on screen from the lg breakpoint up. Below that, the same menu opens
+// from the hamburger button in the top bar (MobileNav).
+export function Sidebar({ user, wedding }: { user: SidebarUser; wedding: SidebarWedding }) {
+  return (
+    <aside className="fixed top-0 left-0 z-50 hidden h-full w-64 flex-col justify-between overflow-y-auto bg-rose-50 shadow-[0_1px_8px_rgba(0,0,0,0.04)] lg:flex print:!hidden">
+      <SidebarContent user={user} wedding={wedding} />
+    </aside>
+  );
+}
+
+// The menu itself, shared by the sidebar and the phone drawer. `onNavigate` lets the drawer close
+// itself when a link is chosen.
+export function SidebarContent({
   user,
   wedding,
+  onNavigate,
 }: {
-  user: { name: string };
-  wedding: { couple: string; place: string; countdown: string };
+  user: SidebarUser;
+  wedding: SidebarWedding;
+  onNavigate?: () => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -69,7 +86,7 @@ export function Sidebar({
   }
 
   return (
-    <aside className="fixed top-0 left-0 z-50 hidden h-full w-64 flex-col justify-between overflow-y-auto bg-rose-50 shadow-[0_1px_8px_rgba(0,0,0,0.04)] lg:flex print:!hidden">
+    <div className="flex min-h-full flex-col justify-between">
       <div className="flex flex-col">
         <div className="px-4 pt-6 pb-4">
           <Image
@@ -101,7 +118,8 @@ export function Sidebar({
                     key={href}
                     href={href}
                     aria-current={active ? "page" : undefined}
-                    className={`flex items-center gap-2 rounded-xl px-2 py-1.5 text-[13px] transition-all ${
+                    onClick={onNavigate}
+                    className={`flex items-center gap-2 rounded-xl px-2 py-3 text-[13px] transition-all lg:py-1.5 ${
                       active
                         ? "bg-plum font-semibold text-white shadow-[0_1px_3px_rgba(35,31,32,0.04)]"
                         : "text-ink-2 hover:bg-rose-100 hover:text-ink"
@@ -144,6 +162,6 @@ export function Sidebar({
           </button>
         </div>
       </div>
-    </aside>
+    </div>
   );
 }

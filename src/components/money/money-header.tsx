@@ -32,7 +32,7 @@ export function MoneyHeader({
         </div>
         {action}
       </div>
-      <nav aria-label="Money pages" className="mt-5 flex gap-2">
+      <nav aria-label="Money pages" className="mt-5 flex flex-wrap gap-2">
         {tab("expenses", "/money", "Expenses")}
         {tab("payments", "/money/payments", "Payments")}
         {tab("budget", "/money/budget", "Budget")}

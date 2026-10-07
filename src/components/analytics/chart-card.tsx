@@ -74,7 +74,7 @@ export function ChartCard({ data }: { data: ChartData }) {
   return (
     <section
       aria-labelledby={`${data.id}-title`}
-      className="rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)]"
+      className="min-w-0 rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)]"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
@@ -100,8 +100,12 @@ export function ChartCard({ data }: { data: ChartData }) {
         </p>
       ) : (
         <>
-          <div ref={box} className="mt-3">
-            <ChartSvg data={data} />
+          {/* On a phone the chart keeps a readable size and scrolls sideways, rather than shrinking
+              its labels to a few pixels. */}
+          <div ref={box} className="mt-3 overflow-x-auto">
+            <div className="min-w-[540px]">
+              <ChartSvg data={data} />
+            </div>
           </div>
           <details className="mt-2 text-[12px] text-ink-2">
             <summary className="cursor-pointer font-semibold">View as a table</summary>

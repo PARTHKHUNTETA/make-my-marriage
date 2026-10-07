@@ -53,7 +53,7 @@ export function GuestsHeader({
         </div>
         {action}
       </div>
-      <nav aria-label="Guest pages" className="mt-5 flex gap-2">
+      <nav aria-label="Guest pages" className="mt-5 flex flex-wrap gap-2">
         {tab("guests", "/guests", "Guest list")}
         {tab("rsvps", "/guests/rsvp", "Replies")}
         {tab("seating", "/guests/seating", "Seating")}

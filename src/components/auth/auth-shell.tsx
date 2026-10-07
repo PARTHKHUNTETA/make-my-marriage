@@ -34,7 +34,10 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
 
       <footer className="mx-auto w-full max-w-[1440px] px-4 pt-4 pb-6 md:px-10">
         <div className="flex flex-col items-center justify-between gap-2 text-[11px] font-medium text-ink-2 sm:flex-row">
-          <nav aria-label="Legal" className="flex items-center gap-6">
+          <nav
+            aria-label="Legal"
+            className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 sm:justify-start"
+          >
             <span>Privacy Policy</span>
             <span>Terms of Service</span>
             <span>Support Concierge</span>

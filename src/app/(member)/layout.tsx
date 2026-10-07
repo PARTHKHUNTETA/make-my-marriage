@@ -22,18 +22,20 @@ export default async function MemberLayout({ children }: Readonly<{ children: Re
   // A membership always has a wedding (they are created together, in one transaction).
   if (!wedding) throw new Error("Wedding record is missing for a member");
 
+  const shell = {
+    user: { name: profile.name },
+    wedding: {
+      couple: `${wedding.brideName} & ${wedding.groomName}`,
+      place: `${wedding.city} • ${formatMonthYear(wedding.date)}`,
+      countdown: daysToGoLabel(daysUntil(wedding.date)),
+    },
+  };
+
   return (
     <div className="min-h-screen bg-blush">
-      <Sidebar
-        user={{ name: profile.name }}
-        wedding={{
-          couple: `${wedding.brideName} & ${wedding.groomName}`,
-          place: `${wedding.city} • ${formatMonthYear(wedding.date)}`,
-          countdown: daysToGoLabel(daysUntil(wedding.date)),
-        }}
-      />
+      <Sidebar user={shell.user} wedding={shell.wedding} />
       <div className="lg:pl-64 print:pl-0">
-        <Topbar />
+        <Topbar user={shell.user} wedding={shell.wedding} />
         <div className="px-6 pt-16 pb-6 print:p-0">
           {profile.emailVerified ? null : (
             <div className="pt-4 print:hidden">
