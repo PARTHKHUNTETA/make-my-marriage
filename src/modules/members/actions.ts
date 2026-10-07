@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
-import { requireAdmin, requireUser } from "@/lib/authz";
+import { requireAdmin, requireMember, requireUser } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
 import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
 import { announceMemberJoined, notifyMembers } from "@/modules/notifications/service";
@@ -12,6 +12,7 @@ import {
   changeRoleSchema,
   inviteIdSchema,
   inviteMemberSchema,
+  paletteSchema,
   memberIdSchema,
 } from "./schema";
 import {
@@ -22,6 +23,7 @@ import {
   inviteMember,
   listTeam,
   removeMember,
+  updatePalette,
   resendInvite,
 } from "./service";
 
@@ -129,5 +131,18 @@ export async function acceptInviteAction(input: unknown) {
     const joined = await acceptInvite(ctx.userId, token);
     await announceMemberJoined(ctx.userId);
     return joined;
+  });
+}
+
+// Any member (not only an admin) chooses their own colour theme. Which member is decided by the
+// signed-in session, never by the request, so nobody can change anyone else's.
+export async function setPaletteAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    const { palette } = paletteSchema.parse(input);
+    await updatePalette(ctx.weddingId, ctx.memberId, palette);
+    // Every page paints with it, so every page is refreshed.
+    revalidatePath("/", "layout");
+    return { palette };
   });
 }

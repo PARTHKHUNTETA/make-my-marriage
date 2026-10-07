@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChartCard } from "@/components/analytics/chart-card";
 import { requireMember } from "@/lib/authz";
+import { chartTheme } from "@/lib/palettes";
 import { analyticsFilterSchema } from "@/modules/analytics/schema";
 import { getAnalytics } from "@/modules/analytics/service";
 
@@ -27,6 +28,7 @@ export default async function AnalyticsPage({
     to: pick("to"),
   });
   const filter = parsed.success ? parsed.data : {};
+  const theme = chartTheme(ctx.palette);
   const { charts, events, notes } = await getAnalytics(ctx.weddingId, filter, ctx.memberId);
   // Any filter in the address counts, even one that was not valid and so was ignored.
   const filtered = Boolean(pick("event") || pick("from") || pick("to"));
@@ -91,7 +93,7 @@ export default async function AnalyticsPage({
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         {charts.map((c) => (
-          <ChartCard key={c.id} data={c} />
+          <ChartCard key={c.id} data={c} theme={theme} />
         ))}
       </div>
     </main>

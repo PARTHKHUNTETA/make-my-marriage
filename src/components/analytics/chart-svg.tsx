@@ -1,10 +1,10 @@
 import { formatRupees } from "@/lib/money";
+import type { ChartTheme } from "@/lib/palettes";
 import { clip, compactValue, niceScale } from "@/modules/analytics/scale";
 import type { ChartData } from "@/modules/analytics/schema";
 
 // One chart drawn as a plain SVG: no chart library, so what is on screen is exactly what is
 // exported to PNG. Colours are literal values (not CSS variables) for the same reason.
-export const COLORS = ["#7a3b6b", "#b8862b", "#3f7d52", "#c0506a"];
 const W = 640;
 const H = 340;
 const M = { top: 34, right: 16, bottom: 74, left: 56 };
@@ -17,7 +17,8 @@ export function isEmpty(data: ChartData): boolean {
   return data.labels.length === 0 || data.series.every((s) => s.values.every((v) => v === 0));
 }
 
-export function ChartSvg({ data }: { data: ChartData }) {
+export function ChartSvg({ data, theme }: { data: ChartData; theme: ChartTheme }) {
+  const COLORS = theme.series;
   if (isEmpty(data)) return null;
   const n = data.labels.length;
   const stacked = data.kind === "stackedBar";
@@ -50,8 +51,8 @@ export function ChartSvg({ data }: { data: ChartData }) {
       <rect width={W} height={H} fill="#ffffff" />
       {ticks.map((t) => (
         <g key={t}>
-          <line x1={M.left} x2={W - M.right} y1={y(t)} y2={y(t)} stroke="#eadfe0" />
-          <text x={M.left - 8} y={y(t) + 4} textAnchor="end" fontSize="11" fill="#4e4449">
+          <line x1={M.left} x2={W - M.right} y1={y(t)} y2={y(t)} stroke={theme.grid} />
+          <text x={M.left - 8} y={y(t) + 4} textAnchor="end" fontSize="11" fill={theme.muted}>
             {compactValue(t, data.unit)}
           </text>
         </g>
@@ -119,7 +120,7 @@ export function ChartSvg({ data }: { data: ChartData }) {
             x={cx}
             y={ty}
             fontSize="11"
-            fill="#4e4449"
+            fill={theme.muted}
             textAnchor={rotate ? "end" : "middle"}
             transform={rotate ? `rotate(-35 ${cx} ${ty})` : undefined}
           >
@@ -132,7 +133,7 @@ export function ChartSvg({ data }: { data: ChartData }) {
         ? data.series.map((s, si) => (
             <g key={s.name} transform={`translate(${M.left + si * 120}, 10)`}>
               <rect width="11" height="11" rx="2" fill={COLORS[si % COLORS.length]} />
-              <text x="16" y="10" fontSize="11" fill="#2d1226">
+              <text x="16" y="10" fontSize="11" fill={theme.ink}>
                 {s.name}
               </text>
             </g>

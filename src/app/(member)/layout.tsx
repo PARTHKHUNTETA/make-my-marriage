@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
 import { VerifyEmailBanner } from "@/components/verify-email-banner";
+import { paletteStyle } from "@/lib/palettes";
 import { resolveContext } from "@/lib/context";
 import { daysToGoLabel, daysUntil, formatMonthYear } from "@/lib/dates";
 import { getProfile } from "@/modules/members/service";
@@ -32,7 +33,14 @@ export default async function MemberLayout({ children }: Readonly<{ children: Re
   };
 
   return (
-    <div className="min-h-screen bg-blush">
+    // This person's colour theme: variables on the shell recolour everything inside it. It is rendered
+    // on the server, so the first paint is already the right colours. The default adds no style.
+    <div
+      id="app-shell"
+      data-palette={ctx.palette}
+      style={paletteStyle(ctx.palette)}
+      className="min-h-screen bg-blush"
+    >
       <Sidebar user={shell.user} wedding={shell.wedding} />
       <div className="lg:pl-64 print:pl-0">
         <Topbar user={shell.user} wedding={shell.wedding} />

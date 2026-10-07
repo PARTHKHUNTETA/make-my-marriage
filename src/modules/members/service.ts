@@ -3,6 +3,7 @@ import { MongoServerError, type ClientSession } from "mongodb";
 import { inTransaction } from "@/lib/db";
 import { absoluteUrl } from "@/lib/app-url";
 import { queueEmail } from "@/lib/email";
+import { toPaletteId, type PaletteId } from "@/lib/palettes";
 import { AppError } from "@/lib/errors";
 import { burnPasswordCheck, hashPassword, verifyPassword } from "@/lib/passwords";
 import { generateToken, hashToken } from "@/lib/tokens";
@@ -25,6 +26,7 @@ import {
   insertMembership,
   insertUser,
   listMemberships,
+  setMemberPalette,
   setMutedTypes,
   listPendingInvites,
   lockAdmins,
@@ -94,13 +96,23 @@ export async function getProfile(userId: string): Promise<PublicUser | null> {
   return user ? toPublicUser(user) : null;
 }
 
-export type Membership = { weddingId: string; memberId: string; role: MemberRole };
+export type Membership = {
+  weddingId: string;
+  memberId: string;
+  role: MemberRole;
+  palette: PaletteId;
+};
 
 // Which wedding (and role) an account belongs to, or null before first-time setup.
 export async function getMembership(userId: string): Promise<Membership | null> {
   const doc = await findMembershipByUserId(userId);
   return doc
-    ? { weddingId: doc.weddingId.toHexString(), memberId: doc._id.toHexString(), role: doc.role }
+    ? {
+        weddingId: doc.weddingId.toHexString(),
+        memberId: doc._id.toHexString(),
+        role: doc.role,
+        palette: toPaletteId(doc.palette),
+      }
     : null;
 }
 
@@ -456,5 +468,15 @@ export async function updateMutedTypes(
   types: string[],
 ): Promise<void> {
   if (!(await setMutedTypes(weddingId, memberId, types)))
+    throw new AppError("NOT_FOUND", "We couldn't find that member.");
+}
+
+// Saves the colour theme this member chose. It is theirs alone: nobody else's view changes.
+export async function updatePalette(
+  weddingId: string,
+  memberId: string,
+  palette: PaletteId,
+): Promise<void> {
+  if (!(await setMemberPalette(weddingId, memberId, palette)))
     throw new AppError("NOT_FOUND", "We couldn't find that member.");
 }

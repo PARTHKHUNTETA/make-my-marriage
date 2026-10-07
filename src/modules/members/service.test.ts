@@ -8,6 +8,7 @@ const repo = vi.hoisted(() => ({
   findUserById: vi.fn(),
   insertUser: vi.fn(),
   findMembershipByUserId: vi.fn(),
+  setMemberPalette: vi.fn(),
   insertMembership: vi.fn(),
   findAuthState: vi.fn(),
   setVerifyToken: vi.fn(),
@@ -26,6 +27,7 @@ import {
   addAdminMember,
   confirmEmail,
   getMembership,
+  updatePalette,
   getProfile,
   logIn,
   requestPasswordReset,
@@ -159,7 +161,30 @@ describe("getMembership", () => {
       weddingId: weddingId.toHexString(),
       memberId: _id.toHexString(),
       role: "admin",
+      palette: "aubergine", // nothing chosen yet: the default
     });
+  });
+
+  it("returns the colour theme this member chose", async () => {
+    repo.findMembershipByUserId.mockResolvedValue({
+      _id: new ObjectId(),
+      weddingId: new ObjectId(),
+      role: "manager",
+      palette: "emerald",
+    });
+    expect((await getMembership("u1"))?.palette).toBe("emerald");
+  });
+
+  it("reads a stored value that is not a theme (old data, a typo) as the default", async () => {
+    for (const stored of ["neon", "", 42, null]) {
+      repo.findMembershipByUserId.mockResolvedValue({
+        _id: new ObjectId(),
+        weddingId: new ObjectId(),
+        role: "admin",
+        palette: stored,
+      });
+      expect((await getMembership("u1"))?.palette).toBe("aubergine");
+    }
   });
 
   it("is null before first-time setup", async () => {
@@ -303,5 +328,18 @@ describe("password reset", () => {
     await expect(
       resetPassword("plain-token-value-123", "brand-new-password-1"),
     ).rejects.toMatchObject({ code: "LINK_INVALID" });
+  });
+});
+
+describe("updatePalette", () => {
+  it("saves for that member in that wedding", async () => {
+    repo.setMemberPalette.mockResolvedValue(true);
+    await updatePalette("w1", "m1", "indigo");
+    expect(repo.setMemberPalette).toHaveBeenCalledWith("w1", "m1", "indigo");
+  });
+
+  it("is NOT_FOUND when there is no such member in the wedding", async () => {
+    repo.setMemberPalette.mockResolvedValue(false);
+    await expect(updatePalette("w1", "nobody", "fig")).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });

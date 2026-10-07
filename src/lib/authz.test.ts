@@ -24,6 +24,7 @@ const admin: Context = {
   weddingId: "w1",
   memberId: "m1",
   role: "admin",
+  palette: "aubergine",
 };
 const manager: Context = {
   kind: "member",
@@ -31,6 +32,7 @@ const manager: Context = {
   weddingId: "w1",
   memberId: "m1",
   role: "manager",
+  palette: "aubergine",
 };
 const vendor: Context = { kind: "vendor", vendorAccountId: "v1" };
 const guest: Context = { kind: "guest", weddingId: "w1", guestId: "g1" };

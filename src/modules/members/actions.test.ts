@@ -3,6 +3,7 @@ import { AppError } from "@/lib/errors";
 
 const requireAdmin = vi.hoisted(() => vi.fn());
 const requireUser = vi.hoisted(() => vi.fn());
+const requireMember = vi.hoisted(() => vi.fn());
 const consumeRateLimit = vi.hoisted(() => vi.fn());
 const getWedding = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
@@ -14,9 +15,10 @@ const svc = vi.hoisted(() => ({
   inviteMember: vi.fn(),
   listTeam: vi.fn(),
   removeMember: vi.fn(),
+  updatePalette: vi.fn(),
   resendInvite: vi.fn(),
 }));
-vi.mock("@/lib/authz", () => ({ requireAdmin, requireUser }));
+vi.mock("@/lib/authz", () => ({ requireAdmin, requireUser, requireMember }));
 vi.mock("@/lib/ratelimit", async (orig) => ({
   ...(await orig<typeof import("@/lib/ratelimit")>()),
   consumeRateLimit,
@@ -34,6 +36,7 @@ import {
   inviteMemberAction,
   removeMemberAction,
   resendInviteAction,
+  setPaletteAction,
 } from "./actions";
 
 const W = "a".repeat(24);
@@ -49,6 +52,7 @@ const admin = {
 beforeEach(() => {
   requireAdmin.mockReset().mockResolvedValue(admin);
   requireUser.mockReset().mockResolvedValue({ kind: "user", userId: "u1" });
+  requireMember.mockReset().mockResolvedValue({ ...admin, role: "manager", memberId: "m-me" });
   consumeRateLimit.mockReset().mockResolvedValue(undefined);
   getWedding.mockReset().mockResolvedValue({ title: "Priya weds Aarav" });
   revalidatePath.mockReset();
@@ -266,5 +270,51 @@ describe("acceptInviteAction", () => {
       ok: false,
       error: { code: "FORBIDDEN" },
     });
+  });
+});
+
+describe("setPaletteAction", () => {
+  it("saves the colour theme for the signed-in member's own record, whoever they are", async () => {
+    // A manager, not only an admin, may choose their own colours.
+    expect(await setPaletteAction({ palette: "emerald" })).toEqual({
+      ok: true,
+      data: { palette: "emerald" },
+    });
+    expect(svc.updatePalette).toHaveBeenCalledWith(W, "m-me", "emerald");
+    expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
+  });
+
+  it("takes the member from the session, never from the request", async () => {
+    await setPaletteAction({ palette: "fig", memberId: ID, weddingId: "f".repeat(24) });
+    expect(svc.updatePalette).toHaveBeenCalledWith(W, "m-me", "fig");
+  });
+
+  it("refuses a theme that does not exist, and saves nothing", async () => {
+    for (const bad of [{ palette: "neon" }, { palette: "" }, {}, { palette: 3 }, null]) {
+      expect(await setPaletteAction(bad)).toMatchObject({
+        ok: false,
+        error: { code: "VALIDATION_FAILED" },
+      });
+    }
+    expect(svc.updatePalette).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("needs a signed-in member", async () => {
+    requireMember.mockRejectedValue(new AppError("UNAUTHENTICATED", "Sign in to continue"));
+    expect(await setPaletteAction({ palette: "indigo" })).toMatchObject({
+      ok: false,
+      error: { code: "UNAUTHENTICATED" },
+    });
+    expect(svc.updatePalette).not.toHaveBeenCalled();
+  });
+
+  it("reports a failure to save as a value and does not refresh pages", async () => {
+    svc.updatePalette.mockRejectedValue(new AppError("NOT_FOUND", "We couldn't find that member."));
+    expect(await setPaletteAction({ palette: "charcoal" })).toMatchObject({
+      ok: false,
+      error: { code: "NOT_FOUND" },
+    });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

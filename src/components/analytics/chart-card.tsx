@@ -5,6 +5,7 @@ import { Download } from "lucide-react";
 import { toCsv } from "@/lib/csv";
 import { formatRupees } from "@/lib/money";
 import { chartCsvRows, chartFileName } from "@/modules/analytics/export";
+import type { ChartTheme } from "@/lib/palettes";
 import type { ChartData } from "@/modules/analytics/schema";
 import { ChartSvg, isEmpty } from "./chart-svg";
 
@@ -24,7 +25,7 @@ function save(blob: Blob, name: string) {
 
 // A chart with its title, a data table for screen readers, and downloads: the picture as a PNG and
 // the numbers as a CSV.
-export function ChartCard({ data }: { data: ChartData }) {
+export function ChartCard({ data, theme }: { data: ChartData; theme: ChartTheme }) {
   const box = React.useRef<HTMLDivElement>(null);
   const [error, setError] = React.useState<string | null>(null);
   const empty = isEmpty(data);
@@ -55,10 +56,10 @@ export function ChartCard({ data }: { data: ChartData }) {
       ctx.scale(scale, scale);
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, 640, 340 + head);
-      ctx.fillStyle = "#2d1226";
+      ctx.fillStyle = theme.ink;
       ctx.font = "600 18px system-ui, sans-serif";
       ctx.fillText(data.title, 16, 28);
-      ctx.fillStyle = "#4e4449";
+      ctx.fillStyle = theme.muted;
       ctx.font = "12px system-ui, sans-serif";
       ctx.fillText(data.description, 16, 46, 608);
       ctx.drawImage(img, 0, head, 640, 340);
@@ -104,7 +105,7 @@ export function ChartCard({ data }: { data: ChartData }) {
               its labels to a few pixels. */}
           <div ref={box} className="mt-3 overflow-x-auto">
             <div className="min-w-[540px]">
-              <ChartSvg data={data} />
+              <ChartSvg data={data} theme={theme} />
             </div>
           </div>
           <details className="mt-2 text-[12px] text-ink-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { SidebarContent, type SidebarUser, type SidebarWedding } from "./sidebar";
@@ -39,21 +40,14 @@ export function MobileNav({ user, wedding }: { user: SidebarUser; wedding: Sideb
     };
   }, [open]);
 
-  return (
-    <div className="lg:hidden print:hidden">
-      <button
-        ref={openRef}
-        type="button"
-        aria-label="Open menu"
-        aria-expanded={open}
-        aria-controls="mobile-menu"
-        onClick={() => setOpen(true)}
-        className="-ml-2 flex size-11 items-center justify-center rounded-xl text-ink-2 transition-colors hover:bg-rose-100 hover:text-ink"
-      >
-        <Menu className="size-6" aria-hidden />
-      </button>
-      {open ? (
-        <div className="fixed inset-0 z-[60]">
+  // The top bar has a backdrop blur, and a blurred element becomes the reference for anything
+  // "fixed" inside it, which squashed the drawer into the height of the bar. So the drawer is drawn
+  // inside the app shell instead (not the page body, so it still inherits the person's colour
+  // theme). It only exists once the button has been pressed, so the server never renders it.
+  const host = open ? (document.getElementById("app-shell") ?? document.body) : null;
+  const drawer = host
+    ? createPortal(
+        <div className="fixed inset-0 z-[60] lg:hidden print:hidden">
           <button
             type="button"
             tabIndex={-1}
@@ -82,8 +76,25 @@ export function MobileNav({ user, wedding }: { user: SidebarUser; wedding: Sideb
             </button>
             <SidebarContent user={user} wedding={wedding} onNavigate={() => setOpen(false)} />
           </div>
-        </div>
-      ) : null}
+        </div>,
+        host,
+      )
+    : null;
+
+  return (
+    <div className="lg:hidden print:hidden">
+      <button
+        ref={openRef}
+        type="button"
+        aria-label="Open menu"
+        aria-expanded={open}
+        aria-controls="mobile-menu"
+        onClick={() => setOpen(true)}
+        className="-ml-2 flex size-11 items-center justify-center rounded-xl text-ink-2 transition-colors hover:bg-rose-100 hover:text-ink"
+      >
+        <Menu className="size-6" aria-hidden />
+      </button>
+      {drawer}
     </div>
   );
 }

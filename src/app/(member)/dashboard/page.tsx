@@ -163,7 +163,7 @@ export default async function DashboardPage() {
         >
           <path
             d="M150 480V240C150 140.589 230.589 60 330 60C429.411 60 510 140.589 510 240V480"
-            stroke="#fed488"
+            className="stroke-gold-soft"
             strokeDasharray="4 6"
             strokeWidth="1.5"
           />
@@ -174,15 +174,22 @@ export default async function DashboardPage() {
           />
           <path
             d="M720 480V180C720 97.1573 787.157 30 870 30C952.843 30 1020 97.1573 1020 180V480"
-            stroke="#fed488"
+            className="stroke-gold-soft"
           />
-          <line stroke="#fed488" strokeOpacity="0.3" x1="0" x2="1200" y1="479" y2="479" />
+          <line
+            className="stroke-gold-soft"
+            strokeOpacity="0.3"
+            x1="0"
+            x2="1200"
+            y1="479"
+            y2="479"
+          />
           <circle cx="870" cy="180" r="140" stroke="#fff" strokeOpacity="0.2" strokeWidth="0.75" />
           <circle
             cx="330"
             cy="240"
             r="210"
-            stroke="#fed488"
+            className="stroke-gold-soft"
             strokeOpacity="0.25"
             strokeWidth="0.75"
           />
@@ -216,7 +223,7 @@ export default async function DashboardPage() {
                 className="h-1.5 w-full overflow-hidden rounded-full bg-white/15"
               >
                 <div
-                  className="h-full rounded-full bg-[#fed488]"
+                  className="h-full rounded-full bg-gold-soft"
                   style={{ width: `${percentDone}%` }}
                 />
               </div>
@@ -269,7 +276,7 @@ export default async function DashboardPage() {
             key={label}
             href={href}
             className={`group flex items-center justify-between rounded-xl p-2 shadow-sm transition-all hover:shadow-md sm:px-4 sm:py-3.5 ${
-              primary ? "bg-[#fed488] text-[#785a1a]" : "bg-white text-ink hover:bg-rose-50"
+              primary ? "bg-gold-soft text-bronze" : "bg-white text-ink hover:bg-rose-50"
             }`}
           >
             <span className="flex min-w-0 items-center gap-2">

@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import type { PaletteId } from "@/lib/palettes";
 import { readSession, readVendorSession } from "@/lib/session";
 import { getVendorAuthState } from "@/modules/marketplace/service";
 import { getAuthState, getMembership } from "@/modules/members/service";
@@ -17,6 +18,8 @@ export type Context =
       weddingId: string;
       memberId: string;
       role: "admin" | "manager";
+      // This member's own colour theme.
+      palette: PaletteId;
     }
   | { kind: "user"; userId: string }
   | { kind: "vendor"; vendorAccountId: string }

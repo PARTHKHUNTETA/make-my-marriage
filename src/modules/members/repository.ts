@@ -187,6 +187,9 @@ export type MembershipDoc = {
   userId: ObjectId; // unique: a user belongs to exactly one wedding
   role: MemberRole;
   mutedNotificationTypes?: string[];
+  // This person's colour theme (a PaletteId). Stored as text so an old or odd value is read back as the
+  // default instead of breaking the page.
+  palette?: string;
   joinedAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -251,6 +254,20 @@ export async function setMutedTypes(
   const result = await scoped(await memberships(), { weddingId }).updateOne(
     { _id: new ObjectId(memberId) },
     { $set: { mutedNotificationTypes: types, updatedAt: new Date() } },
+  );
+  return result.matchedCount === 1;
+}
+
+// Saves one member's colour theme. Only that member's own record is touched.
+export async function setMemberPalette(
+  weddingId: string,
+  memberId: string,
+  palette: string,
+): Promise<boolean> {
+  if (!ObjectId.isValid(memberId)) return false;
+  const result = await scoped(await memberships(), { weddingId }).updateOne(
+    { _id: new ObjectId(memberId) },
+    { $set: { palette, updatedAt: new Date() } },
   );
   return result.matchedCount === 1;
 }

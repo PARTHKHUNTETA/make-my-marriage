@@ -55,6 +55,14 @@ describe("the member shell on phones", () => {
     expect(rule).toMatch(/background-image:\s*url\("data:image\/svg\+xml/);
   });
 
+  it("the phone menu is drawn inside the app shell, not inside the blurred top bar that would squash it", () => {
+    const nav = read("components/dashboard/mobile-nav.tsx");
+    // A backdrop-blurred element becomes the reference for anything "fixed" inside it, so the drawer
+    // must be placed elsewhere. The shell (not the page body) keeps it inside the person's colour theme.
+    expect(nav).toContain("createPortal");
+    expect(nav).toContain('getElementById("app-shell")');
+  });
+
   it("form controls never grow past their container, and stay 16px on phones so iPhones do not zoom", () => {
     const css = read("app/globals.css");
     expect(css).toMatch(/select,\s*input,\s*textarea\s*\{\s*max-width:\s*100%/);
@@ -78,5 +86,32 @@ describe("what guests download", () => {
     ].filter((m) => !m[1]);
     expect(runtime.map((m) => m[2])).toEqual([]);
     expect(source).not.toMatch(/from "zod"|react-hook-form/);
+  });
+});
+
+describe("colour themes", () => {
+  // Every colour on a planning screen comes from a theme token, so a theme reaches all of it. A raw
+  // hex in a component would stay the old colour whatever theme was chosen. White is neutral, the
+  // error and success tints are deliberately the same in every theme, and the public home page and
+  // the sign-in side panel are marketing pages that sit outside the app.
+  const SAME_IN_EVERY_THEME = new Set(["#ffffff", "#ffdad6", "#93000a", "#f2f7f2"]);
+  const OUTSIDE_THE_APP = ["components/home/", "components/auth/side-panel.tsx"];
+
+  it("no component or page paints with a raw colour that would ignore the theme", () => {
+    const bad: string[] = [];
+    for (const file of files(ROOT)) {
+      const rel = path.relative(ROOT, file);
+      if (OUTSIDE_THE_APP.some((p) => rel.startsWith(p)) || !/^(components|app)\//.test(rel))
+        continue;
+      for (const m of readFileSync(file, "utf8").matchAll(/#[0-9a-fA-F]{6}\b/g))
+        if (!SAME_IN_EVERY_THEME.has(m[0].toLowerCase())) bad.push(`${rel}: ${m[0]}`);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("the layout puts the signed-in member's theme on the shell", () => {
+    const layout = readFileSync(path.join(ROOT, "app/(member)/layout.tsx"), "utf8");
+    expect(layout).toContain("paletteStyle(ctx.palette)");
+    expect(layout).toContain('id="app-shell"');
   });
 });

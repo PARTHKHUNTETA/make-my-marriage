@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PALETTE_IDS } from "@/lib/palettes";
 
 // Zod schemas and TypeScript types for the members module. Shared by the browser forms and the
 // route handlers: the same rules run on the client for quick feedback and again on the server,
@@ -62,6 +63,7 @@ const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, "Not a valid id");
 export const inviteMemberSchema = z.object({ email });
 export const inviteIdSchema = z.object({ inviteId: objectId });
 export const memberIdSchema = z.object({ memberId: objectId });
+export const paletteSchema = z.object({ palette: z.enum(PALETTE_IDS) });
 export const changeRoleSchema = z.object({
   memberId: objectId,
   role: z.enum(["admin", "manager"]),

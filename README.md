@@ -265,6 +265,25 @@ inserts, refuses updates that rewrite it and starts every aggregation with a `$m
 lint rule keeps raw collection access out of everything else: importing `getDb` from `@/lib/db` is
 an error everywhere except `src/modules/**/repository.ts` and `src/lib/`.
 
+## Colour themes
+
+Settings → Appearance lets each person choose how the planning screens look: Royal Aubergine &
+Champagne Gold (the default), Heritage Emerald & Antique Brass, Terracotta & Roasted Chestnut,
+Midnight Indigo & Moonlit Silver, Fig & Spiced Cardamom, or Royal Charcoal & Rose Gold. It is a
+personal setting (stored on your own team-member record), so changing yours never changes anyone
+else's, and it applies to the signed-in app only; guest pages, the wedding website (which has its own
+website themes), emails and the public pages keep their look.
+
+How it works: every colour in the app is a CSS variable. `src/lib/palettes.ts` is the one place the
+palettes live. Each is defined by four colours (primary, metallic accent, canvas, secondary surface)
+and everything else is worked out from them. The member layout puts the chosen palette's variables
+on the app shell on the server, so the first paint already has the right colours, and the default
+adds nothing at all. Two rules keep every theme readable, and `palettes.test.ts` enforces them: a
+light metallic accent (rose gold, silver) is used as given for decoration but a deeper shade of it
+carries text and white-lettered buttons (at least 4.5:1 contrast), and success/error colours never
+change. A test also stops raw hex colours creeping into components, which would ignore the theme.
+To add a palette, add one entry to `PALETTES` and its id to `PALETTE_IDS`.
+
 ## Phones and tablets
 
 The app is built to be used on a phone. Below the `lg` breakpoint (1024 px) the sidebar is replaced
