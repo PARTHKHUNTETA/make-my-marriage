@@ -15,6 +15,7 @@ import {
   approveFromUploader,
   approvePhotos,
   confirmSlot,
+  countPending,
   countPendingBefore,
   deletePendingDocs,
   findStalePending,
@@ -73,8 +74,11 @@ export async function listAlbums(
   weddingId: string,
   events: { id: string; name: string }[],
 ): Promise<AlbumSummary[]> {
-  const docs = await ensureAlbums(weddingId, events);
-  const counts = await countByAlbum(weddingId);
+  // Independent of each other, so they run together.
+  const [docs, counts] = await Promise.all([
+    ensureAlbums(weddingId, events),
+    countByAlbum(weddingId),
+  ]);
   return docs.map((a) => ({
     id: a._id.toHexString(),
     name: a.name,
@@ -317,12 +321,21 @@ export async function listPhotos(
   weddingId: string,
   filter: { albumId?: string; status: "approved" | "pending" },
   page: number,
+  // Album names the caller already has, which saves looking them up again.
+  knownAlbums?: { id: string; name: string }[],
 ): Promise<{ items: PhotoItem[]; total: number; pages: number }> {
   const { docs, total } = await listPhotoPage(weddingId, filter, page, PAGE_SIZE);
-  const albumIds = [...new Map(docs.map((d) => [d.albumId.toHexString(), d.albumId])).values()];
-  const names = new Map(
-    (await findAlbumsByIds(weddingId, albumIds)).map((a) => [a._id.toHexString(), a.name]),
-  );
+  const names = new Map((knownAlbums ?? []).map((a) => [a.id, a.name]));
+  const missing = [
+    ...new Map(
+      docs
+        .filter((d) => !names.has(d.albumId.toHexString()))
+        .map((d) => [d.albumId.toHexString(), d.albumId]),
+    ).values(),
+  ];
+  if (missing.length > 0)
+    for (const a of await findAlbumsByIds(weddingId, missing))
+      names.set(a._id.toHexString(), a.name);
   const items = await Promise.all(docs.map((d) => toItem(d, names)));
   return { items, total, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
 }
@@ -362,14 +375,14 @@ export async function moveToAlbum(
 export async function getSummary(
   weddingId: string,
 ): Promise<{ approved: number; pending: number; usage: Usage }> {
-  const counts = await countByAlbum(weddingId);
+  const [counts, usage] = await Promise.all([countByAlbum(weddingId), getUsage(weddingId)]);
   let approved = 0;
   let pending = 0;
   for (const c of counts.values()) {
     approved += c.approved;
     pending += c.pending;
   }
-  return { approved, pending, usage: await getUsage(weddingId) };
+  return { approved, pending, usage };
 }
 
 // ---- moderation -----------------------------------------------------------------------------
@@ -385,7 +398,12 @@ export type PendingGroup = { uploader: string | null; label: string; items: Phot
 export async function listPendingGroups(
   weddingId: string,
 ): Promise<{ groups: PendingGroup[]; total: number; expiring: number; daysLeft: number }> {
-  const docs = await listPending(weddingId, REVIEW_LIMIT);
+  // The counts do not depend on the photos, so they are fetched while the photos are.
+  const [docs, total, expiring] = await Promise.all([
+    listPending(weddingId, REVIEW_LIMIT),
+    countPending(weddingId),
+    countPendingBefore(weddingId, new Date(Date.now() - PENDING_WARN_DAYS * DAY_MS)),
+  ]);
   const albumIds = [...new Map(docs.map((d) => [d.albumId.toHexString(), d.albumId])).values()];
   const names = new Map(
     (await findAlbumsByIds(weddingId, albumIds)).map((a) => [a._id.toHexString(), a.name]),
@@ -406,11 +424,8 @@ export async function listPendingGroups(
   const oldest = docs[0]?.uploadedAt;
   return {
     groups: [...groups.values()],
-    total: (await getSummary(weddingId)).pending,
-    expiring: await countPendingBefore(
-      weddingId,
-      new Date(Date.now() - PENDING_WARN_DAYS * DAY_MS),
-    ),
+    total,
+    expiring,
     daysLeft: oldest
       ? Math.max(0, PENDING_KEEP_DAYS - Math.floor((Date.now() - oldest.getTime()) / DAY_MS))
       : PENDING_KEEP_DAYS,

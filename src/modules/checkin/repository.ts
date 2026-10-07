@@ -123,6 +123,18 @@ export async function arrivalTotals(
   return { people: row?.people ?? 0, parties: row?.parties ?? 0 };
 }
 
+// Everyone who has arrived, per event, in one read (for the Analytics page).
+export async function arrivalTotalsByEvent(
+  weddingId: string,
+): Promise<Map<string, { people: number; parties: number }>> {
+  const rows = await scoped(await checkIns(), { weddingId })
+    .aggregate<{ _id: ObjectId; people: number; parties: number }>([
+      { $group: { _id: "$eventId", people: { $sum: "$arrivedCount" }, parties: { $sum: 1 } } },
+    ])
+    .toArray();
+  return new Map(rows.map((r) => [r._id.toHexString(), { people: r.people, parties: r.parties }]));
+}
+
 export async function deleteArrivalsForEvent(
   weddingId: string,
   eventId: string,

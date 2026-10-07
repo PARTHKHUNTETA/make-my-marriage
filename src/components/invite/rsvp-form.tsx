@@ -3,7 +3,7 @@
 import * as React from "react";
 import { CalendarDays, Clock, MapPin, Shirt } from "lucide-react";
 import { formatLongDate } from "@/lib/dates";
-import { formatTime } from "@/modules/events/schema";
+import { formatTime } from "@/lib/time";
 import type { InvitationEventView } from "@/modules/invitations/schema";
 
 type Reply = "attending" | "not_attending";

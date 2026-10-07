@@ -144,8 +144,13 @@ export async function getBudgetOverview(
   weddingId: string,
   overallBudget: number | null,
   events: { id: string; name: string }[],
+  // Expenses the caller has already loaded, which saves reading them a second time.
+  loaded?: ExpenseItem[],
 ): Promise<BudgetOverview> {
-  const [docs, expenses] = await Promise.all([listBudgets(weddingId), listEveryExpense(weddingId)]);
+  const [docs, expenses] = await Promise.all([
+    listBudgets(weddingId),
+    loaded ?? listEveryExpense(weddingId),
+  ]);
   const summary = summarize(expenses);
   const byCategory = new Map(
     docs.flatMap((b) =>

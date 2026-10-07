@@ -276,6 +276,31 @@ their card. Form fields are 16 px on phones so iPhones do not zoom in when one i
 `src/components/layout-rules.test.ts` guards the two mistakes that broke phones before: a row of
 tabs that cannot wrap, and a top bar with no menu.
 
+## Performance
+
+Measured, not guessed: a throwaway wedding with 600 guests, 300 expenses, 120 tasks and 400 photos,
+in production mode. What a page costs is mostly how many database round trips it makes one after
+another (about 37 ms each from a laptop to Atlas), so pages fetch independent things together and
+the database does the counting.
+
+| Page             | Before | After  |
+| ---------------- | ------ | ------ |
+| Analytics        | 690 ms | 194 ms |
+| Photos           | 528 ms | 177 ms |
+| Photos to review | 239 ms | 133 ms |
+| Dashboard        | 201 ms | 171 ms |
+
+What changed: opening Photos no longer writes to the database (albums are only created or renamed
+when something actually changed); Analytics asks for check-ins once for all events and reuses the
+expenses it already loaded; the dashboard asks the database for the reply counts and the latest
+five answers instead of loading every guest. The guest invitation page used to carry the whole zod
+library (836 KB of JavaScript, now 453 KB, the same as the bare framework) because one small time
+formatter lived beside the schemas; `layout-rules.test.ts` stops that happening again for the pages
+guests open. Pages compress to 12 to 19 KB over the wire.
+
+For deployment: keep the Atlas cluster in the same region as the functions (`bom1` is Mumbai, so
+choose Mumbai, `ap-south-1`). That turns each round trip from tens of milliseconds into a few.
+
 ## Security
 
 How the app protects people, and what to know before going live.

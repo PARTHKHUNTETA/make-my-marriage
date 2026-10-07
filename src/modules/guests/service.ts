@@ -3,6 +3,7 @@ import { AppError } from "@/lib/errors";
 import { removePartySeats } from "@/modules/seating/service";
 import { generateToken } from "@/lib/tokens";
 import {
+  replyOverview,
   applyRsvpByToken,
   applyRsvpForGuest,
   countInvitedToEvent,
@@ -297,4 +298,11 @@ export async function getEntryTokenForGuest(
   const doc = await findGuestByToken(guestToken);
   const invitation = doc?.invitations.find((i) => i.eventId.toHexString() === eventId);
   return invitation && invitation.rsvpStatus === "attending" ? invitation.entryToken : null;
+}
+
+export type { ReplyOverview } from "./repository";
+
+// The reply figures on the dashboard: parties coming, parties who declined, and the latest answers.
+export function getReplyOverview(weddingId: string, recentLimit = 5) {
+  return replyOverview(weddingId, recentLimit);
 }

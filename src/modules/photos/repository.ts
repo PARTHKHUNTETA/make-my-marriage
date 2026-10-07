@@ -87,17 +87,42 @@ const isDuplicate = (err: unknown) => err instanceof MongoServerError && err.cod
 // ---- albums ---------------------------------------------------------------------------------
 
 // Makes sure the General album and one album per event exist, with the events' current names.
+// Looking is cheap and writing is not, so it reads first and only writes what is actually missing
+// or renamed: an ordinary page view is a single read.
 export async function ensureAlbums(
   weddingId: string,
   events: { id: string; name: string }[],
 ): Promise<AlbumDoc[]> {
   const col = scoped(await albums(), { weddingId });
+  const order = (docs: AlbumDoc[]) =>
+    [...docs].sort(
+      (a, b) =>
+        Number(b.isGeneral) - Number(a.isGeneral) || a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+  const existing = await col.find({}).toArray();
+  const byEvent = new Map(
+    existing.flatMap((a) => (a.eventId ? [[a.eventId.toHexString(), a] as const] : [])),
+  );
+  const work: {
+    filter: Record<string, unknown>;
+    set: Record<string, unknown>;
+    init: Record<string, unknown>;
+  }[] = [];
+  if (!existing.some((a) => a.isGeneral))
+    work.push({ filter: { isGeneral: true }, set: {}, init: { name: "General", isGeneral: true } });
+  for (const event of events) {
+    const album = byEvent.get(event.id);
+    if (!album || album.name !== event.name)
+      work.push({
+        filter: { eventId: oid(event.id) },
+        set: { name: event.name },
+        init: { isGeneral: false },
+      });
+  }
+  if (work.length === 0) return order(existing);
+
   const now = new Date();
-  const upsert = async (
-    filter: Record<string, unknown>,
-    set: Record<string, unknown>,
-    init: Record<string, unknown>,
-  ) => {
+  const upsert = async ({ filter, set, init }: (typeof work)[number]) => {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         await col.updateOne(
@@ -112,11 +137,8 @@ export async function ensureAlbums(
       }
     }
   };
-  await upsert({ isGeneral: true }, {}, { name: "General", isGeneral: true });
-  for (const event of events) {
-    await upsert({ eventId: oid(event.id) }, { name: event.name }, { isGeneral: false });
-  }
-  return col.find({}, { sort: { isGeneral: -1, createdAt: 1 } }).toArray();
+  await Promise.all(work.map(upsert));
+  return order(await col.find({}).toArray());
 }
 
 export async function findAlbum(weddingId: string, albumId: string): Promise<AlbumDoc | null> {
@@ -315,6 +337,10 @@ export async function listPending(weddingId: string, limit: number): Promise<Pho
   return scoped(await photos(), { weddingId })
     .find({ status: "pending" }, { sort: { uploaderName: 1, uploadedAt: 1, _id: 1 }, limit })
     .toArray();
+}
+
+export async function countPending(weddingId: string): Promise<number> {
+  return scoped(await photos(), { weddingId }).countDocuments({ status: "pending" });
 }
 
 export async function countPendingBefore(weddingId: string, cutoff: Date): Promise<number> {

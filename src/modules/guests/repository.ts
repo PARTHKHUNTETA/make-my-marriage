@@ -490,3 +490,69 @@ export async function findGuestByEntryToken(
   if (typeof token !== "string" || token.length < 10 || token.length > 64) return null;
   return scoped(await guests(), { weddingId }).findOne({ "invitations.entryToken": token });
 }
+
+export type ReplyOverview = {
+  attendingParties: number;
+  declinedParties: number;
+  recent: {
+    guestId: string;
+    guestName: string;
+    eventId: string;
+    status: "attending" | "not_attending";
+    numberAttending?: number;
+    respondedAt: Date;
+  }[];
+};
+
+// What the dashboard shows about replies, worked out in the database: how many parties are coming,
+// how many have declined everything, and the latest few answers. Nothing else is read.
+export async function replyOverview(
+  weddingId: string,
+  recentLimit: number,
+): Promise<ReplyOverview> {
+  const col = scoped(await guests(), { weddingId });
+  const [attendingParties, declinedParties, recent] = await Promise.all([
+    col.countDocuments({ "invitations.rsvpStatus": "attending" }),
+    // At least one invitation, and none of them still waiting or attending.
+    col.countDocuments({
+      "invitations.0": { $exists: true },
+      "invitations.rsvpStatus": { $nin: ["pending", "attending"] },
+    }),
+    col
+      .aggregate<{
+        _id: ObjectId;
+        name: string;
+        invitations: {
+          eventId: ObjectId;
+          rsvpStatus: "attending" | "not_attending";
+          numberAttending?: number;
+          respondedAt: Date;
+        };
+      }>([
+        { $match: { "invitations.respondedAt": { $exists: true } } },
+        { $unwind: "$invitations" },
+        {
+          $match: {
+            "invitations.rsvpStatus": { $ne: "pending" },
+            "invitations.respondedAt": { $exists: true },
+          },
+        },
+        { $sort: { "invitations.respondedAt": -1 } },
+        { $limit: recentLimit },
+        { $project: { name: 1, invitations: 1 } },
+      ])
+      .toArray(),
+  ]);
+  return {
+    attendingParties,
+    declinedParties,
+    recent: recent.map((r) => ({
+      guestId: r._id.toHexString(),
+      guestName: r.name,
+      eventId: r.invitations.eventId.toHexString(),
+      status: r.invitations.rsvpStatus,
+      ...(r.invitations.numberAttending ? { numberAttending: r.invitations.numberAttending } : {}),
+      respondedAt: r.invitations.respondedAt,
+    })),
+  };
+}

@@ -25,7 +25,7 @@ import { daysUntil, formatLongDate } from "@/lib/dates";
 import { EVENT_TYPE_LABELS, eventStartsAt, formatTime } from "@/modules/events/schema";
 import { listEvents } from "@/modules/events/service";
 import { RSVP_LABELS } from "@/modules/guests/schema";
-import { getStats, listEveryGuest } from "@/modules/guests/service";
+import { getReplyOverview, getStats } from "@/modules/guests/service";
 import { formatRupees } from "@/lib/money";
 import { getSummary as getMoneySummary } from "@/modules/money/service";
 import { coverUrl } from "@/modules/photos/covers";
@@ -117,12 +117,12 @@ function SoonCard({ title, icon: Icon, text }: { title: string; icon: LucideIcon
 export default async function DashboardPage() {
   const ctx = await requireMember();
   const now = new Date();
-  const [wedding, events, tasks, stats, guests, money, photos] = await Promise.all([
+  const [wedding, events, tasks, stats, replies, money, photos] = await Promise.all([
     getWedding(ctx.weddingId),
     listEvents(ctx.weddingId),
     listTasks(ctx.weddingId, { view: "all" }, ctx.memberId),
     getStats(ctx.weddingId),
-    listEveryGuest(ctx.weddingId),
+    getReplyOverview(ctx.weddingId),
     getMoneySummary(ctx.weddingId),
     getPhotoSummary(ctx.weddingId),
   ]);
@@ -141,21 +141,7 @@ export default async function DashboardPage() {
   const eventNames = new Map(events.map((e) => [e.id, e.name]));
   const statsByEvent = new Map(stats.perEvent.map((e) => [e.eventId, e]));
 
-  const attendingParties = guests.filter((g) =>
-    g.invitations.some((i) => i.rsvpStatus === "attending"),
-  ).length;
-  const declined = guests.filter(
-    (g) => g.invitations.length > 0 && g.invitations.every((i) => i.rsvpStatus === "not_attending"),
-  ).length;
-
-  const recentReplies = guests
-    .flatMap((g) =>
-      g.invitations
-        .filter((i) => i.rsvpStatus !== "pending" && i.respondedAt)
-        .map((i) => ({ guest: g, invitation: i })),
-    )
-    .sort((a, b) => b.invitation.respondedAt!.getTime() - a.invitation.respondedAt!.getTime())
-    .slice(0, 5);
+  const { attendingParties, declinedParties: declined, recent: recentReplies } = replies;
 
   return (
     <main className="flex w-full flex-col pt-6">
@@ -637,33 +623,33 @@ export default async function DashboardPage() {
             </p>
           ) : (
             <ul className="divide-y divide-line">
-              {recentReplies.map(({ guest, invitation }) => (
+              {recentReplies.map((reply) => (
                 <li
-                  key={`${guest.id}-${invitation.eventId}`}
+                  key={`${reply.guestId}-${reply.eventId}`}
                   className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-[13px]"
                 >
                   <div className="min-w-0">
                     <Link
-                      href={`/guests/${guest.id}`}
+                      href={`/guests/${reply.guestId}`}
                       className="font-medium text-ink hover:underline"
                     >
-                      {guest.name}
+                      {reply.guestName}
                     </Link>
                     <span className="block font-mono text-xs text-ink-2">
-                      {eventNames.get(invitation.eventId) ?? "Event"} •{" "}
-                      {shortDate.format(invitation.respondedAt!)}
+                      {eventNames.get(reply.eventId) ?? "Event"} •{" "}
+                      {shortDate.format(reply.respondedAt)}
                     </span>
                   </div>
                   <span
                     className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                      invitation.rsvpStatus === "attending"
+                      reply.status === "attending"
                         ? "bg-[#f2f7f2] text-forest"
                         : "bg-rose-100 text-ink-2"
                     }`}
                   >
-                    {RSVP_LABELS[invitation.rsvpStatus]}
-                    {invitation.rsvpStatus === "attending" && invitation.numberAttending
-                      ? ` (${invitation.numberAttending})`
+                    {RSVP_LABELS[reply.status]}
+                    {reply.status === "attending" && reply.numberAttending
+                      ? ` (${reply.numberAttending})`
                       : ""}
                   </span>
                 </li>

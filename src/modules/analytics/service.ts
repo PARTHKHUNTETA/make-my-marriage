@@ -1,5 +1,5 @@
 import "server-only";
-import { getCounter } from "@/modules/checkin/service";
+import { getArrivalsByEvent } from "@/modules/checkin/service";
 import { listEvents } from "@/modules/events/service";
 import { getStats } from "@/modules/guests/service";
 import { summarize } from "@/modules/money/calc";
@@ -39,7 +39,7 @@ export async function getAnalytics(
   const filtered = Boolean(filter.eventId || filter.from || filter.to);
   const notes: string[] = [];
 
-  const [wedding, everyExpense, stats, tasks, photos] = await Promise.all([
+  const [wedding, everyExpense, stats, tasks, photos, arrivals] = await Promise.all([
     getWedding(weddingId),
     listEveryExpense(weddingId),
     getStats(weddingId),
@@ -48,6 +48,7 @@ export async function getAnalytics(
       weddingId,
       allEvents.map((e) => ({ id: e.id, name: e.name })),
     ),
+    getArrivalsByEvent(weddingId),
   ]);
 
   // ---- money ----
@@ -62,6 +63,7 @@ export async function getAnalytics(
         weddingId,
         wedding?.overallBudget ?? null,
         allEvents.map((e) => ({ id: e.id, name: e.name })),
+        everyExpense,
       )
     : null;
   const budgetByCategory = new Map(overview?.categories.map((c) => [c.key, c.budget]) ?? []);
@@ -137,7 +139,6 @@ export async function getAnalytics(
     ],
   };
 
-  const counters = await Promise.all(events.map((e) => getCounter(weddingId, e.id)));
   const headcount: ChartData = {
     id: "headcount-by-event",
     title: "Headcount by event",
@@ -146,8 +147,8 @@ export async function getAnalytics(
     unit: "count",
     labels: events.map((e) => e.name),
     series: [
-      { name: "Expected", values: counters.map((c) => c.expected) },
-      { name: "Checked in", values: counters.map((c) => c.arrived) },
+      { name: "Expected", values: events.map((e) => perEvent.get(e.id)?.headcount ?? 0) },
+      { name: "Checked in", values: events.map((e) => arrivals.get(e.id)?.people ?? 0) },
     ],
   };
 

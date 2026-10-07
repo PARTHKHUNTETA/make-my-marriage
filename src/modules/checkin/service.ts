@@ -6,6 +6,7 @@ import { seatNeed } from "@/modules/seating/calc";
 import { tableNamesForParty } from "@/modules/seating/service";
 import {
   arrivalTotals,
+  arrivalTotalsByEvent,
   countArrivals,
   deleteArrivalsForEvent,
   findArrival,
@@ -219,6 +220,11 @@ export async function getCounter(weddingId: string, eventId: string): Promise<Co
     arrivedParties: totals.parties,
     expected: event?.headcount ?? 0,
   };
+}
+
+// People who have arrived at each event (events nobody has arrived at are simply absent).
+export function getArrivalsByEvent(weddingId: string) {
+  return arrivalTotalsByEvent(weddingId);
 }
 
 export function countArrivalsForEvent(weddingId: string, eventId: string): Promise<number> {

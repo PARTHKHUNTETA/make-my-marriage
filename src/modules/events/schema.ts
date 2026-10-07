@@ -84,12 +84,8 @@ export type EventDeletePreview = {
   arrivalCount: number;
 };
 
-// "16:00" -> "4:00 PM"
-export function formatTime(value: string): string {
-  const [h = "0", m = "00"] = value.split(":");
-  const hour = Number(h);
-  return `${hour % 12 === 0 ? 12 : hour % 12}:${m} ${hour < 12 ? "AM" : "PM"}`;
-}
+// "16:00" -> "4:00 PM" (kept here too, for the code that already imports it from this file)
+export { formatTime } from "@/lib/time";
 
 // The moment the event starts: its date (midnight in India) plus the start time. Guests can
 // change their reply until then (PRD 5.6).

@@ -53,3 +53,22 @@ describe("the member shell on phones", () => {
     expect(css).toMatch(/@media \(max-width: 639px\)[\s\S]*font-size: 16px/);
   });
 });
+
+describe("what guests download", () => {
+  // The page a relative opens from WhatsApp should not carry the whole form library. A client file
+  // that imports a *value* from a module's zod schema file pulls zod (about 380 KB) into the page,
+  // so these files stay on small, zod-free helpers.
+  const guestFacing = [
+    "components/invite/rsvp-form.tsx",
+    "components/photos/guest-uploader.tsx",
+    "components/photos/guest-grid.tsx",
+  ];
+  it.each(guestFacing)("%s imports no zod schema files at runtime", (file) => {
+    const source = readFileSync(path.join(ROOT, file), "utf8");
+    const runtime = [
+      ...source.matchAll(/import\s+(type\s+)?\{[^}]*\}\s+from\s+"(@\/modules\/[^"]*\/schema)"/g),
+    ].filter((m) => !m[1]);
+    expect(runtime.map((m) => m[2])).toEqual([]);
+    expect(source).not.toMatch(/from "zod"|react-hook-form/);
+  });
+});
