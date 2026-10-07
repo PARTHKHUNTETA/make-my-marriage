@@ -224,7 +224,7 @@ export type GallerySettings = { token: string; uploadsOn: boolean; showOnWebsite
 // token cannot slip into a page that has no business showing it.
 export async function getGallerySettings(weddingId: string): Promise<GallerySettings> {
   const doc = await findWeddingById(weddingId);
-  if (!doc) throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
+  if (!doc || doc.deletedAt) throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
   return {
     token: doc.galleryToken,
     uploadsOn: doc.uploadsOn,

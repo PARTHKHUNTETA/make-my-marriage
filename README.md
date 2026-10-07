@@ -375,3 +375,8 @@ guest data is processed in India, not only stored there. In the Vercel project:
 - **Live stream** (`/live`): paste a YouTube link; the wedding website embeds it when switched on.
 - **Entry QR**: a guest's page has "Show entry QR" per event, with a PNG download, for guests who lost their code.
 - **Legal pages**: `/privacy`, `/terms`, `/support` (set `SUPPORT_EMAIL`). Expense and vendor CSV exports are on their pages; finished email records are purged daily.
+
+## Discover vendors and deleting a wedding
+
+- **Discover vendors** (`/vendors/discover`) searches Google Places for businesses in the wedding's city. Set `GOOGLE_PLACES_API_KEY` (Places API (New), restricted to that API). The search runs on the server only, results are never stored (Google's terms), each wedding gets 30 searches a day, and "Powered by Google" is shown. Without a key the page says search is not set up. "Add to My vendors" opens the Add vendor form filled in.
+- **Delete wedding** (Settings, admins only; type the wedding's title to confirm). The wedding is hidden at once: the website, guest links, gallery link and team access stop working and every member and invite is removed. The daily cron then erases it for good after 7 days: every wedding-scoped collection, photo and cover files, bookings and reviews it sent, and queued emails. Accounts are kept, so people can start a new wedding. Until the sweep runs, support can still recover the data.

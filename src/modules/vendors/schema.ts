@@ -216,3 +216,24 @@ export type VendorItem = {
   notes?: string;
   installments: InstallmentItem[];
 };
+
+// "Add to My vendors" from Discover opens the Add vendor form with these filled in. Everything is
+// trimmed and capped, and a phone number that does not parse is left out rather than shown wrong.
+export function prefillFromQuery(raw: Record<string, string | string[] | undefined>): {
+  name?: string;
+  category?: VendorCategory;
+  phone?: string;
+  address?: string;
+} {
+  const one = (key: string, max: number) =>
+    typeof raw[key] === "string"
+      ? (raw[key] as string).trim().slice(0, max) || undefined
+      : undefined;
+  const phone = one("phone", 30);
+  return {
+    name: one("name", 150),
+    category: VENDOR_CATEGORIES.find((c) => c === one("category", 30)),
+    phone: phone && normalizePhone(phone) ? phone : undefined,
+    address: one("address", 500),
+  };
+}

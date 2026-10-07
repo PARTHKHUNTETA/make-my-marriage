@@ -4,6 +4,7 @@ import { AppError } from "@/lib/errors";
 import { jsonError, jsonOk } from "@/lib/http";
 import { drainEmailQueue, purgeFinishedEmails } from "@/lib/queue";
 import { runAutomaticReminders } from "@/modules/invitations/sending";
+import { purgeDeletedWeddings } from "@/modules/deletion/service";
 import { runDailyAlerts } from "@/modules/notifications/alerts";
 import { purgeStalePending } from "@/modules/photos/service";
 
@@ -23,7 +24,12 @@ async function run(request: Request) {
     const alerts = await runDailyAlerts().catch(() => ({ tasks: 0, payments: 0, failed: true }));
     // Records of emails sent more than 30 days ago are cleared out.
     const emailRecords = await purgeFinishedEmails().catch(() => -1);
-    return jsonOk({ ...queued, ...sent, photos, alerts, emailRecords });
+    // Weddings deleted a week ago or more are erased for good, files and all.
+    const deletedWeddings = await purgeDeletedWeddings().catch(() => ({
+      purged: 0,
+      failed: -1,
+    }));
+    return jsonOk({ ...queued, ...sent, photos, alerts, emailRecords, deletedWeddings });
   } catch (err) {
     return jsonError(err);
   }

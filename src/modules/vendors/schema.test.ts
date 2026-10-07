@@ -141,3 +141,28 @@ describe("parseVendorQuery", () => {
     });
   });
 });
+
+describe("prefillFromQuery", () => {
+  it("takes the Discover fields, trimmed, and drops what does not fit", async () => {
+    const { prefillFromQuery } = await import("./schema");
+    expect(
+      prefillFromQuery({
+        name: "  Royal Photography ",
+        category: "photographer",
+        phone: "098765 43210",
+        address: "FC Road, Pune",
+      }),
+    ).toMatchObject({
+      name: "Royal Photography",
+      category: "photographer",
+      address: "FC Road, Pune",
+    });
+    expect(prefillFromQuery({ category: "bogus", phone: "abc", name: "x".repeat(400) })).toEqual({
+      name: "x".repeat(150),
+      category: undefined,
+      phone: undefined,
+      address: undefined,
+    });
+    expect(prefillFromQuery({ name: ["a", "b"] }).name).toBeUndefined();
+  });
+});

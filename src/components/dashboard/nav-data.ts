@@ -68,6 +68,7 @@ export const PAGES: PageEntry[] = [
   { label: "Import guests", keywords: "csv excel upload", href: "/guests/import" },
   { label: "Vendor Operations", keywords: "my vendors", href: "/vendors" },
   { label: "Marketplace", keywords: "find vendors browse", href: "/vendors/marketplace" },
+  { label: "Discover vendors", keywords: "google search near me find", href: "/vendors/discover" },
   { label: "Vendor bookings", keywords: "quotes requests", href: "/vendors/bookings" },
   { label: "Wedding Website", keywords: "site theme address", href: "/website" },
   { label: "Photos & QR Stream", keywords: "pictures gallery", href: "/photos" },

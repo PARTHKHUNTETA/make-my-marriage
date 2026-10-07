@@ -129,3 +129,10 @@ export function getSupportEmail(): string | undefined {
     return undefined; // a bad address must not take the legal pages down
   }
 }
+
+// Google Places key for "Discover vendors". Optional: without it the Discover page says it is not
+// set up yet, and nothing else changes.
+export function getPlacesApiKey(): string | undefined {
+  const key = process.env.GOOGLE_PLACES_API_KEY?.trim();
+  return key || undefined;
+}

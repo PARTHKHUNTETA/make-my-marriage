@@ -3,11 +3,17 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { VendorForm } from "@/components/vendors/vendor-form";
 import { requireMember } from "@/lib/authz";
+import { prefillFromQuery } from "@/modules/vendors/schema";
 import { listEvents } from "@/modules/events/service";
 
 export const metadata: Metadata = { title: "Add vendor — Make My Marriage" };
 
-export default async function NewVendorPage() {
+export default async function NewVendorPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const prefill = prefillFromQuery(await searchParams);
   const ctx = await requireMember();
   const events = await listEvents(ctx.weddingId);
   return (
@@ -21,11 +27,11 @@ export default async function NewVendorPage() {
       <h1 className="mb-6 font-serif text-4xl leading-11 tracking-tight text-plum">Add vendor</h1>
       <VendorForm
         initial={{
-          name: "",
-          category: "photographer",
-          phone: "",
+          name: prefill.name ?? "",
+          category: prefill.category ?? "photographer",
+          phone: prefill.phone ?? "",
           email: "",
-          address: "",
+          address: prefill.address ?? "",
           totalCost: "",
           eventIds: [],
           notes: "",
