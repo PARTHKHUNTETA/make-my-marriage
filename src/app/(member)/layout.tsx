@@ -43,7 +43,7 @@ export default async function MemberLayout({ children }: Readonly<{ children: Re
     >
       <Sidebar user={shell.user} wedding={shell.wedding} />
       <div className="lg:pl-64 print:pl-0">
-        <Topbar user={shell.user} wedding={shell.wedding} />
+        <Topbar user={shell.user} wedding={shell.wedding} isAdmin={ctx.role === "admin"} />
         <div className="px-6 pt-16 pb-6 print:p-0">
           {profile.emailVerified ? null : (
             <div className="pt-4 print:hidden">

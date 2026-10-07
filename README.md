@@ -367,3 +367,11 @@ guest data is processed in India, not only stored there. In the Vercel project:
   often than daily need a paid Vercel plan.
 - Point the wildcard domain (`*.makemymarriage.com`) at the project and let Vercel issue the
   wildcard certificate.
+
+## Search, quick actions and live stream
+
+- **Search (⌘K / Ctrl+K, or the search box in the top bar)** finds guests, events, tasks, vendors and expenses in your own wedding, plus a "Go to" list of every page. Quick actions appear when the box is empty. Rate-limited per member.
+- **Quick Action** (top bar) jumps straight to add a guest, event, task, expense, vendor, send invitations or add photos.
+- **Live stream** (`/live`): paste a YouTube link; the wedding website embeds it when switched on.
+- **Entry QR**: a guest's page has "Show entry QR" per event, with a PNG download, for guests who lost their code.
+- **Legal pages**: `/privacy`, `/terms`, `/support` (set `SUPPORT_EMAIL`). Expense and vendor CSV exports are on their pages; finished email records are purged daily.

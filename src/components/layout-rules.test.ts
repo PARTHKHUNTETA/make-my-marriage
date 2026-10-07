@@ -41,6 +41,20 @@ describe("the member shell on phones", () => {
     expect(read("components/dashboard/sidebar.tsx")).toMatch(/hidden[^"]*lg:flex/);
   });
 
+  it("the top bar has a working search box and quick-action menu, not buttons that do nothing", () => {
+    const bar = read("components/dashboard/topbar.tsx");
+    expect(bar).toContain("<CommandPalette");
+    expect(bar).toContain("<QuickActions");
+    // A bare <button> in the top bar with no handler is how the old placeholders looked.
+    expect(bar).not.toMatch(/<button\b/);
+  });
+
+  it("the search box is drawn inside the app shell, clear of the blurred top bar", () => {
+    const box = read("components/dashboard/command-palette.tsx");
+    expect(box).toContain("createPortal");
+    expect(box).toContain('getElementById("app-shell")');
+  });
+
   it("the menu button is only for small screens, and gets the same links as the sidebar", () => {
     const nav = read("components/dashboard/mobile-nav.tsx");
     expect(nav).toContain("lg:hidden");
