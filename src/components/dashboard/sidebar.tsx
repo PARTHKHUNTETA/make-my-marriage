@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { postJson } from "@/components/auth/post-json";
+import { usePathname } from "next/navigation";
+import { SigningOutOverlay, useSignOut } from "@/components/auth/use-sign-out";
 import {
   CalendarDays,
   BarChart3,
@@ -79,13 +79,7 @@ export function SidebarContent({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
-
-  async function signOut() {
-    await postJson("/api/auth/logout", {});
-    router.replace("/login");
-    router.refresh();
-  }
+  const { signOut, pending } = useSignOut();
 
   return (
     <div className="flex min-h-full flex-col justify-between">
@@ -153,17 +147,18 @@ export function SidebarContent({
               <span className="truncate font-mono text-xs text-bronze">{wedding.countdown}</span>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={signOut}
-            title="Sign out"
-            aria-label="Sign out"
-            className="p-1 text-ink-2 transition-colors hover:text-ink"
-          >
-            <LogOut className="size-[18px]" />
-          </button>
         </div>
+        <button
+          type="button"
+          onClick={signOut}
+          disabled={pending}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-line-soft/60 bg-white px-3 py-2.5 text-[13px] font-semibold text-ink-2 transition-colors hover:bg-rose-100 hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <LogOut className="size-4" aria-hidden />
+          Sign out
+        </button>
       </div>
+      <SigningOutOverlay show={pending} />
     </div>
   );
 }

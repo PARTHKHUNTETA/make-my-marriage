@@ -24,7 +24,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="flex flex-1 flex-col justify-center">
-        <div className="flex min-h-[calc(100vh-140px)] w-full flex-col items-stretch overflow-hidden rounded-xl bg-white shadow-xl lg:flex-row">
+        <div className="flex min-h-[calc(100vh-140px)] w-full flex-col items-stretch overflow-hidden rounded-xl bg-blush lg:flex-row">
           <section className="flex w-full flex-col items-center justify-center bg-blush px-4 py-10 sm:px-10 lg:w-7/12 xl:w-1/2">
             {children}
           </section>
@@ -45,7 +45,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
               Terms of Service
             </Link>
             <Link href="/support" className="hover:text-ink hover:underline">
-              Support
+              Support Concierge
             </Link>
           </nav>
           <span className="font-mono text-xs text-ink-2/60">

@@ -1,10 +1,8 @@
 "use client";
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { postJson } from "@/components/auth/post-json";
+import { SigningOutOverlay, useSignOut } from "@/components/auth/use-sign-out";
 
 export function SignOutButton({
   endpoint = "/api/auth/logout",
@@ -13,19 +11,14 @@ export function SignOutButton({
   endpoint?: string;
   redirectTo?: string;
 }) {
-  const router = useRouter();
-  const [pending, setPending] = React.useState(false);
-
-  async function signOut() {
-    setPending(true);
-    await postJson(endpoint, {});
-    router.replace(redirectTo);
-    router.refresh();
-  }
+  const { signOut, pending } = useSignOut(endpoint, redirectTo);
 
   return (
-    <Button variant="ghost" size="sm" onClick={signOut} disabled={pending}>
-      <LogOut aria-hidden /> Sign out
-    </Button>
+    <>
+      <Button variant="ghost" size="sm" onClick={signOut} disabled={pending}>
+        <LogOut aria-hidden /> Sign out
+      </Button>
+      <SigningOutOverlay show={pending} />
+    </>
   );
 }

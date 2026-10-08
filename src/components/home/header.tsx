@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { containerClass, START_HREF } from "./ui";
 
 const navLinks = [
@@ -30,12 +31,20 @@ export function Header() {
             </a>
           ))}
         </nav>
-        <a
-          href={START_HREF}
-          className="inline-flex h-9 items-center rounded-xl bg-plum px-4 text-sm font-semibold text-white transition-colors hover:bg-plum-hover"
-        >
-          Start planning free
-        </a>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/login"
+            className="inline-flex h-9 items-center rounded-xl px-3 text-sm font-semibold text-plum transition-colors hover:bg-rose-100"
+          >
+            Sign in
+          </Link>
+          <a
+            href={START_HREF}
+            className="inline-flex h-9 items-center rounded-xl bg-plum px-4 text-sm font-semibold text-white transition-colors hover:bg-plum-hover"
+          >
+            Start planning free
+          </a>
+        </div>
       </div>
     </header>
   );
