@@ -219,8 +219,8 @@ export async function requestCoverUploadAction(input: unknown) {
       limit: 40,
       windowSeconds: 15 * 60,
     });
-    const { target } = requestCoverSchema.parse(input);
-    return requestCoverUpload(ctx.weddingId, target);
+    const { target, size } = requestCoverSchema.parse(input);
+    return requestCoverUpload(ctx.weddingId, target, size);
   });
 }
 

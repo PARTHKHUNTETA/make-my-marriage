@@ -33,10 +33,10 @@ async function ownListing(accountId: string) {
   return listing;
 }
 
-// Upload addresses for up to `count` more photos, never past the limit of 20 in total.
+// Upload addresses for up to `sizes.length` more photos, each signed for its photo's exact size,, never past the limit of 20 in total.
 export async function requestListingPhotoSlots(
   accountId: string,
-  count: number,
+  sizes: number[],
 ): Promise<ListingPhotoSlot[]> {
   const listing = await ownListing(accountId);
   const room = MAX_LISTING_PHOTOS - (listing.photoKeys?.length ?? 0);
@@ -47,11 +47,11 @@ export async function requestListingPhotoSlots(
     );
   const listingId = listing._id.toHexString();
   return Promise.all(
-    Array.from({ length: Math.min(count, room) }, async () => {
+    sizes.slice(0, room).map(async (size) => {
       const photoId = new ObjectId().toHexString();
       return {
         photoId,
-        uploadUrl: await signUpload(listingPhotoKey(listingId, photoId), "image/jpeg"),
+        uploadUrl: await signUpload(listingPhotoKey(listingId, photoId), "image/jpeg", size),
       };
     }),
   );

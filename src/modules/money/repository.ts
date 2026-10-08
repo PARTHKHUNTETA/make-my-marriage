@@ -99,8 +99,9 @@ export async function replaceExpenseFields(
 ): Promise<ExpenseDoc | null> {
   const _id = oid(id);
   if (!_id) return null;
+  // An expense made by marking a vendor payment paid belongs to that payment: it is changed there.
   return scoped(await expenses(), { weddingId }).findOneAndUpdate(
-    { _id },
+    { _id, installmentId: { $exists: false } },
     {
       $set: { ...set, updatedAt: new Date() },
       ...(unset.length > 0 ? { $unset: Object.fromEntries(unset.map((f) => [f, ""])) } : {}),
@@ -112,7 +113,14 @@ export async function replaceExpenseFields(
 export async function deleteExpense(weddingId: string, id: string): Promise<boolean> {
   const _id = oid(id);
   if (!_id) return false;
-  return (await scoped(await expenses(), { weddingId }).deleteOne({ _id })).deletedCount === 1;
+  return (
+    (
+      await scoped(await expenses(), { weddingId }).deleteOne({
+        _id,
+        installmentId: { $exists: false },
+      })
+    ).deletedCount === 1
+  );
 }
 
 export type ExpenseFilter = {

@@ -388,7 +388,19 @@ export function reviewEligibility(
   return daysUntil(last, now) < 0 ? { state: "eligible" } : { state: "not_yet", lastEventOn: last };
 }
 
-export const photoSlotsSchema = z.object({ count: z.number().int().min(1).max(20) });
+// One entry per photo: its exact size in bytes, which its upload address is signed for.
+export const photoSlotsSchema = z.object({
+  sizes: z
+    .array(
+      z
+        .number()
+        .int()
+        .min(1)
+        .max(8 * 1024 * 1024),
+    )
+    .min(1)
+    .max(20),
+});
 export const listingPhotoSchema = z.object({
   photoId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Not a valid id"),
 });

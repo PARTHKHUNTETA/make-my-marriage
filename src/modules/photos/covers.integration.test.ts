@@ -45,7 +45,7 @@ describe.skipIf(!enabled)("cover pictures against MongoDB", () => {
     target: import("./covers").CoverTarget,
     bytes = JPEG,
   ) => {
-    const { coverId } = await covers.requestCoverUpload(weddingId, target);
+    const { coverId } = await covers.requestCoverUpload(weddingId, target, 100);
     await storage.localWrite(storage.coverKey(weddingId, coverId), bytes);
     return coverId;
   };
@@ -125,7 +125,7 @@ describe.skipIf(!enabled)("cover pictures against MongoDB", () => {
   });
 
   it("refuses a picture that never arrived, and one uploaded for another wedding", async () => {
-    const { coverId } = await covers.requestCoverUpload(A, { kind: "wedding" });
+    const { coverId } = await covers.requestCoverUpload(A, { kind: "wedding" }, 100);
     await expect(covers.confirmCover(A, { kind: "wedding" }, coverId)).rejects.toMatchObject({
       code: "VALIDATION_FAILED",
     });
@@ -145,7 +145,9 @@ describe.skipIf(!enabled)("cover pictures against MongoDB", () => {
       storage.coverKey(A, a),
     );
 
-    await expect(covers.requestCoverUpload(B, target)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(covers.requestCoverUpload(B, target, 100)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
     await expect(covers.removeCover(B, target)).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(await eventCover()).toBe(storage.coverKey(A, a));
 

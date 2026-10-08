@@ -131,32 +131,47 @@ export async function localRead(key: string): Promise<Buffer | null> {
   return readFile(localPath(key)).catch(() => null);
 }
 
+// What a development PUT address is bound to: the content type and the exact size in bytes.
+export const localPutBinding = (type: string, size: number) => `${type}\n${size}`;
+
 function localUrl(
   method: "PUT" | "GET",
   key: string,
   seconds: number,
-  extra: { type?: string; download?: string },
+  extra: { type?: string; size?: number; download?: string },
 ): string {
   const expires = Math.floor(Date.now() / 1000) + seconds;
-  const bound = method === "PUT" ? (extra.type ?? "") : (extra.download ?? "");
+  const bound =
+    method === "PUT" ? localPutBinding(extra.type ?? "", extra.size ?? 0) : (extra.download ?? "");
   const q = new URLSearchParams({ e: String(expires), s: sign(method, key, expires, bound) });
-  if (method === "PUT" && extra.type) q.set("t", extra.type);
+  if (method === "PUT") {
+    if (extra.type) q.set("t", extra.type);
+    q.set("n", String(extra.size ?? 0));
+  }
   if (method === "GET" && extra.download) q.set("d", extra.download);
   return `/api/dev-storage/${key}?${q}`;
 }
 
 // ---- the public functions -------------------------------------------------------------------
 
-// An address the browser can PUT one file to, within UPLOAD_URL_SECONDS. The type is part of what
-// is signed, so the file must be sent with exactly that Content-Type.
-export async function signUpload(key: string, contentType: string): Promise<string> {
+// An address the browser can PUT one file to, within UPLOAD_URL_SECONDS. The type and the exact
+// size in bytes are part of what is signed, so the file must be sent with that Content-Type and
+// that Content-Length: a link cannot be used to store something bigger than was agreed (and
+// counted against the quota) when it was handed out.
+export async function signUpload(key: string, contentType: string, size: number): Promise<string> {
   assertKey(key);
+  if (!Number.isInteger(size) || size < 1) throw new Error("Invalid upload size");
   const store = getR2();
-  if (!store) return localUrl("PUT", key, UPLOAD_URL_SECONDS, { type: contentType });
+  if (!store) return localUrl("PUT", key, UPLOAD_URL_SECONDS, { type: contentType, size });
   return getSignedUrl(
     store.client,
-    new PutObjectCommand({ Bucket: store.bucket, Key: key, ContentType: contentType }),
-    { expiresIn: UPLOAD_URL_SECONDS, signableHeaders: new Set(["content-type"]) },
+    new PutObjectCommand({
+      Bucket: store.bucket,
+      Key: key,
+      ContentType: contentType,
+      ContentLength: size,
+    }),
+    { expiresIn: UPLOAD_URL_SECONDS, signableHeaders: new Set(["content-type", "content-length"]) },
   );
 }
 

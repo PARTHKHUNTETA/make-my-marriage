@@ -34,6 +34,22 @@ describe("uploadFileSchema", () => {
     ])
       expect(uploadFileSchema.safeParse(bad).success).toBe(false);
   });
+  it("needs the exact size of each copy it says it will send, within the limit", () => {
+    expect(uploadFileSchema.safeParse(file({ hasDisplay: true })).success).toBe(false);
+    expect(uploadFileSchema.safeParse(file({ hasThumb: true })).success).toBe(false);
+    expect(
+      uploadFileSchema.safeParse(
+        file({ hasDisplay: true, displaySize: 90_000, hasThumb: true, thumbSize: 9_000 }),
+      ).success,
+    ).toBe(true);
+    expect(
+      uploadFileSchema.safeParse(file({ hasDisplay: true, displaySize: 8 * 1024 * 1024 + 1 }))
+        .success,
+    ).toBe(false);
+    expect(uploadFileSchema.safeParse(file({ hasDisplay: true, displaySize: 0 })).success).toBe(
+      false,
+    );
+  });
   it("allows exactly 25 MB", () => {
     expect(uploadFileSchema.safeParse(file({ size: 25 * 1024 * 1024 })).success).toBe(true);
   });

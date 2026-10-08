@@ -38,15 +38,23 @@ export function ListingPhotos({ photos }: { photos: { id: string; url: string }[
       const wanted = files.slice(0, MAX - photos.length);
       if (files.length > wanted.length)
         problems.push(`Only ${wanted.length} more fit; the rest were skipped.`);
-      const slots = await requestListingPhotoSlotsAction({ count: Math.max(1, wanted.length) });
+      // Each picture is made first: its upload address is signed for its exact size.
+      const prepared: { file: File; blob: Blob }[] = [];
+      for (const file of wanted) {
+        const blob = await makeCoverBlob(file);
+        if (blob) prepared.push({ file, blob });
+        else problems.push(`${file.name}: couldn't be read. Use a JPEG, PNG or WebP photo.`);
+      }
+      if (prepared.length === 0) throw new Error("None of those photos could be read.");
+      const slots = await requestListingPhotoSlotsAction({
+        sizes: prepared.map((p) => p.blob.size),
+      });
       if (!slots.ok) throw new Error(slots.error.message);
-      for (const [i, file] of wanted.entries()) {
+      for (const [i, { file, blob }] of prepared.entries()) {
         const slot = slots.data[i];
         if (!slot) break;
-        setProgress(`Adding ${i + 1} of ${wanted.length}…`);
+        setProgress(`Adding ${i + 1} of ${prepared.length}…`);
         try {
-          const blob = await makeCoverBlob(file);
-          if (!blob) throw new Error("couldn't be read. Use a JPEG, PNG or WebP photo.");
           await putBlob(slot.uploadUrl, blob, "image/jpeg");
           const done = await confirmListingPhotoAction({ photoId: slot.photoId });
           if (!done.ok) throw new Error(done.error.message);

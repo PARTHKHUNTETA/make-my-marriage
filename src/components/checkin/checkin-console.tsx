@@ -169,11 +169,22 @@ export function CheckInConsole({ eventId, initial }: { eventId: string; initial:
           video: { facingMode: "environment" },
           audio: false,
         });
+        // The scanner may have been closed while the camera was still starting. The cleanup below
+        // ran before this stream existed, so release it here or the camera light stays on.
+        if (stopped) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
         const video = videoRef.current;
         const canvas = canvasRef.current;
-        if (!video || !canvas) return;
+        if (!video || !canvas) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
         video.srcObject = stream;
         await video.play();
+        // Closed while the video was starting: the loop below must not begin.
+        if (stopped) return;
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         let last = 0;
         const loop = (now: number) => {
@@ -198,6 +209,7 @@ export function CheckInConsole({ eventId, initial }: { eventId: string; initial:
         };
         frame = requestAnimationFrame(loop);
       } catch {
+        if (stopped) return; // closed on purpose: nothing went wrong
         setCameraProblem(
           "We couldn't open the camera. Allow camera access in your browser, or type the code instead.",
         );

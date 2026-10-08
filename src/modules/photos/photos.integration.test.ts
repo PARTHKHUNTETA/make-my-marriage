@@ -161,7 +161,11 @@ describe.skipIf(!enabled)("photos against MongoDB", () => {
 
   it("made copies are kept only when they arrive and really are JPEGs", async () => {
     const album = await general(w1);
-    const slot = await upload(w1, album, file({ hasDisplay: true, hasThumb: true }));
+    const slot = await upload(
+      w1,
+      album,
+      file({ hasDisplay: true, hasThumb: true, displaySize: JPEG.length, thumbSize: HTML.length }),
+    );
     const doc = await repo.findPhoto(w1, slot.photoId);
     await storage.localWrite(doc!.displayKey!, JPEG);
     await storage.localWrite(doc!.thumbKey!, HTML);
@@ -188,6 +192,28 @@ describe.skipIf(!enabled)("photos against MongoDB", () => {
         { type: "member", memberId: me },
       ),
     ).rejects.toMatchObject({ code: "STORAGE_FULL" });
+    quota = 10 * 1024 ** 3;
+  });
+
+  it("guests cannot use the last fifth of the storage, but members still can", async () => {
+    const used = (await photos.getUsage(w2)).usedBytes;
+    quota = used + 1000;
+    const album = await general(w2);
+    // 850 bytes is past 80% of what is left for guests, but still inside the whole quota
+    await expect(
+      photos.requestUploads(
+        w2,
+        { albumId: album, files: [file({ size: 850 })] },
+        { type: "guest" },
+      ),
+    ).rejects.toMatchObject({ code: "STORAGE_FULL" });
+    await expect(
+      photos.requestUploads(
+        w2,
+        { albumId: album, files: [file({ size: 850 })] },
+        { type: "member", memberId: me },
+      ),
+    ).resolves.toHaveLength(1);
     quota = 10 * 1024 ** 3;
   });
 

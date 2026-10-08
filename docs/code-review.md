@@ -29,7 +29,8 @@ Severity is about impact if left as it is.
 
 ### Medium
 
-1. **Photo uploads are not size-bound at the storage layer.**
+1. ~~**Photo uploads are not size-bound at the storage layer.**~~ **Fixed 2026-10-08.** Upload addresses are now signed for the exact size (original, copies, covers, listing photos) and the quota reserves it. Still open from this item: sweeping abandoned `uploading` slots in the daily cron and a per-gallery daily cap.
+   Original finding:
    `signUpload` (`src/lib/storage.ts`) signs only `content-type`, and the quota check in `requestUploads` (`src/modules/photos/service.ts`) trusts the size the browser declares. Anyone holding the gallery link can declare 1 byte and PUT a very large object. Confirm rejects it afterwards, but an upload that is never confirmed is cleaned up only the next time someone requests an upload for that wedding. Fix: add `content-length` to `signableHeaders` and sign the declared size, check it again at confirm, add a per-gallery daily cap, and sweep `uploading` slots in the daily cron.
 2. **Client IP is spoofable or shared.**
    `clientIp` (`src/lib/ratelimit.ts:34`) trusts the first `x-forwarded-for` value. That is safe on Vercel and spoofable elsewhere. With no header, everyone falls into one `"unknown"` bucket, so 30 logins per 15 minutes would apply to all visitors together. It also weakens the guest upload limits above. Use a platform-trusted header and handle "unknown" separately.
@@ -37,11 +38,11 @@ Severity is about impact if left as it is.
    `vercel.json` now has only the daily cron, but `queue.ts` and `api/cron/send-email` assume a run every minute with 1/5/15/60-minute backoff. If the immediate send fails, a verify or reset email can arrive about 24 hours later. `api/cron/send-email` is effectively unused. Run it from an external pinger or a paid plan, and fix the comments.
 4. **Sign-out does not revoke the session.**
    `clearSession` only deletes the cookie. The JWT stays valid for up to 30 days, so a copied cookie survives logout. Fix: a per-user session version, or bump `sessionsValidAfter` on logout.
-5. **Installment expenses can be edited or deleted on their own.**
-   An expense made by "mark paid" is a normal expense in `/money`. Editing it with a blank vendor unsets `vendorId`. Deleting it leaves the installment marked paid with no expense. Lock the link in `updateExpenseAction` and `deleteExpenseAction`, or route these through "mark unpaid".
+5. ~~Installment expenses can be edited or deleted on their own.~~ **Withdrawn.** This was wrong: `money/repository.ts` already refuses to update or delete an expense with an `installmentId`, and the expense page explains it. The only gap was a misleading "no longer exists" error on a direct call, now fixed.
 6. **The daily cron does everything in one serial run.**
    `api/cron/send-reminders` loops every wedding, loading all guests and events, then runs purges and alerts, with no `maxDuration`. On a 10-second function limit it will time out as data grows. `listTasksForAlerts` and `listPaymentsForAlerts` silently cap at 5,000 rows across all weddings. Split the jobs into separate crons or batches, and set `maxDuration`.
-7. **Camera can stay on after the scanner closes.**
+7. ~~**Camera can stay on after the scanner closes.**~~ **Fixed 2026-10-08.** The stream is released when the scanner was closed while the camera was starting.
+   Original finding:
    In `components/checkin/checkin-console.tsx` the effect's cleanup runs while `stream` is still undefined if the screen is closed before `getUserMedia` resolves. The stream that arrives afterwards is never stopped. After the `await`, check `stopped` and stop the tracks.
 
 ### Low

@@ -35,6 +35,16 @@ import {
 // already checked that the event named on an expense belongs to this wedding.
 
 const NOT_FOUND = new AppError("NOT_FOUND", "That expense no longer exists.");
+const FROM_PAYMENT = new AppError(
+  "VALIDATION_FAILED",
+  "This expense comes from a vendor payment. Mark that payment unpaid under the vendor to change or remove it.",
+);
+
+// Why an expense could not be changed: it is gone, or it belongs to a vendor payment.
+async function whyLocked(weddingId: string, expenseId: string): Promise<AppError> {
+  const doc = await findExpense(weddingId, expenseId);
+  return doc?.installmentId ? FROM_PAYMENT : NOT_FOUND;
+}
 
 function toItem(doc: ExpenseDoc): ExpenseItem {
   return {
@@ -86,12 +96,12 @@ export async function updateExpense(
 ): Promise<ExpenseItem> {
   const { set, unset } = toFields(input);
   const doc = await replaceExpenseFields(weddingId, expenseId, set, unset);
-  if (!doc) throw NOT_FOUND;
+  if (!doc) throw await whyLocked(weddingId, expenseId);
   return toItem(doc);
 }
 
 export async function deleteExpense(weddingId: string, expenseId: string): Promise<void> {
-  if (!(await removeExpense(weddingId, expenseId))) throw NOT_FOUND;
+  if (!(await removeExpense(weddingId, expenseId))) throw await whyLocked(weddingId, expenseId);
 }
 
 export async function getExpense(

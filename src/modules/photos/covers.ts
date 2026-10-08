@@ -13,13 +13,12 @@ import {
 } from "@/lib/storage";
 import { getEvent, setEventCover } from "@/modules/events/service";
 import { setCoverImage } from "@/modules/wedding/service";
+import { MAX_COVER_BYTES } from "./schema";
 
 // Cover pictures: one for the wedding (the website's top picture and the dashboard banner) and one
 // per event. The browser makes a single JPEG (at most 1920 px wide), sends it straight to storage,
 // and then asks us to confirm; the server checks the file really is a JPEG before using it. This
 // sits beside the gallery code, not in it, because it needs the wedding and events modules.
-
-export const MAX_COVER_BYTES = 8 * 1024 * 1024;
 
 export type CoverTarget = { kind: "wedding" } | { kind: "event"; eventId: string };
 
@@ -29,13 +28,18 @@ async function assertTarget(weddingId: string, target: CoverTarget): Promise<voi
 }
 
 // A fresh upload address for a new picture. Nothing changes until it is confirmed.
+// The address is signed for exactly `size` bytes, the size of the picture the browser made.
 export async function requestCoverUpload(
   weddingId: string,
   target: CoverTarget,
+  size: number,
 ): Promise<{ coverId: string; uploadUrl: string }> {
   await assertTarget(weddingId, target);
   const coverId = new ObjectId().toHexString();
-  return { coverId, uploadUrl: await signUpload(coverKey(weddingId, coverId), "image/jpeg") };
+  return {
+    coverId,
+    uploadUrl: await signUpload(coverKey(weddingId, coverId), "image/jpeg", size),
+  };
 }
 
 // Checks the uploaded file, makes it the cover, and deletes the picture it replaced. Confirming the

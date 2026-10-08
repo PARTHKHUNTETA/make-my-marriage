@@ -29,6 +29,9 @@ export type PhotoDoc = {
   thumbKey?: string;
   claimedDisplay: boolean;
   claimedThumb: boolean;
+  // The sizes the upload addresses were signed for (set with the claims above).
+  displayBytes?: number;
+  thumbBytes?: number;
   fileName: string;
   contentType: ImageType;
   sizeBytes: number;

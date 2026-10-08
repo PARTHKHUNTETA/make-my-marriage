@@ -43,33 +43,49 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
         <ArrowLeft className="size-4" aria-hidden /> Expenses
       </Link>
       <h1 className="mb-6 font-serif text-4xl leading-11 tracking-tight text-plum">Edit expense</h1>
-      <div className="flex flex-col gap-6">
-        <ExpenseForm
-          expenseId={expense.id}
-          initial={{
-            title: expense.title,
-            amount: toRupeeInput(expense.amount),
-            date: toIstYmd(expense.date),
-            category: expense.category,
-            paidBy: expense.paidBy,
-            eventId: events.some((e) => e.id === expense.eventId) ? (expense.eventId ?? "") : "",
-            vendorId: vendors.some((v) => v.vendor.id === expense.vendorId)
-              ? (expense.vendorId ?? "")
-              : "",
-            notes: expense.notes ?? "",
-            splitMode: byAmount ? "amount" : "percentage",
-            shareBride: share("bride_family"),
-            shareGroom: share("groom_family"),
-            shareCouple: share("couple"),
-          }}
-          events={events.map((e) => ({ id: e.id, name: e.name }))}
-          vendors={vendors.map((v) => ({ id: v.vendor.id, name: v.vendor.name }))}
-          splitDefaults={
-            (wedding?.splitDefaults ?? {}) as Partial<Record<ExpenseCategory, SplitDefault>>
-          }
-        />
-        <DeleteExpenseButton expenseId={expense.id} />
-      </div>
+      {expense.installmentId ? (
+        <section className="rounded-xl bg-white p-5 text-sm text-ink-2 shadow-[0_1px_3px_rgba(35,31,32,0.04)]">
+          <p className="font-semibold text-ink">{expense.title}</p>
+          <p className="mt-1">
+            This expense was created when a vendor payment was marked paid, so it is changed there.
+            To edit or remove it, mark the payment unpaid first.
+          </p>
+          <Link
+            href={expense.vendorId ? `/vendors/${expense.vendorId}` : "/money/payments"}
+            className="mt-3 inline-block font-semibold text-bronze hover:underline"
+          >
+            Go to the payment
+          </Link>
+        </section>
+      ) : (
+        <div className="flex flex-col gap-6">
+          <ExpenseForm
+            expenseId={expense.id}
+            initial={{
+              title: expense.title,
+              amount: toRupeeInput(expense.amount),
+              date: toIstYmd(expense.date),
+              category: expense.category,
+              paidBy: expense.paidBy,
+              eventId: events.some((e) => e.id === expense.eventId) ? (expense.eventId ?? "") : "",
+              vendorId: vendors.some((v) => v.vendor.id === expense.vendorId)
+                ? (expense.vendorId ?? "")
+                : "",
+              notes: expense.notes ?? "",
+              splitMode: byAmount ? "amount" : "percentage",
+              shareBride: share("bride_family"),
+              shareGroom: share("groom_family"),
+              shareCouple: share("couple"),
+            }}
+            events={events.map((e) => ({ id: e.id, name: e.name }))}
+            vendors={vendors.map((v) => ({ id: v.vendor.id, name: v.vendor.name }))}
+            splitDefaults={
+              (wedding?.splitDefaults ?? {}) as Partial<Record<ExpenseCategory, SplitDefault>>
+            }
+          />
+          <DeleteExpenseButton expenseId={expense.id} />
+        </div>
+      )}
     </main>
   );
 }

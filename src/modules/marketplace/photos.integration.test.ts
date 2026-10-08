@@ -42,7 +42,7 @@ describe.skipIf(!enabled)("listing photos against MongoDB", () => {
     return { accountId: profile.id, listingId: listing?.id };
   };
   const add = async (accountId: string, bytes = JPEG) => {
-    const [slot] = await photos.requestListingPhotoSlots(accountId, 1);
+    const [slot] = await photos.requestListingPhotoSlots(accountId, [100]);
     const listing = await mkt.getMyListing(accountId);
     await storage.localWrite(storage.listingPhotoKey(listing!.id, slot!.photoId), bytes);
     await photos.confirmListingPhoto(accountId, slot!.photoId);
@@ -107,7 +107,7 @@ describe.skipIf(!enabled)("listing photos against MongoDB", () => {
 
   it("needs a saved listing first", async () => {
     const v = await vendor("nolisting", false);
-    await expect(photos.requestListingPhotoSlots(v.accountId, 1)).rejects.toMatchObject({
+    await expect(photos.requestListingPhotoSlots(v.accountId, [100])).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
   });
@@ -125,7 +125,7 @@ describe.skipIf(!enabled)("listing photos against MongoDB", () => {
 
   it("refuses a file that is not a JPEG, or that never arrived, and leaves nothing behind", async () => {
     const v = await vendor("bad");
-    const [slot] = await photos.requestListingPhotoSlots(v.accountId, 1);
+    const [slot] = await photos.requestListingPhotoSlots(v.accountId, [100]);
     const listing = await mkt.getMyListing(v.accountId);
     const key = storage.listingPhotoKey(listing!.id, slot!.photoId);
     await expect(photos.confirmListingPhoto(v.accountId, slot!.photoId)).rejects.toMatchObject({
@@ -144,14 +144,14 @@ describe.skipIf(!enabled)("listing photos against MongoDB", () => {
     const ids: string[] = [];
     const listing = await mkt.getMyListing(v.accountId);
     for (let i = 0; i < 20; i += 5) {
-      const slots = await photos.requestListingPhotoSlots(v.accountId, 5);
+      const slots = await photos.requestListingPhotoSlots(v.accountId, Array(5).fill(100));
       for (const s of slots)
         await storage.localWrite(storage.listingPhotoKey(listing!.id, s.photoId), JPEG);
       await Promise.all(slots.map((s) => photos.confirmListingPhoto(v.accountId, s.photoId)));
       ids.push(...slots.map((s) => s.photoId));
     }
     expect(await keys(v.accountId)).toHaveLength(20);
-    await expect(photos.requestListingPhotoSlots(v.accountId, 1)).rejects.toMatchObject({
+    await expect(photos.requestListingPhotoSlots(v.accountId, [100])).rejects.toMatchObject({
       code: "VALIDATION_FAILED",
     });
     // A late 21st that slipped past the slot check is refused at confirm and its file removed.
@@ -168,7 +168,9 @@ describe.skipIf(!enabled)("listing photos against MongoDB", () => {
   it("slots are trimmed to the room left", async () => {
     const v = await vendor("room");
     await add(v.accountId);
-    expect(await photos.requestListingPhotoSlots(v.accountId, 20)).toHaveLength(19);
+    expect(await photos.requestListingPhotoSlots(v.accountId, Array(20).fill(100))).toHaveLength(
+      19,
+    );
   });
 
   it("removing deletes the file, can be repeated, and does not send a live listing back for review", async () => {

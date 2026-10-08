@@ -77,8 +77,8 @@ export async function requestListingPhotoSlotsAction(input: unknown) {
       limit: 60,
       windowSeconds: 15 * 60,
     });
-    const { count } = photoSlotsSchema.parse(input);
-    return requestListingPhotoSlots(ctx.vendorAccountId, count);
+    const { sizes } = photoSlotsSchema.parse(input);
+    return requestListingPhotoSlots(ctx.vendorAccountId, sizes);
   });
 }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { localRead, localWrite, verifyLocalSignature } from "@/lib/storage";
+import { localPutBinding, localRead, localWrite, verifyLocalSignature } from "@/lib/storage";
 
 // Development stand-in for R2: serves and accepts the files behind the signed local addresses. It
 // does not exist in production, and every request needs a genuine, unexpired signature.
@@ -17,13 +17,23 @@ export async function PUT(request: Request, { params }: Ctx) {
   const key = (await params).key.join("/");
   const q = new URL(request.url).searchParams;
   const type = q.get("t") ?? "";
+  const size = Number(q.get("n"));
   if (
-    !verifyLocalSignature("PUT", key, Number(q.get("e")), type, q.get("s") ?? "") ||
+    !Number.isInteger(size) ||
+    !verifyLocalSignature(
+      "PUT",
+      key,
+      Number(q.get("e")),
+      localPutBinding(type, size),
+      q.get("s") ?? "",
+    ) ||
     request.headers.get("content-type") !== type
   )
     return new NextResponse(null, { status: 403 });
+  // The address was signed for exactly this many bytes, as the real storage enforces.
+  if (size > MAX_BYTES) return new NextResponse(null, { status: 413 });
   const bytes = new Uint8Array(await request.arrayBuffer());
-  if (bytes.length > MAX_BYTES) return new NextResponse(null, { status: 413 });
+  if (bytes.length !== size) return new NextResponse(null, { status: 400 });
   await localWrite(key, bytes);
   return new NextResponse(null, { status: 200 });
 }

@@ -57,6 +57,8 @@ import {
 
 // A slot handed out but never confirmed stops holding quota after this long.
 const SLOT_HOLD_MS = 24 * 60 * 60 * 1000;
+// Guests (anyone with the gallery link) may fill storage only up to this share of the quota.
+export const GUEST_QUOTA_SHARE = 0.8;
 const slotCutoff = () => new Date(Date.now() - SLOT_HOLD_MS);
 
 const keysOf = (doc: Pick<PhotoDoc, "originalKey" | "displayKey" | "thumbKey">) =>
@@ -110,6 +112,11 @@ async function removeAbandonedSlots(weddingId: string): Promise<void> {
   await deleteObjects(docs.flatMap(keysOf)).catch(() => undefined);
 }
 
+// Until a photo is confirmed, `sizeBytes` holds the total reserved for all of its files; the
+// original is what is left after the copies.
+const originalBytesOf = (doc: PhotoDoc) =>
+  doc.sizeBytes - (doc.displayBytes ?? 0) - (doc.thumbBytes ?? 0);
+
 async function slotFor(doc: PhotoDoc): Promise<UploadSlot> {
   const photoId = doc._id.toHexString();
   if (doc.status !== "uploading") {
@@ -125,12 +132,12 @@ async function slotFor(doc: PhotoDoc): Promise<UploadSlot> {
     photoId,
     state: "upload",
     contentType: doc.contentType,
-    originalUrl: await signUpload(doc.originalKey, doc.contentType),
-    ...(doc.claimedDisplay && doc.displayKey
-      ? { displayUrl: await signUpload(doc.displayKey, "image/jpeg") }
+    originalUrl: await signUpload(doc.originalKey, doc.contentType, originalBytesOf(doc)),
+    ...(doc.claimedDisplay && doc.displayKey && doc.displayBytes
+      ? { displayUrl: await signUpload(doc.displayKey, "image/jpeg", doc.displayBytes) }
       : {}),
-    ...(doc.claimedThumb && doc.thumbKey
-      ? { thumbUrl: await signUpload(doc.thumbKey, "image/jpeg") }
+    ...(doc.claimedThumb && doc.thumbKey && doc.thumbBytes
+      ? { thumbUrl: await signUpload(doc.thumbKey, "image/jpeg", doc.thumbBytes) }
       : {}),
   };
 }
@@ -156,10 +163,13 @@ export async function requestUploads(
     ).map((d) => [d.uploadKey, d]),
   );
   const fresh = input.files.filter((f) => !known.has(uploadKeyOf(f.clientKey)));
-  const needed = fresh.reduce((sum, f) => sum + f.size, 0);
+  const needed = fresh.reduce((sum, f) => sum + reservedBytes(f), 0);
   if (needed > 0) {
     const { usedBytes: used, quotaBytes } = await getUsage(weddingId);
-    if (used + needed > quotaBytes) {
+    // Anyone holding the gallery link can send photos, so guests may never use the last fifth of
+    // the storage: the couple can always still add their own, and clear out what guests sent.
+    const ceiling = uploader.type === "guest" ? quotaBytes * GUEST_QUOTA_SHARE : quotaBytes;
+    if (used + needed > ceiling) {
       throw new AppError(
         "STORAGE_FULL",
         "This wedding's photo storage is full. Free some space and try again.",
@@ -183,9 +193,11 @@ export async function requestUploads(
         thumbKey: photoKey(weddingId, photoId, "thumb"),
         claimedDisplay: file.hasDisplay,
         claimedThumb: file.hasThumb,
+        ...(file.hasDisplay && file.displaySize ? { displayBytes: file.displaySize } : {}),
+        ...(file.hasThumb && file.thumbSize ? { thumbBytes: file.thumbSize } : {}),
         fileName: safeFileName(file.name, file.type),
         contentType: file.type,
-        sizeBytes: file.size,
+        sizeBytes: reservedBytes(file),
         uploaderType: uploader.type,
         ...(uploader.type === "member"
           ? { uploaderMemberId: new ObjectId(uploader.memberId) }
@@ -207,6 +219,11 @@ export async function requestUploads(
   }
   return slots;
 }
+
+// What one file will take in storage: the original plus the copies it says it will send. The
+// upload addresses are signed for exactly these sizes, so this is a real ceiling.
+const reservedBytes = (f: UploadFile) =>
+  f.size + (f.hasDisplay ? (f.displaySize ?? 0) : 0) + (f.hasThumb ? (f.thumbSize ?? 0) : 0);
 
 // The stored idempotency key for a device-chosen one.
 const uploadKeyOf = (clientKey: string) => `u:${clientKey}`;

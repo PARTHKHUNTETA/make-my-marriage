@@ -45,7 +45,7 @@ export function CoverImageField({
       const blob = await makeCoverBlob(file);
       if (!blob)
         throw new Error("We couldn't read that picture. Choose a JPEG, PNG or WebP photo.");
-      const slot = await requestCoverUploadAction({ target });
+      const slot = await requestCoverUploadAction({ target, size: blob.size });
       if (!slot.ok) throw new Error(slot.error.message);
       await putBlob(slot.data.uploadUrl, blob, "image/jpeg");
       const saved = await confirmCoverAction({ target, coverId: slot.data.coverId });

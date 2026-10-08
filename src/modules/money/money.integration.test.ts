@@ -56,6 +56,22 @@ describe.skipIf(!enabled)("expenses and budgets against MongoDB", () => {
     expect(raw).not.toHaveProperty("eventId");
   });
 
+  it("an expense made by a vendor payment cannot be edited or deleted, only through the payment", async () => {
+    const e = await money.createExpense(A, expense({ title: "Vendor payment" }));
+    await db
+      .collection("expenses")
+      .updateOne({ _id: new ObjectId(e.id) }, { $set: { installmentId: new ObjectId() } });
+    await expect(money.updateExpense(A, e.id, expense({ amount: "1" }))).rejects.toMatchObject({
+      code: "VALIDATION_FAILED",
+    });
+    await expect(money.deleteExpense(A, e.id)).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
+    expect((await money.getExpense(A, e.id))?.amount).toBe(5_000_000);
+    // one that does not exist is still just "not found"
+    await expect(money.deleteExpense(A, new ObjectId().toHexString())).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
   it("one wedding never sees or changes another wedding's expenses", async () => {
     const e = await money.createExpense(A, expense({ title: "Only in A" }));
     expect((await money.listExpenses(B, { page: 1 })).total).toBe(0);

@@ -32,11 +32,13 @@ A running log of what has been built in Make My Marriage, newest at the bottom o
 | 2026-10-07 | Discover vendors | Google Places search at `/vendors/discover`. Needs `GOOGLE_PLACES_API_KEY`; untested against Google itself. |
 | 2026-10-07 | Delete wedding | Admin-only, type the title to confirm; hidden at once, erased for good 7 days later by the daily cron. |
 | 2026-10-08 | Security hardening round 2 | Sign-out revokes the session on the server; per-IP+email login lockout that clears on success; trusted client-IP headers; separate key for dev storage URLs; scoped updates check field names, not text; sign-out errors shown; homepage CTAs go to sign-up. |
+| 2026-10-08 | Review of money, photos, marketplace | Expenses created by a vendor payment are locked to that payment; guests can fill at most 80% of photo storage. Open findings are listed under Not done yet. |
 
 ## Not done yet
 
 - Monitoring and deployment: Vercel, Atlas Mumbai, domain, CI workflow, Playwright, product analytics.
 - Small items: dashboard Vendors "Coming soon" card, budget alert when an installment is paid, notify members when a quote is accepted.
+- Review findings still open: marketplace review integrity (a fake couple account plus a cooperating vendor can post a review, so add a vendor-confirmed "completed" step); deleting photos can leave files behind in storage if the storage call fails after the database rows are gone; staff review notes travel with listing data to couples' pages (not displayed).
 - Testing on real phones and tablets; mobile check of the vendor portal and staff screens.
 - Code has not been pushed to GitHub yet.
 

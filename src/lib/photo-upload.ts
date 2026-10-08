@@ -124,6 +124,8 @@ export type SlotRequest = {
   size: number;
   hasDisplay: boolean;
   hasThumb: boolean;
+  displaySize?: number;
+  thumbSize?: number;
 };
 
 export type FileOutcome = { name: string; ok: boolean; error?: string };
@@ -206,6 +208,8 @@ export async function uploadPhotos(
               size: p.file.size,
               hasDisplay: Boolean(p.copies.display),
               hasThumb: Boolean(p.copies.thumb),
+              ...(p.copies.display ? { displaySize: p.copies.display.size } : {}),
+              ...(p.copies.thumb ? { thumbSize: p.copies.thumb.size } : {}),
             })),
           ),
         wait,
