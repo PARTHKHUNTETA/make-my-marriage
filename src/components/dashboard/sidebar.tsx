@@ -79,7 +79,7 @@ export function SidebarContent({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const { signOut, pending } = useSignOut();
+  const { signOut, pending, error } = useSignOut();
 
   return (
     <div className="flex min-h-full flex-col justify-between">
@@ -157,6 +157,11 @@ export function SidebarContent({
           <LogOut className="size-4" aria-hidden />
           Sign out
         </button>
+        {error ? (
+          <p role="alert" className="mt-2 text-xs text-destructive">
+            {error}
+          </p>
+        ) : null}
       </div>
       <SigningOutOverlay show={pending} />
     </div>

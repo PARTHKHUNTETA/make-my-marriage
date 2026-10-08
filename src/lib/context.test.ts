@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const readSession = vi.hoisted(() => vi.fn());
 const getMembership = vi.hoisted(() => vi.fn());
 const getAuthState = vi.hoisted(() => vi.fn());
+const isSessionRevoked = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/revoked-sessions", () => ({ isSessionRevoked }));
 vi.mock("@/lib/session", () => ({ readSession }));
 vi.mock("@/modules/members/service", () => ({ getMembership, getAuthState }));
 
@@ -12,6 +14,7 @@ const NOW = Math.floor(Date.now() / 1000);
 
 beforeEach(() => {
   readSession.mockReset();
+  isSessionRevoked.mockReset().mockResolvedValue(false);
   getMembership.mockReset().mockResolvedValue(null);
   getAuthState.mockReset().mockResolvedValue({ emailVerified: true });
 });
@@ -84,5 +87,15 @@ describe("resolveContext after a password reset", () => {
   it("is unaffected when the password was never reset", async () => {
     readSession.mockResolvedValue({ userId: "u1", issuedAt: NOW - 86400 * 20 });
     expect((await resolveContext()).kind).toBe("user");
+  });
+});
+
+describe("resolveContext after sign-out", () => {
+  it("is anonymous for a session that was signed out, even though the cookie is still valid", async () => {
+    readSession.mockResolvedValue({ userId: "u1", issuedAt: NOW, id: "j1" });
+    getMembership.mockResolvedValue({ weddingId: "w1", role: "admin" });
+    isSessionRevoked.mockResolvedValue(true);
+    expect(await resolveContext()).toEqual({ kind: "anonymous" });
+    expect(isSessionRevoked).toHaveBeenCalledWith("j1");
   });
 });

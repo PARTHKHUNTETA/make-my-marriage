@@ -14,13 +14,13 @@ export function Header() {
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-canvas/90 backdrop-blur-md">
       <div className={`${containerClass} flex h-16 items-center justify-between`}>
-        <a href="#top" aria-label="Make My Marriage, home">
+        <a href="#top" aria-label="Make My Marriage, home" className="shrink-0">
           <Image
             src="/images/logo.png"
             alt="Make My Marriage"
             width={320}
             height={64}
-            className="h-8 w-auto"
+            className="h-7 w-auto sm:h-8"
             priority
           />
         </a>
@@ -31,18 +31,19 @@ export function Header() {
             </a>
           ))}
         </nav>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 sm:gap-3">
           <Link
             href="/login"
-            className="inline-flex h-9 items-center rounded-xl px-3 text-sm font-semibold text-plum transition-colors hover:bg-rose-100"
+            className="inline-flex h-9 items-center rounded-xl px-3 text-sm font-semibold whitespace-nowrap text-plum transition-colors hover:bg-rose-100"
           >
             Sign in
           </Link>
           <a
             href={START_HREF}
-            className="inline-flex h-9 items-center rounded-xl bg-plum px-4 text-sm font-semibold text-white transition-colors hover:bg-plum-hover"
+            className="inline-flex h-9 items-center rounded-xl bg-plum px-3 text-sm font-semibold whitespace-nowrap text-white transition-colors hover:bg-plum-hover sm:px-4"
           >
-            Start planning free
+            <span className="sm:hidden">Get started</span>
+            <span className="hidden sm:inline">Start planning free</span>
           </a>
         </div>
       </div>

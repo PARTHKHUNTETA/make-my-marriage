@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { jwtVerify, SignJWT } from "jose";
 import { getAuthEnv } from "@/lib/env";
+import { revokeSession } from "@/lib/revoked-sessions";
 
 // Signed, HTTP-only cookie session (system-design §7). The token carries only the user id;
 // the wedding and role are looked up per request, so removing a member takes effect at once.
@@ -18,7 +19,8 @@ const REMEMBERED_SECONDS = 30 * 24 * 60 * 60; // "Remember this device for 30 da
 const SESSION_ONLY_SECONDS = 24 * 60 * 60; // otherwise: cookie dies with the browser, token in a day
 
 // `issuedAt` is in seconds; sessions older than a password reset are rejected (see context.ts).
-export type SessionPayload = { userId: string; issuedAt: number };
+// `id` names this one token, so signing out can end exactly this session and no other.
+export type SessionPayload = { userId: string; issuedAt: number; id?: string; expiresAt?: Date };
 
 function secretKey(): Uint8Array {
   return new TextEncoder().encode(getAuthEnv().SESSION_SECRET);
@@ -53,7 +55,12 @@ export async function verifySessionToken(
       audience,
     });
     return payload.sub && typeof payload.iat === "number"
-      ? { userId: payload.sub, issuedAt: payload.iat }
+      ? {
+          userId: payload.sub,
+          issuedAt: payload.iat,
+          id: payload.jti,
+          expiresAt: typeof payload.exp === "number" ? new Date(payload.exp * 1000) : undefined,
+        }
       : null;
   } catch {
     return null;
@@ -77,9 +84,21 @@ export async function readSession(): Promise<SessionPayload | null> {
   return token ? verifySessionToken(token) : null;
 }
 
-export async function clearSession(): Promise<void> {
-  (await cookies()).delete(SESSION_COOKIE);
+// Ends the session for good: the token is revoked on the server, then the cookie is removed. The
+// cookie goes even if revoking fails, and the failure is still reported, so the person is never
+// left looking signed in after pressing Sign out.
+async function endSession(cookie: string, audience: Audience): Promise<void> {
+  const jar = await cookies();
+  const token = jar.get(cookie)?.value;
+  try {
+    const session = token ? await verifySessionToken(token, audience) : null;
+    if (session?.id && session.expiresAt) await revokeSession(session.id, session.expiresAt);
+  } finally {
+    jar.delete(cookie);
+  }
 }
+
+export const clearSession = () => endSession(SESSION_COOKIE, "member");
 
 export async function setVendorSession(vendorAccountId: string, remember: boolean): Promise<void> {
   const token = await signSessionToken(vendorAccountId, remember, "vendor");
@@ -98,6 +117,4 @@ export async function readVendorSession(): Promise<SessionPayload | null> {
   return token ? verifySessionToken(token, "vendor") : null;
 }
 
-export async function clearVendorSession(): Promise<void> {
-  (await cookies()).delete(VENDOR_SESSION_COOKIE);
-}
+export const clearVendorSession = () => endSession(VENDOR_SESSION_COOKIE, "vendor");

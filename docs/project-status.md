@@ -31,6 +31,7 @@ A running log of what has been built in Make My Marriage, newest at the bottom o
 | 2026-10-07 | Search and Quick Action | ⌘K search across the wedding plus page shortcuts; top-bar quick actions. |
 | 2026-10-07 | Discover vendors | Google Places search at `/vendors/discover`. Needs `GOOGLE_PLACES_API_KEY`; untested against Google itself. |
 | 2026-10-07 | Delete wedding | Admin-only, type the title to confirm; hidden at once, erased for good 7 days later by the daily cron. |
+| 2026-10-08 | Security hardening round 2 | Sign-out revokes the session on the server; per-IP+email login lockout that clears on success; trusted client-IP headers; separate key for dev storage URLs; scoped updates check field names, not text; sign-out errors shown; homepage CTAs go to sign-up. |
 
 ## Not done yet
 
@@ -41,6 +42,7 @@ A running log of what has been built in Make My Marriage, newest at the bottom o
 
 ## Before launch
 
+- Email queue needs a scheduler: on Vercel Hobby, a cron-job.org job calling `/api/cron/send-email` every minute with `Authorization: Bearer <CRON_SECRET>` (or Pro with a per-minute cron). Without it a failed first send is retried only by the daily job.
 - Set `STAFF_EMAILS`, secrets of at least 32 characters, the four `R2_*` variables with a CORS rule, `SUPPORT_EMAIL`, `GOOGLE_PLACES_API_KEY`.
 - Verify an email domain with Resend and set `EMAIL_FROM` (until then email reaches only the account owner).
 - Have a lawyer review the Privacy and Terms text.

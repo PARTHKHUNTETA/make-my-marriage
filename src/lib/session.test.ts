@@ -130,3 +130,16 @@ describe("vendor sessions are a separate space", () => {
     expect(s.VENDOR_SESSION_COOKIE).not.toBe(s.SESSION_COOKIE);
   });
 });
+
+describe("session ids", () => {
+  it("carries a per-token id and expiry, different for every login", async () => {
+    const s = await load();
+    const a = await s.verifySessionToken(await s.signSessionToken("u1", true));
+    const b = await s.verifySessionToken(await s.signSessionToken("u1", true));
+    expect(a?.id).toBeTruthy();
+    expect(a?.id).not.toBe(b?.id);
+    const days = (a!.expiresAt!.getTime() - Date.now()) / 86_400_000;
+    expect(days).toBeGreaterThan(29);
+    expect(days).toBeLessThan(31);
+  });
+});

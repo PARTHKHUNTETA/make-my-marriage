@@ -111,10 +111,17 @@ describe("scoped: updates", () => {
     ["$unset", { $unset: { weddingId: "" } }],
     ["a nested path", { $set: { "x.weddingId": 1 } }],
     ["a pipeline", [{ $set: { weddingId: OTHER } }]],
+    ["a rename", { $rename: { title: "weddingId" } }],
   ])("refuses to rewrite weddingId via %s", async (_label, update) => {
     const { col, s } = open();
     expect(() => s.updateOne({}, update as never)).toThrow(/weddingId/);
     expect(col.updateOne).not.toHaveBeenCalled();
+  });
+
+  it("lets text that merely contains the word weddingId through", async () => {
+    const { col, s } = open();
+    await s.updateOne({}, { $set: { notes: "my weddingId is 5", "tags.0": "weddingId" } });
+    expect(col.updateOne).toHaveBeenCalled();
   });
 
   it("makes an upsert create the document in this wedding", async () => {

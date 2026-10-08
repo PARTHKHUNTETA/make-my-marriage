@@ -85,10 +85,22 @@ describe("subjectKey", () => {
 });
 
 describe("clientIp", () => {
-  it("uses the first forwarded address, then x-real-ip, then 'unknown'", async () => {
+  it("trusts x-real-ip, then the last forwarded address, never the first, then 'unknown'", async () => {
     const { clientIp } = await load();
-    expect(clientIp(new Headers({ "x-forwarded-for": "1.2.3.4, 10.0.0.1" }))).toBe("1.2.3.4");
-    expect(clientIp(new Headers({ "x-real-ip": "5.6.7.8" }))).toBe("5.6.7.8");
+    expect(clientIp(new Headers({ "x-real-ip": "5.6.7.8", "x-forwarded-for": "9.9.9.9" }))).toBe(
+      "5.6.7.8",
+    );
+    // the first entry is whatever the client claimed
+    expect(clientIp(new Headers({ "x-forwarded-for": "6.6.6.6, 1.2.3.4" }))).toBe("1.2.3.4");
     expect(clientIp(new Headers())).toBe("unknown");
+  });
+
+  it("on Vercel uses the platform's own header", async () => {
+    vi.stubEnv("VERCEL", "1");
+    const { clientIp } = await load();
+    expect(
+      clientIp(new Headers({ "x-vercel-forwarded-for": "4.4.4.4", "x-forwarded-for": "6.6.6.6" })),
+    ).toBe("4.4.4.4");
+    vi.unstubAllEnvs();
   });
 });

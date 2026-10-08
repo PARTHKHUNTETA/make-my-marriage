@@ -40,6 +40,8 @@ export type DeliverFn = (job: EmailJobDoc) => Promise<void>;
 
 export const MAX_ATTEMPTS = 5;
 // Wait before the next attempt, indexed by how many have been made (1 minute, then 5, 15, 60).
+// A retry only happens when the queue is next drained (every minute by the scheduler described in
+// api/cron/send-email, otherwise by the daily job), so these are the earliest times, not guarantees.
 export const BACKOFF_MINUTES = [1, 5, 15, 60];
 // A row stuck in "sending" this long belonged to a worker that died; it becomes claimable again.
 export const STALE_SENDING_MS = 5 * 60_000;

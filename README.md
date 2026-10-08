@@ -384,3 +384,9 @@ guest data is processed in India, not only stored there. In the Vercel project:
 
 - **Discover vendors** (`/vendors/discover`) searches Google Places for businesses in the wedding's city. Set `GOOGLE_PLACES_API_KEY` (Places API (New), restricted to that API). The search runs on the server only, results are never stored (Google's terms), each wedding gets 30 searches a day, and "Powered by Google" is shown. Without a key the page says search is not set up. "Add to My vendors" opens the Add vendor form filled in.
 - **Delete wedding** (Settings, admins only; type the wedding's title to confirm). The wedding is hidden at once: the website, guest links, gallery link and team access stop working and every member and invite is removed. The daily cron then erases it for good after 7 days: every wedding-scoped collection, photo and cover files, bookings and reviews it sent, and queued emails. Accounts are kept, so people can start a new wedding. Until the sweep runs, support can still recover the data.
+
+## Sessions and sign-in limits
+
+- **Sign out ends the session on the server.** The token's id goes into `revokedSessions` (TTL-cleared when the token would have expired), and every request checks it, so a copied cookie stops working. A password reset still ends all sessions.
+- **Login limits:** 30 per IP, 10 per email from one IP (cleared by a successful login), 60 per email overall, each per 15 minutes. The client IP comes from `x-vercel-forwarded-for` on Vercel, otherwise `x-real-ip` or the last `x-forwarded-for` entry, never the client-supplied first one.
+- **Known and accepted:** sign-up says when an email is already registered (needed because it signs you in at once), and the CSP still allows inline scripts, since nonces would make every page dynamic and end static caching of wedding sites.

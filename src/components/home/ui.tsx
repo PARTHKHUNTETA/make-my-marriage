@@ -1,9 +1,9 @@
 import { Check } from "lucide-react";
 
-// Every "start" call to action on the homepage goes to the sign-in screen. New visitors reach
-// sign-up from there ("New here? Create your wedding workspace"); signed-in visitors are sent
-// straight on to their dashboard by the sign-in page itself.
-export const START_HREF = "/login";
+// Every "start" call to action on the homepage goes to sign-up. Signed-in visitors are sent
+// straight on to their dashboard by the sign-up page itself, and people who already have an account
+// use the separate "Sign in" link.
+export const START_HREF = "/signup";
 
 export const containerClass = "mx-auto w-full max-w-[1280px] px-4 sm:px-6";
 

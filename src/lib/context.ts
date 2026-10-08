@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import type { PaletteId } from "@/lib/palettes";
+import { isSessionRevoked } from "@/lib/revoked-sessions";
 import { readSession, readVendorSession } from "@/lib/session";
 import { getVendorAuthState } from "@/modules/marketplace/service";
 import { getAuthState, getMembership } from "@/modules/members/service";
@@ -39,12 +40,13 @@ export type GuestContext = Extract<Context, { kind: "guest" }>;
 export const resolveContext = cache(async (): Promise<Context> => {
   const session = await readSession();
   if (!session) return { kind: "anonymous" };
-  const [auth, membership] = await Promise.all([
+  const [auth, membership, revoked] = await Promise.all([
     getAuthState(session.userId),
     getMembership(session.userId),
+    isSessionRevoked(session.id),
   ]);
-  // The account was deleted, or its password was reset after this session began.
-  if (!auth) return { kind: "anonymous" };
+  // The account was deleted, this session was signed out, or the password was reset since.
+  if (!auth || revoked) return { kind: "anonymous" };
   if (
     auth.sessionsValidAfter &&
     session.issuedAt < Math.floor(auth.sessionsValidAfter.getTime() / 1000)
@@ -61,9 +63,12 @@ export const resolveContext = cache(async (): Promise<Context> => {
 export const resolveVendorContext = cache(async (): Promise<VendorContext | null> => {
   const session = await readVendorSession();
   if (!session) return null;
-  const state = await getVendorAuthState(session.userId);
-  // The account was deleted, or its password was reset after this session began.
-  if (!state) return null;
+  const [state, revoked] = await Promise.all([
+    getVendorAuthState(session.userId),
+    isSessionRevoked(session.id),
+  ]);
+  // The account was deleted, this session was signed out, or the password was reset since.
+  if (!state || revoked) return null;
   if (
     state.sessionsValidAfter &&
     session.issuedAt < Math.floor(state.sessionsValidAfter.getTime() / 1000)

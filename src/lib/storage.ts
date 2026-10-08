@@ -91,7 +91,12 @@ function localPath(key: string): string {
 }
 
 function sign(method: "PUT" | "GET", key: string, expires: number, extra: string): string {
-  return createHmac("sha256", getAuthEnv().SESSION_SECRET)
+  // Its own key, derived from the secret, so a signed storage address and a session token can
+  // never be mistaken for one another.
+  const secret = createHmac("sha256", getAuthEnv().SESSION_SECRET)
+    .update("storage-url-v1")
+    .digest();
+  return createHmac("sha256", secret)
     .update(`${method}\n${key}\n${expires}\n${extra}`)
     .digest("hex");
 }

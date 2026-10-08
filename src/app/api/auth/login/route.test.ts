@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/lib/errors";
 
 const consumeRateLimit = vi.hoisted(() => vi.fn());
+const resetRateLimit = vi.hoisted(() => vi.fn());
 const setSession = vi.hoisted(() => vi.fn());
 const logIn = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/ratelimit", async (orig) => ({
   ...(await orig<typeof import("@/lib/ratelimit")>()),
   consumeRateLimit,
+  resetRateLimit,
 }));
 vi.mock("@/lib/session", () => ({ setSession }));
 vi.mock("@/modules/members/service", () => ({ logIn }));
@@ -30,6 +32,7 @@ function post(
 
 beforeEach(() => {
   consumeRateLimit.mockReset().mockResolvedValue(undefined);
+  resetRateLimit.mockReset().mockResolvedValue(undefined);
   setSession.mockReset().mockResolvedValue(undefined);
   logIn.mockReset();
 });
@@ -66,15 +69,28 @@ describe("POST /api/auth/login", () => {
     expect(setSession).not.toHaveBeenCalled();
   });
 
-  it("rate limits per IP first and per email second", async () => {
+  it("limits per IP, then per email from that IP, then per email overall", async () => {
     logIn.mockResolvedValue(user);
     await post({ email: "priya@example.com", password: "pw" });
-    expect(consumeRateLimit).toHaveBeenCalledTimes(2);
-    const [ipCall, emailCall] = consumeRateLimit.mock.calls;
+    expect(consumeRateLimit).toHaveBeenCalledTimes(3);
+    const [ipCall, pairCall, emailCall] = consumeRateLimit.mock.calls;
     expect(ipCall![1]).toMatch(/^ip:/);
+    expect(pairCall![1]).toMatch(/^ip-email:/);
+    expect(pairCall![2]).toMatchObject({ limit: 10 });
     expect(emailCall![1]).toMatch(/^email:/);
+    expect(emailCall![2]).toMatchObject({ limit: 60 });
     expect(JSON.stringify(consumeRateLimit.mock.calls)).not.toContain("priya@example.com");
     expect(JSON.stringify(consumeRateLimit.mock.calls)).not.toContain("9.9.9.9");
+  });
+
+  it("clears the person's own counter on success, and not on failure", async () => {
+    logIn.mockResolvedValue(user);
+    await post({ email: "priya@example.com", password: "pw" });
+    expect(resetRateLimit).toHaveBeenCalledWith("login", consumeRateLimit.mock.calls[1]![1]);
+    resetRateLimit.mockClear();
+    logIn.mockRejectedValue(new AppError("UNAUTHENTICATED", "Incorrect email or password."));
+    await post({ email: "priya@example.com", password: "bad" });
+    expect(resetRateLimit).not.toHaveBeenCalled();
   });
 
   it("returns 429 when limited and never checks the password", async () => {

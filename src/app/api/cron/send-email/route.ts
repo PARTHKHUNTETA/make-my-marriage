@@ -6,9 +6,11 @@ import { drainEmailQueue } from "@/lib/queue";
 
 export const dynamic = "force-dynamic";
 
-// Drains the email queue every minute (vercel.json). Claims due emails in small batches, so
+// Drains the email queue. It must be called every minute or so by something outside Vercel's free
+// plan: an external scheduler (cron-job.org) on Hobby, or a cron entry in vercel.json on Pro. Without
+// that, a failed first send is retried only when the daily job runs. Claims due emails in small batches, so
 // overlapping runs never send the same one twice; failures back off and retry (lib/queue.ts).
-// Vercel Cron calls with GET; POST is accepted for manual runs. Both need the cron secret.
+// Schedulers call with GET; POST is accepted for manual runs. Both need the cron secret.
 async function run(request: Request) {
   try {
     if (!isCronAuthorized(request)) throw new AppError("UNAUTHENTICATED", "Not authorised");

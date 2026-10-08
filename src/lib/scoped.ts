@@ -35,10 +35,29 @@ type WeddingOwned = { weddingId: ObjectId };
 // with its own scoping, when a feature genuinely needs it.
 const CROSS_COLLECTION_STAGES = ["$lookup", "$graphLookup", "$unionWith", "$merge", "$out"];
 
-function assertNoScopeWrite(update: unknown) {
-  if (JSON.stringify(update).includes("weddingId")) {
-    throw new Error("scoped(): an update may not touch weddingId");
+// Looks at the update's field NAMES, however deeply nested, never its values: a note or a guest's
+// text that happens to contain the word "weddingId" is just text.
+function mentionsWeddingId(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(mentionsWeddingId);
+  if (
+    value &&
+    typeof value === "object" &&
+    !(value instanceof Date) &&
+    !(value instanceof ObjectId)
+  ) {
+    return Object.entries(value).some(
+      ([key, inner]) =>
+        key.split(".").includes("weddingId") ||
+        // $rename names a field in its VALUE: { oldName: "weddingId" }
+        (key === "$rename" && JSON.stringify(inner).includes("weddingId")) ||
+        mentionsWeddingId(inner),
+    );
   }
+  return false;
+}
+
+function assertNoScopeWrite(update: unknown) {
+  if (mentionsWeddingId(update)) throw new Error("scoped(): an update may not touch weddingId");
 }
 
 function assertSafePipeline(pipeline: Document[]) {
