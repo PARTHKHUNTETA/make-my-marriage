@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/sidebar";
+import { SIDEBAR_COOKIE } from "@/components/dashboard/sidebar-cookie";
 import { Topbar } from "@/components/dashboard/topbar";
 import { VerifyEmailBanner } from "@/components/verify-email-banner";
 import { paletteStyle } from "@/lib/palettes";
@@ -22,17 +24,21 @@ export default async function MemberLayout({ children }: Readonly<{ children: Re
   // A membership always has a wedding (they are created together, in one transaction).
   if (!wedding) throw new Error("Wedding record is missing for a member");
 
+  // How this person left the sidebar. A cookie, so the first paint is already right.
+  const collapsed = (await cookies()).get(SIDEBAR_COOKIE)?.value === "collapsed";
+
   return (
     // This person's colour theme: variables on the shell recolour everything inside it. It is rendered
     // on the server, so the first paint is already the right colours. The default adds no style.
     <div
       id="app-shell"
       data-palette={ctx.palette}
+      data-sidebar={collapsed ? "collapsed" : "expanded"}
       style={paletteStyle(ctx.palette)}
-      className="min-h-screen bg-blush"
+      className="group/shell min-h-screen bg-blush"
     >
-      <Sidebar />
-      <div className="lg:pl-64 print:pl-0">
+      <Sidebar collapsed={collapsed} />
+      <div className="transition-[padding] duration-200 lg:pl-64 lg:group-data-[sidebar=collapsed]/shell:pl-16 print:pl-0">
         <Topbar isAdmin={ctx.role === "admin"} />
         <div className="px-6 pt-16 pb-6 print:p-0">
           {profile.emailVerified ? null : (

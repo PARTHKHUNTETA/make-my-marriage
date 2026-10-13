@@ -33,6 +33,7 @@ A running log of what has been built in Make My Marriage, newest at the bottom o
 | 2026-10-07 | Delete wedding | Admin-only, type the title to confirm; hidden at once, erased for good 7 days later by the daily cron. |
 | 2026-10-08 | Security hardening round 2 | Sign-out revokes the session on the server; per-IP+email login lockout that clears on success; trusted client-IP headers; separate key for dev storage URLs; scoped updates check field names, not text; sign-out errors shown; homepage CTAs go to sign-up. |
 | 2026-10-08 | Review of money, photos, marketplace | Expenses created by a vendor payment are locked to that payment; guests can fill at most 80% of photo storage. Open findings are listed under Not done yet. |
+| 2026-10-13 | Collapsible sidebar | Desktop sidebar collapses to an icon strip; remembered per browser in a cookie. Name/countdown and wedding cards removed from the sidebar. |
 
 ## Not done yet
 

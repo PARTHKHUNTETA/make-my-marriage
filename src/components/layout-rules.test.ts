@@ -129,3 +129,13 @@ describe("colour themes", () => {
     expect(layout).toContain('id="app-shell"');
   });
 });
+
+describe("the collapsible sidebar", () => {
+  it("the server layout reads its cookie name from a plain module, not from the client sidebar", () => {
+    const layout = readFileSync(path.join(ROOT, "app/(member)/layout.tsx"), "utf8");
+    expect(layout).toContain('from "@/components/dashboard/sidebar-cookie"');
+    expect(layout).not.toMatch(
+      /import \{[^}]*SIDEBAR_COOKIE[^}]*\} from "@\/components\/dashboard\/sidebar"/,
+    );
+  });
+});

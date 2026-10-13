@@ -15,7 +15,7 @@ const today = () =>
 
 export function Topbar({ isAdmin }: { isAdmin: boolean }) {
   return (
-    <header className="fixed top-0 right-0 left-0 z-40 flex h-16 items-center justify-between bg-blush/85 px-4 shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl sm:px-6 lg:left-64 print:hidden">
+    <header className="fixed top-0 right-0 left-0 z-40 flex h-16 items-center justify-between bg-blush/85 px-4 shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl transition-[left] duration-200 sm:px-6 lg:left-64 lg:group-data-[sidebar=collapsed]/shell:left-16 print:hidden">
       <div className="flex items-center gap-2 sm:gap-4">
         <MobileNav />
         <CommandPalette isAdmin={isAdmin} />
