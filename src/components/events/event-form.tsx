@@ -290,7 +290,7 @@ export function EventForm({
 
         <div className="flex flex-wrap items-center gap-3">
           {step === 0 ? (
-            <div className="w-full sm:w-auto sm:min-w-56">
+            <div className="w-full sm:w-auto sm:min-w-56 [&>button]:mt-0">
               <button
                 type="button"
                 onClick={() => void next()}
@@ -308,7 +308,7 @@ export function EventForm({
               >
                 Back
               </button>
-              <div className="w-full sm:w-auto sm:min-w-56">
+              <div className="w-full sm:w-auto sm:min-w-56 [&>button]:mt-0">
                 <SubmitButton pending={isSubmitting} pendingLabel="Saving...">
                   {eventId ? "Save changes" : "Add event"}
                 </SubmitButton>
@@ -317,7 +317,7 @@ export function EventForm({
           )}
           {/* An existing event can be saved from either part. */}
           {eventId && step === 0 ? (
-            <div className="w-full sm:w-auto sm:min-w-40">
+            <div className="w-full sm:w-auto sm:min-w-40 [&>button]:mt-0">
               <SubmitButton pending={isSubmitting} pendingLabel="Saving...">
                 Save changes
               </SubmitButton>
