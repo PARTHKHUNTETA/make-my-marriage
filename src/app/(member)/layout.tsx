@@ -5,7 +5,7 @@ import { Topbar } from "@/components/dashboard/topbar";
 import { VerifyEmailBanner } from "@/components/verify-email-banner";
 import { paletteStyle } from "@/lib/palettes";
 import { resolveContext } from "@/lib/context";
-import { daysToGoLabel, daysUntil, formatMonthYear } from "@/lib/dates";
+import { daysToGoLabel, daysUntil } from "@/lib/dates";
 import { getProfile } from "@/modules/members/service";
 import { getWedding } from "@/modules/wedding/service";
 
@@ -26,8 +26,6 @@ export default async function MemberLayout({ children }: Readonly<{ children: Re
   const shell = {
     user: { name: profile.name },
     wedding: {
-      couple: `${wedding.brideName} & ${wedding.groomName}`,
-      place: `${wedding.city} • ${formatMonthYear(wedding.date)}`,
       countdown: daysToGoLabel(daysUntil(wedding.date)),
     },
   };

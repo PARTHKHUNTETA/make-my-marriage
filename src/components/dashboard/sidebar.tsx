@@ -8,7 +8,6 @@ import {
   CalendarDays,
   BarChart3,
   CheckCircle2,
-  ChevronsUpDown,
   Globe,
   IndianRupee,
   Images,
@@ -55,7 +54,7 @@ const sections: { title: string; items: NavItem[] }[] = [
 ];
 
 export type SidebarUser = { name: string };
-export type SidebarWedding = { couple: string; place: string; countdown: string };
+export type SidebarWedding = { countdown: string };
 
 // The desktop sidebar: always on screen from the lg breakpoint up. Below that, the same menu opens
 // from the hamburger button in the top bar (MobileNav).
@@ -92,13 +91,6 @@ export function SidebarContent({
             height={64}
             className="h-8 w-auto"
           />
-          <div className="mt-4 flex items-center justify-between rounded-xl bg-white p-2 shadow-[0_1px_3px_rgba(35,31,32,0.04)]">
-            <div className="flex min-w-0 flex-col pr-1">
-              <span className="truncate text-sm font-semibold text-ink">{wedding.couple}</span>
-              <span className="truncate font-mono text-xs text-ink-2">{wedding.place}</span>
-            </div>
-            <ChevronsUpDown className="size-4 shrink-0 text-ink-2" />
-          </div>
         </div>
 
         <nav aria-label="Workspace" className="flex flex-col gap-1 px-2">
