@@ -9,15 +9,22 @@ import { toIstYmd } from "@/lib/dates";
 import { toRupeeInput } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
 import { listVendors } from "@/modules/vendors/service";
-import { getExpense } from "@/modules/money/service";
+import { getExpense, getReceiptUrl } from "@/modules/money/service";
 import type { ExpenseCategory, SplitDefault } from "@/modules/money/schema";
 import { getWedding } from "@/modules/wedding/service";
 
 export const metadata: Metadata = { title: "Expense — Make My Marriage" };
 
-export default async function ExpensePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ExpensePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ receipt?: string }>;
+}) {
   const ctx = await requireMember();
   const { id } = await params;
+  const { receipt } = await searchParams;
   const [expense, events, wedding, vendors] = await Promise.all([
     getExpense(ctx.weddingId, id),
     listEvents(ctx.weddingId),
@@ -25,6 +32,7 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
     listVendors(ctx.weddingId),
   ]);
   if (!expense) notFound();
+  const receiptUrl = expense.hasReceipt ? await getReceiptUrl(ctx.weddingId, id) : undefined;
 
   // Saved splits come back into the form in the same mode they were saved in.
   const byAmount = expense.splits?.some((s) => s.amount !== undefined) ?? false;
@@ -59,6 +67,14 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
         </section>
       ) : (
         <div className="flex flex-col gap-6">
+          {receipt === "failed" ? (
+            <p
+              role="alert"
+              className="rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-3 text-[13px] font-medium text-ink"
+            >
+              The expense is saved, but its photo could not be added. You can add it again below.
+            </p>
+          ) : null}
           <ExpenseForm
             expenseId={expense.id}
             initial={{
@@ -79,6 +95,7 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
             }}
             events={events.map((e) => ({ id: e.id, name: e.name }))}
             vendors={vendors.map((v) => ({ id: v.vendor.id, name: v.vendor.name }))}
+            receiptUrl={receiptUrl}
             splitDefaults={
               (wedding?.splitDefaults ?? {}) as Partial<Record<ExpenseCategory, SplitDefault>>
             }

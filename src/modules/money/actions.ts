@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
 import { requireMember } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
+import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
 import { eventExists } from "@/modules/events/service";
 import { vendorExists } from "@/modules/vendors/service";
 import { setOverallBudget, setSplitDefault } from "@/modules/wedding/service";
@@ -14,12 +15,17 @@ import {
   expenseIdSchema,
   expenseInputSchema,
   overallBudgetSchema,
+  receiptConfirmSchema,
+  receiptRequestSchema,
   splitDefaultSchema,
   type ExpenseInput,
 } from "./schema";
 import {
+  confirmReceipt,
   createExpense,
   deleteExpense,
+  removeReceipt,
+  requestReceiptUpload,
   setCategoryBudget,
   setEventBudget,
   updateExpense,
@@ -119,6 +125,39 @@ export async function saveSplitDefaultAction(input: unknown) {
     const ctx = await requireMember();
     const { category, shares } = splitDefaultSchema.parse(input);
     await setSplitDefault(ctx.weddingId, category, shares);
+    refresh();
+    return {};
+  });
+}
+
+// ---- the photo of a bill ----
+
+export async function requestReceiptUploadAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    await consumeRateLimit("receipt-slots", subjectKey("member", ctx.memberId), {
+      limit: 60,
+      windowSeconds: 15 * 60,
+    });
+    const { expenseId, size } = receiptRequestSchema.parse(input);
+    return requestReceiptUpload(ctx.weddingId, expenseId, size);
+  });
+}
+
+export async function confirmReceiptAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    const { expenseId, receiptId } = receiptConfirmSchema.parse(input);
+    await confirmReceipt(ctx.weddingId, expenseId, receiptId);
+    refresh();
+    return {};
+  });
+}
+
+export async function removeReceiptAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireMember();
+    await removeReceipt(ctx.weddingId, expenseIdSchema.parse(input).expenseId);
     refresh();
     return {};
   });

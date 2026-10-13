@@ -24,6 +24,7 @@ export type ExpenseDoc = {
   installmentId?: ObjectId;
   notes?: string;
   splits?: Split[];
+  receiptKey?: string; // a photo of the bill or receipt, in storage
   createdAt: Date;
   updatedAt: Date;
 };
@@ -266,4 +267,23 @@ export async function deleteExpenseForInstallment(
   const id = oid(installmentId);
   if (!id) return;
   await scoped(await expenses(), { weddingId }).deleteMany({ installmentId: id }, options);
+}
+
+// Sets (or, with null, clears) the receipt photo and returns the key it replaced. Null when the
+// expense does not exist in this wedding.
+export async function setReceiptKey(
+  weddingId: string,
+  id: string,
+  key: string | null,
+): Promise<{ previous?: string } | null> {
+  const _id = oid(id);
+  if (!_id) return null;
+  const before = await scoped(await expenses(), { weddingId }).findOneAndUpdate(
+    { _id },
+    key === null
+      ? { $unset: { receiptKey: "" }, $set: { updatedAt: new Date() } }
+      : { $set: { receiptKey: key, updatedAt: new Date() } },
+    { returnDocument: "before" },
+  );
+  return before ? { previous: before.receiptKey } : null;
 }

@@ -37,6 +37,8 @@ describe.skipIf(!enabled)("deleting a wedding against MongoDB", () => {
   ];
   const keyA = (name: string) => `weddings/${A}/photos/${photoA.toHexString()}/${name}`;
   const keyB = (name: string) => `weddings/${B}/photos/${photoB.toHexString()}/${name}`;
+  const billId = new ObjectId().toHexString();
+  const billA = () => `weddings/${A}/receipts/${new ObjectId(wA).toHexString()}/${billId}`;
 
   // Some collections have unique indexes on fields that would otherwise all be empty.
   const unique = () => {
@@ -82,11 +84,14 @@ describe.skipIf(!enabled)("deleting a wedding against MongoDB", () => {
           .insertOne(
             name === "photos"
               ? { weddingId: id, _id: photo, originalKey: key("original"), thumbKey: key("thumb") }
-              : { weddingId: id, ...unique() },
+              : name === "expenses" && id === wA
+                ? { weddingId: id, ...unique(), receiptKey: billA() }
+                : { weddingId: id, ...unique() },
           );
       }
       await storage.localWrite(key("original"), new Uint8Array([1, 2, 3]));
       await storage.localWrite(key("thumb"), new Uint8Array([4]));
+      if (id === wA) await storage.localWrite(billA(), new Uint8Array([9]));
     }
   });
   afterAll(async () => {
@@ -148,6 +153,7 @@ describe.skipIf(!enabled)("deleting a wedding against MongoDB", () => {
     }
     expect(await storage.localRead(keyA("original"))).toBeNull();
     expect(await storage.localRead(keyA("thumb"))).toBeNull();
+    expect(await storage.localRead(billA())).toBeNull(); // the photo of a bill goes too
     expect(await storage.localRead(keyB("original"))).not.toBeNull();
   });
 });

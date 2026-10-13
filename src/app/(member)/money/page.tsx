@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Download, Plus } from "lucide-react";
+import { Download, Paperclip, Plus } from "lucide-react";
 import { ExpenseFilters } from "@/components/money/expense-filters";
 import { MoneyHeader } from "@/components/money/money-header";
 import { requireMember } from "@/lib/authz";
@@ -156,6 +156,12 @@ export default async function MoneyPage({
                   >
                     {e.title}
                   </Link>
+                  {e.hasReceipt ? (
+                    <Paperclip
+                      className="ml-1.5 inline size-3.5 text-ink-2"
+                      aria-label="Has a photo of the bill"
+                    />
+                  ) : null}
                   <p className="text-[13px] text-ink-2">
                     {formatLongDate(e.date)} · {CATEGORY_LABELS[e.category]}
                     {e.eventId && eventNames.get(e.eventId)

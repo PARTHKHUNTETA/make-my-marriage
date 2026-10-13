@@ -7,6 +7,14 @@ const service = vi.hoisted(() => ({
   deleteExpense: vi.fn(),
   setCategoryBudget: vi.fn(),
   setEventBudget: vi.fn(),
+  requestReceiptUpload: vi.fn(),
+  confirmReceipt: vi.fn(),
+  removeReceipt: vi.fn(),
+}));
+const consumeRateLimit = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/ratelimit", () => ({
+  consumeRateLimit,
+  subjectKey: (a: string, b: string) => `${a}:${b}`,
 }));
 const eventExists = vi.hoisted(() => vi.fn());
 const wedding = vi.hoisted(() => ({ setOverallBudget: vi.fn(), setSplitDefault: vi.fn() }));
@@ -20,7 +28,10 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import {
   createExpenseAction,
+  confirmReceiptAction,
   deleteExpenseAction,
+  removeReceiptAction,
+  requestReceiptUploadAction,
   saveSplitDefaultAction,
   setCategoryBudgetAction,
   setEventBudgetAction,
@@ -39,6 +50,7 @@ const valid = {
 };
 
 beforeEach(() => {
+  consumeRateLimit.mockReset().mockResolvedValue(undefined);
   requireMember.mockReset().mockResolvedValue({ kind: "member", weddingId: "w1", memberId: "m1" });
   Object.values(service).forEach((fn) => fn.mockReset().mockResolvedValue({ id: "x1" }));
   Object.values(wedding).forEach((fn) => fn.mockReset().mockResolvedValue(undefined));
@@ -154,5 +166,37 @@ describe("every action needs a signed-in member", () => {
       expect(result).toMatchObject({ ok: false, error: { code: "UNAUTHENTICATED" } });
     expect(Object.values(service).every((fn) => fn.mock.calls.length === 0)).toBe(true);
     expect(Object.values(wedding).every((fn) => fn.mock.calls.length === 0)).toBe(true);
+  });
+});
+
+describe("photo of the bill", () => {
+  it("asks for an upload address for the signed-in wedding's own expense, with a size", async () => {
+    service.requestReceiptUpload.mockResolvedValue({ receiptId: "r1", uploadUrl: "u" });
+    const r = await requestReceiptUploadAction({ expenseId: ID, size: 1000, weddingId: "evil" });
+    expect(r).toMatchObject({ ok: true, data: { receiptId: "r1" } });
+    expect(service.requestReceiptUpload).toHaveBeenCalledWith("w1", ID, 1000);
+    expect(consumeRateLimit).toHaveBeenCalled();
+  });
+
+  it("refuses sizes that are empty, fractional or over 8 MB, and bad ids", async () => {
+    for (const bad of [
+      { expenseId: ID, size: 0 },
+      { expenseId: ID, size: 1.5 },
+      { expenseId: ID, size: 8 * 1024 * 1024 + 1 },
+      { expenseId: "nope", size: 10 },
+    ]) {
+      expect(await requestReceiptUploadAction(bad)).toMatchObject({
+        ok: false,
+        error: { code: "VALIDATION_FAILED" },
+      });
+    }
+    expect(service.requestReceiptUpload).not.toHaveBeenCalled();
+  });
+
+  it("confirms and removes only within the signed-in wedding", async () => {
+    await confirmReceiptAction({ expenseId: ID, receiptId: EV });
+    expect(service.confirmReceipt).toHaveBeenCalledWith("w1", ID, EV);
+    await removeReceiptAction({ expenseId: ID });
+    expect(service.removeReceipt).toHaveBeenCalledWith("w1", ID);
   });
 });

@@ -2,6 +2,15 @@ import type { ClientSession } from "mongodb";
 import { ObjectId } from "mongodb";
 import { istDate } from "@/lib/dates";
 import { AppError } from "@/lib/errors";
+import { sniffImageType } from "@/lib/image-types";
+import {
+  deleteObjects,
+  objectSize,
+  readStart,
+  receiptKey,
+  signUpload,
+  signView,
+} from "@/lib/storage";
 import { budgetRow, summarize, type BudgetRow, type Summary } from "./calc";
 import {
   countForEvent,
@@ -14,6 +23,7 @@ import {
   replaceExpenseFields,
   saveBudget,
   searchExpenses,
+  setReceiptKey,
   sumByVendor,
   unlinkEvent,
   unlinkVendor,
@@ -28,6 +38,7 @@ import {
   type ExpenseCategory,
   type ExpenseInput,
   type ExpenseItem,
+  MAX_RECEIPT_BYTES,
   type ExpenseQuery,
 } from "./schema";
 
@@ -57,6 +68,7 @@ function toItem(doc: ExpenseDoc): ExpenseItem {
     eventId: doc.eventId?.toHexString(),
     vendorId: doc.vendorId?.toHexString(),
     installmentId: doc.installmentId?.toHexString(),
+    hasReceipt: Boolean(doc.receiptKey),
     notes: doc.notes,
     splits: doc.splits,
   };
@@ -101,7 +113,78 @@ export async function updateExpense(
 }
 
 export async function deleteExpense(weddingId: string, expenseId: string): Promise<void> {
+  const before = await findExpense(weddingId, expenseId);
   if (!(await removeExpense(weddingId, expenseId))) throw await whyLocked(weddingId, expenseId);
+  // The photo of the bill goes with the expense.
+  if (before?.receiptKey) await deleteObjects([before.receiptKey]).catch(() => undefined);
+}
+
+// ---- the photo of a bill or receipt ----
+
+const NO_EXPENSE = new AppError("NOT_FOUND", "That expense no longer exists.");
+
+// An upload address for a new photo of this expense's bill, signed for exactly `size` bytes (the
+// browser sends one JPEG). Nothing changes until it is confirmed.
+export async function requestReceiptUpload(
+  weddingId: string,
+  expenseId: string,
+  size: number,
+): Promise<{ receiptId: string; uploadUrl: string }> {
+  if (!(await findExpense(weddingId, expenseId))) throw NO_EXPENSE;
+  const receiptId = new ObjectId().toHexString();
+  return {
+    receiptId,
+    uploadUrl: await signUpload(receiptKey(weddingId, expenseId, receiptId), "image/jpeg", size),
+  };
+}
+
+// Checks the file that arrived really is a JPEG of a sensible size, then makes it the expense's
+// photo and deletes the one it replaced. Confirming the same upload twice changes nothing.
+export async function confirmReceipt(
+  weddingId: string,
+  expenseId: string,
+  receiptId: string,
+): Promise<void> {
+  const key = receiptKey(weddingId, expenseId, receiptId);
+  if (!(await findExpense(weddingId, expenseId))) throw NO_EXPENSE;
+  const size = await objectSize(key);
+  if (size === null)
+    throw new AppError(
+      "VALIDATION_FAILED",
+      "The photo did not finish uploading. Please try again.",
+    );
+  const head = size > MAX_RECEIPT_BYTES ? null : await readStart(key, 16);
+  if (!head || sniffImageType(head) !== "image/jpeg") {
+    await deleteObjects([key]).catch(() => undefined);
+    throw new AppError(
+      "VALIDATION_FAILED",
+      size > MAX_RECEIPT_BYTES
+        ? "That photo is too large."
+        : "That file is not a photo we can use.",
+    );
+  }
+  const saved = await setReceiptKey(weddingId, expenseId, key);
+  if (!saved) {
+    await deleteObjects([key]).catch(() => undefined);
+    throw NO_EXPENSE;
+  }
+  if (saved.previous && saved.previous !== key)
+    await deleteObjects([saved.previous]).catch(() => undefined);
+}
+
+export async function removeReceipt(weddingId: string, expenseId: string): Promise<void> {
+  const saved = await setReceiptKey(weddingId, expenseId, null);
+  if (!saved) throw NO_EXPENSE;
+  if (saved.previous) await deleteObjects([saved.previous]).catch(() => undefined);
+}
+
+// A short-lived address to show the expense's photo, or undefined when it has none.
+export async function getReceiptUrl(
+  weddingId: string,
+  expenseId: string,
+): Promise<string | undefined> {
+  const doc = await findExpense(weddingId, expenseId);
+  return doc?.receiptKey ? signView(doc.receiptKey) : undefined;
 }
 
 export async function getExpense(

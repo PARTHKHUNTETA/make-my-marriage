@@ -62,12 +62,12 @@ export async function findDeletedBefore(cutoff: Date, limit: number): Promise<st
   return rows.map((r) => r._id.toHexString());
 }
 
-// Every file the wedding stored: photo versions and cover pictures.
+// Every file the wedding stored: photo versions, cover pictures and photos of bills.
 export async function listFileKeys(weddingId: string): Promise<string[]> {
   const _id = oid(weddingId);
   if (!_id) return [];
   const db = await getDb();
-  const [photos, events, wedding] = await Promise.all([
+  const [photos, events, wedding, receipts] = await Promise.all([
     db
       .collection("photos")
       .find({ weddingId: _id })
@@ -79,11 +79,17 @@ export async function listFileKeys(weddingId: string): Promise<string[]> {
       .project({ coverImageKey: 1 })
       .toArray(),
     db.collection("weddings").findOne({ _id }, { projection: { coverImageKey: 1 } }),
+    db
+      .collection("expenses")
+      .find({ weddingId: _id, receiptKey: { $exists: true } })
+      .project({ receiptKey: 1 })
+      .toArray(),
   ]);
   const keys = [
     ...photos.flatMap((p) => [p.originalKey, p.displayKey, p.thumbKey]),
     ...events.map((e) => e.coverImageKey),
     wedding?.coverImageKey,
+    ...receipts.map((r) => r.receiptKey),
   ];
   return [...new Set(keys.filter((k): k is string => typeof k === "string" && k.length > 0))];
 }

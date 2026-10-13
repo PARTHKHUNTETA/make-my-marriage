@@ -10,6 +10,7 @@ const expense = (over: Partial<ExpenseItem> = {}): ExpenseItem => ({
   date: new Date(),
   category: "catering",
   paidBy: "couple",
+  hasReceipt: false,
   ...over,
 });
 

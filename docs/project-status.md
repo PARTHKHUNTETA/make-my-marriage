@@ -35,12 +35,14 @@ A running log of what has been built in Make My Marriage, newest at the bottom o
 | 2026-10-08 | Review of money, photos, marketplace | Expenses created by a vendor payment are locked to that payment; guests can fill at most 80% of photo storage. Open findings are listed under Not done yet. |
 | 2026-10-13 | Collapsible sidebar | Desktop sidebar collapses to an icon strip; remembered per browser in a cookie. Name/countdown and wedding cards removed from the sidebar. |
 | 2026-10-13 | Events: two-part form, day-by-day list | Add/edit event is split into Event details and Time details; the events page groups by date with Today/In N days labels and an "Already happened" section. |
+| 2026-10-13 | Photo of the bill on an expense | Optional photo when adding or editing an expense; shrunk in the browser, checked on the server, shown on the expense and marked with a paperclip in the list; deleted with the expense and with the wedding. |
 
 ## Not done yet
 
 - Monitoring and deployment: Vercel, Atlas Mumbai, domain, CI workflow, Playwright, product analytics.
 - Small items: dashboard Vendors "Coming soon" card, budget alert when an installment is paid, notify members when a quote is accepted.
 - Review findings still open: marketplace review integrity (a fake couple account plus a cooperating vendor can post a review, so add a vendor-confirmed "completed" step); deleting photos can leave files behind in storage if the storage call fails after the database rows are gone; staff review notes travel with listing data to couples' pages (not displayed).
+- Bill photos are not on expenses created by marking a vendor payment paid (those are locked to the payment); photos do not count towards the photo storage quota yet.
 - Testing on real phones and tablets; mobile check of the vendor portal and staff screens.
 - Code has not been pushed to GitHub yet.
 

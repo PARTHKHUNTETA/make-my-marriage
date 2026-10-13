@@ -11,7 +11,12 @@ import { SelectField } from "@/components/auth/select-field";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import { formatRupees, parseRupees } from "@/lib/money";
-import { createExpenseAction, updateExpenseAction } from "@/modules/money/actions";
+import { ReceiptPicker, uploadReceipt } from "./receipt-picker";
+import {
+  createExpenseAction,
+  removeReceiptAction,
+  updateExpenseAction,
+} from "@/modules/money/actions";
 import {
   CATEGORY_LABELS,
   EXPENSE_CATEGORIES,
@@ -44,6 +49,7 @@ export function ExpenseForm({
   events,
   vendors,
   splitDefaults,
+  receiptUrl,
 }: {
   initial: ExpenseFormValues;
   expenseId?: string;
@@ -51,10 +57,14 @@ export function ExpenseForm({
   vendors: { id: string; name: string }[];
   // Default percentages for shared expenses, by category (set on the Splits page).
   splitDefaults: Partial<Record<ExpenseCategory, SplitDefault>>;
+  // Where the photo of the bill already kept with this expense can be seen.
+  receiptUrl?: string;
 }) {
   const router = useRouter();
   const [saved, setSaved] = React.useState(false);
   const [problem, setProblem] = React.useState<string | null>(null);
+  const [photo, setPhoto] = React.useState<File | null>(null);
+  const [removing, setRemoving] = React.useState(false);
   const {
     register,
     handleSubmit,
@@ -114,12 +124,24 @@ export function ExpenseForm({
       : await createExpenseAction(raw);
     void values;
     if (result.ok) {
+      // The expense is saved first; its photo follows. If the photo fails the expense is not lost.
+      const id = expenseId ?? (result.data as { id: string }).id;
+      let photoProblem: string | null = null;
+      if (photo) {
+        try {
+          await uploadReceipt(id, photo);
+          setPhoto(null);
+        } catch (err) {
+          photoProblem = err instanceof Error ? err.message : "The photo could not be saved.";
+        }
+      }
       if (!expenseId) {
-        router.push("/money");
+        router.push(photoProblem ? `/money/${id}?receipt=failed` : "/money");
         return;
       }
       reset(raw);
-      setSaved(true);
+      if (photoProblem) setProblem(`The expense is saved, but its photo was not. ${photoProblem}`);
+      else setSaved(true);
       router.refresh();
       return;
     }
@@ -136,6 +158,15 @@ export function ExpenseForm({
       if (shown) return;
     }
     setProblem(message);
+  }
+
+  async function removeCurrentPhoto() {
+    if (!expenseId) return;
+    setRemoving(true);
+    const r = await removeReceiptAction({ expenseId });
+    setRemoving(false);
+    if (!r.ok) return setProblem(r.error.message);
+    router.refresh();
   }
 
   return (
@@ -322,6 +353,14 @@ export function ExpenseForm({
             <FieldError id="notes-error">{errors.notes.message}</FieldError>
           ) : null}
         </div>
+
+        <ReceiptPicker
+          file={photo}
+          onFile={setPhoto}
+          currentUrl={receiptUrl}
+          onRemoveCurrent={expenseId ? removeCurrentPhoto : undefined}
+          removing={removing}
+        />
 
         <div className="w-full sm:w-auto sm:min-w-56">
           <SubmitButton pending={isSubmitting} pendingLabel="Saving...">

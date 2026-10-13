@@ -20,7 +20,7 @@ import { getAuthEnv, getStorageEnv } from "@/lib/env";
 // types ever becomes part of a key.
 
 const KEY_PATTERN =
-  /^(weddings\/[a-f0-9]{24}\/(photos\/[a-f0-9]{24}\/(original|display|thumb)|covers\/[a-f0-9]{24})|listings\/[a-f0-9]{24}\/[a-f0-9]{24})$/;
+  /^(weddings\/[a-f0-9]{24}\/(photos\/[a-f0-9]{24}\/(original|display|thumb)|covers\/[a-f0-9]{24}|receipts\/[a-f0-9]{24}\/[a-f0-9]{24})|listings\/[a-f0-9]{24}\/[a-f0-9]{24})$/;
 export const UPLOAD_URL_SECONDS = 15 * 60;
 export const VIEW_URL_SECONDS = 60 * 60;
 
@@ -40,6 +40,14 @@ export function photoKey(weddingId: string, photoId: string, variant: PhotoVaria
 // picture never shows from a stale cache.
 export function coverKey(weddingId: string, coverId: string): string {
   const key = `weddings/${weddingId}/covers/${coverId}`;
+  assertKey(key);
+  return key;
+}
+
+// The photo of a receipt or bill kept with one expense. Under the expense's id, so it is plain which
+// expense it belongs to, and every upload gets a new id so a replaced photo never shows stale.
+export function receiptKey(weddingId: string, expenseId: string, receiptId: string): string {
+  const key = `weddings/${weddingId}/receipts/${expenseId}/${receiptId}`;
   assertKey(key);
   return key;
 }

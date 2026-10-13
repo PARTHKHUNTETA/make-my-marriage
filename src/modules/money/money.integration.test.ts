@@ -72,6 +72,53 @@ describe.skipIf(!enabled)("expenses and budgets against MongoDB", () => {
     });
   });
 
+  it("keeps a photo of the bill: checked, replaceable, private to the wedding, gone with the expense", async () => {
+    const storage = await import("@/lib/storage");
+    const JPEG = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0, 0, 1]);
+    const e = await money.createExpense(A, expense({ title: "Florist bill" }));
+    const keyOf = (receiptId: string) => storage.receiptKey(A, e.id, receiptId);
+
+    // a file that is not a JPEG is refused and deleted
+    const bad = await money.requestReceiptUpload(A, e.id, 20);
+    await storage.localWrite(keyOf(bad.receiptId), new TextEncoder().encode("<html>nope</html>"));
+    await expect(money.confirmReceipt(A, e.id, bad.receiptId)).rejects.toMatchObject({
+      code: "VALIDATION_FAILED",
+    });
+    expect(await storage.localRead(keyOf(bad.receiptId))).toBeNull();
+    expect((await money.getExpense(A, e.id))?.hasReceipt).toBe(false);
+
+    // never uploaded: told to try again
+    const missing = await money.requestReceiptUpload(A, e.id, 20);
+    await expect(money.confirmReceipt(A, e.id, missing.receiptId)).rejects.toMatchObject({
+      code: "VALIDATION_FAILED",
+    });
+
+    // a real one is kept, and the link works
+    const first = await money.requestReceiptUpload(A, e.id, JPEG.length);
+    await storage.localWrite(keyOf(first.receiptId), JPEG);
+    await money.confirmReceipt(A, e.id, first.receiptId);
+    await money.confirmReceipt(A, e.id, first.receiptId); // twice is harmless
+    expect((await money.getExpense(A, e.id))?.hasReceipt).toBe(true);
+    expect(await money.getReceiptUrl(A, e.id)).toBeTruthy();
+
+    // another wedding can neither see it nor attach to this expense
+    expect(await money.getReceiptUrl(B, e.id)).toBeUndefined();
+    await expect(money.requestReceiptUpload(B, e.id, 10)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+
+    // replacing deletes the old file
+    const second = await money.requestReceiptUpload(A, e.id, JPEG.length);
+    await storage.localWrite(keyOf(second.receiptId), JPEG);
+    await money.confirmReceipt(A, e.id, second.receiptId);
+    expect(await storage.localRead(keyOf(first.receiptId))).toBeNull();
+    expect(await storage.localRead(keyOf(second.receiptId))).not.toBeNull();
+
+    // deleting the expense deletes the photo
+    await money.deleteExpense(A, e.id);
+    expect(await storage.localRead(keyOf(second.receiptId))).toBeNull();
+  });
+
   it("one wedding never sees or changes another wedding's expenses", async () => {
     const e = await money.createExpense(A, expense({ title: "Only in A" }));
     expect((await money.listExpenses(B, { page: 1 })).total).toBe(0);

@@ -287,6 +287,18 @@ export type ExpenseItem = {
   vendorId?: string;
   // Set when the expense was created by marking a payment-schedule installment paid.
   installmentId?: string;
+  // A photo of the bill is kept with it. Its address is made when the page needs it.
+  hasReceipt: boolean;
   notes?: string;
   splits?: Split[];
 };
+
+// ---- receipt photos ----
+
+export const MAX_RECEIPT_BYTES = 8 * 1024 * 1024; // the browser sends one JPEG of at most 1920 px
+
+export const receiptRequestSchema = z.object({
+  expenseId: objectId,
+  size: z.number().int().min(1).max(MAX_RECEIPT_BYTES),
+});
+export const receiptConfirmSchema = z.object({ expenseId: objectId, receiptId: objectId });
