@@ -16,7 +16,6 @@ import {
   Radio,
   SlidersHorizontal,
   Store,
-  User,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -53,30 +52,19 @@ const sections: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-export type SidebarUser = { name: string };
-export type SidebarWedding = { countdown: string };
-
 // The desktop sidebar: always on screen from the lg breakpoint up. Below that, the same menu opens
 // from the hamburger button in the top bar (MobileNav).
-export function Sidebar({ user, wedding }: { user: SidebarUser; wedding: SidebarWedding }) {
+export function Sidebar() {
   return (
     <aside className="fixed top-0 left-0 z-50 hidden h-full w-64 flex-col justify-between overflow-y-auto bg-rose-50 shadow-[0_1px_8px_rgba(0,0,0,0.04)] lg:flex print:!hidden">
-      <SidebarContent user={user} wedding={wedding} />
+      <SidebarContent />
     </aside>
   );
 }
 
 // The menu itself, shared by the sidebar and the phone drawer. `onNavigate` lets the drawer close
 // itself when a link is chosen.
-export function SidebarContent({
-  user,
-  wedding,
-  onNavigate,
-}: {
-  user: SidebarUser;
-  wedding: SidebarWedding;
-  onNavigate?: () => void;
-}) {
+export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { signOut, pending, error } = useSignOut();
 
@@ -129,17 +117,6 @@ export function SidebarContent({
       </div>
 
       <div className="p-4">
-        <div className="flex items-center justify-between rounded-xl bg-white p-2 shadow-[0_1px_3px_rgba(35,31,32,0.04)]">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-plum">
-              <User className="size-[18px] text-white" />
-            </div>
-            <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-semibold text-ink">{user.name}</span>
-              <span className="truncate font-mono text-xs text-bronze">{wedding.countdown}</span>
-            </div>
-          </div>
-        </div>
         <button
           type="button"
           onClick={signOut}

@@ -5,7 +5,6 @@ import { Topbar } from "@/components/dashboard/topbar";
 import { VerifyEmailBanner } from "@/components/verify-email-banner";
 import { paletteStyle } from "@/lib/palettes";
 import { resolveContext } from "@/lib/context";
-import { daysToGoLabel, daysUntil } from "@/lib/dates";
 import { getProfile } from "@/modules/members/service";
 import { getWedding } from "@/modules/wedding/service";
 
@@ -23,13 +22,6 @@ export default async function MemberLayout({ children }: Readonly<{ children: Re
   // A membership always has a wedding (they are created together, in one transaction).
   if (!wedding) throw new Error("Wedding record is missing for a member");
 
-  const shell = {
-    user: { name: profile.name },
-    wedding: {
-      countdown: daysToGoLabel(daysUntil(wedding.date)),
-    },
-  };
-
   return (
     // This person's colour theme: variables on the shell recolour everything inside it. It is rendered
     // on the server, so the first paint is already the right colours. The default adds no style.
@@ -39,9 +31,9 @@ export default async function MemberLayout({ children }: Readonly<{ children: Re
       style={paletteStyle(ctx.palette)}
       className="min-h-screen bg-blush"
     >
-      <Sidebar user={shell.user} wedding={shell.wedding} />
+      <Sidebar />
       <div className="lg:pl-64 print:pl-0">
-        <Topbar user={shell.user} wedding={shell.wedding} isAdmin={ctx.role === "admin"} />
+        <Topbar isAdmin={ctx.role === "admin"} />
         <div className="px-6 pt-16 pb-6 print:p-0">
           {profile.emailVerified ? null : (
             <div className="pt-4 print:hidden">

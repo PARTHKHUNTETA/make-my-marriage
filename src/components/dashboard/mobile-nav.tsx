@@ -4,12 +4,12 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { SidebarContent, type SidebarUser, type SidebarWedding } from "./sidebar";
+import { SidebarContent } from "./sidebar";
 
 // The menu on phones and tablets, where the sidebar has no room: a hamburger button in the top bar
 // that slides the same menu in from the left. It closes when a page is chosen, on Escape, or on a
 // tap outside, and while it is open the page behind does not scroll.
-export function MobileNav({ user, wedding }: { user: SidebarUser; wedding: SidebarWedding }) {
+export function MobileNav() {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
   const closeRef = React.useRef<HTMLButtonElement>(null);
@@ -74,7 +74,7 @@ export function MobileNav({ user, wedding }: { user: SidebarUser; wedding: Sideb
             >
               <X className="size-5" aria-hidden />
             </button>
-            <SidebarContent user={user} wedding={wedding} onNavigate={() => setOpen(false)} />
+            <SidebarContent onNavigate={() => setOpen(false)} />
           </div>
         </div>,
         host,
