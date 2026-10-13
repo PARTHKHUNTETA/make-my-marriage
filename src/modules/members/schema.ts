@@ -96,3 +96,5 @@ export type InviteView = {
   // Whole days left, rounded up, worked out when the page is built (so a fresh invitation says 7).
   daysLeft: number;
 };
+
+export const switchWeddingSchema = z.object({ weddingId: z.string().regex(/^[a-f0-9]{24}$/) });

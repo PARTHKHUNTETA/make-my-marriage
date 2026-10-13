@@ -24,6 +24,20 @@ export default async function MemberLayout({ children }: Readonly<{ children: Re
   // A membership always has a wedding (they are created together, in one transaction).
   if (!wedding) throw new Error("Wedding record is missing for a member");
 
+  // Someone on more than one wedding gets a switcher, with the names of each.
+  const switcher =
+    ctx.weddingIds.length > 1
+      ? {
+          currentId: ctx.weddingId,
+          weddings: await Promise.all(
+            ctx.weddingIds.map(async (id) => ({
+              id,
+              title: (await getWedding(id))?.title ?? "Wedding",
+            })),
+          ),
+        }
+      : undefined;
+
   // How this person left the sidebar. A cookie, so the first paint is already right.
   const collapsed = (await cookies()).get(SIDEBAR_COOKIE)?.value === "collapsed";
 
@@ -37,9 +51,9 @@ export default async function MemberLayout({ children }: Readonly<{ children: Re
       style={paletteStyle(ctx.palette)}
       className="group/shell min-h-screen bg-blush"
     >
-      <Sidebar collapsed={collapsed} />
+      <Sidebar collapsed={collapsed} switcher={switcher} />
       <div className="transition-[padding] duration-200 lg:pl-64 lg:group-data-[sidebar=collapsed]/shell:pl-16 print:pl-0">
-        <Topbar isAdmin={ctx.role === "admin"} />
+        <Topbar isAdmin={ctx.role === "admin"} switcher={switcher} />
         <div className="px-6 pt-16 pb-6 print:p-0">
           {profile.emailVerified ? null : (
             <div className="pt-4 print:hidden">

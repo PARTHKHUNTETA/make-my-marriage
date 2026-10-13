@@ -1,5 +1,5 @@
 import "server-only";
-import { MongoServerError, type ClientSession } from "mongodb";
+import { MongoServerError, type ClientSession, type ObjectId } from "mongodb";
 import { inTransaction } from "@/lib/db";
 import { absoluteUrl } from "@/lib/app-url";
 import { queueEmail } from "@/lib/email";
@@ -17,7 +17,7 @@ import {
   findAuthState,
   findInviteByTokenHash,
   findMembership,
-  findMembershipByUserId,
+  listMembershipsByUserId,
   findPendingInviteByEmail,
   findUsersByIds,
   findUserByEmail,
@@ -101,19 +101,46 @@ export type Membership = {
   memberId: string;
   role: MemberRole;
   palette: PaletteId;
+  // Every wedding the account belongs to, oldest first. More than one shows the wedding switcher.
+  weddingIds: string[];
 };
 
-// Which wedding (and role) an account belongs to, or null before first-time setup.
-export async function getMembership(userId: string): Promise<Membership | null> {
-  const doc = await findMembershipByUserId(userId);
-  return doc
-    ? {
-        weddingId: doc.weddingId.toHexString(),
-        memberId: doc._id.toHexString(),
-        role: doc.role,
-        palette: toPaletteId(doc.palette),
-      }
-    : null;
+const toMembership = (
+  doc: { weddingId: ObjectId; _id: ObjectId; role: MemberRole; palette?: string },
+  all: { weddingId: ObjectId }[],
+): Membership => ({
+  weddingId: doc.weddingId.toHexString(),
+  memberId: doc._id.toHexString(),
+  role: doc.role,
+  palette: toPaletteId(doc.palette),
+  weddingIds: all.map((d) => d.weddingId.toHexString()),
+});
+
+// The wedding an account is working in, or null before first-time setup. An account can belong
+// to several weddings: `preferredWeddingId` (the one they last chose) wins if they still belong
+// to it, otherwise it is the one they joined first.
+export async function getMembership(
+  userId: string,
+  preferredWeddingId?: string,
+): Promise<Membership | null> {
+  const docs = await listMembershipsByUserId(userId);
+  const chosen =
+    docs.find((d) => preferredWeddingId && d.weddingId.toHexString() === preferredWeddingId) ??
+    docs[0];
+  return chosen ? toMembership(chosen, docs) : null;
+}
+
+// Every wedding the account belongs to, with the role in each.
+export async function listMyMemberships(userId: string): Promise<Membership[]> {
+  const docs = await listMembershipsByUserId(userId);
+  return docs.map((d) => toMembership(d, docs));
+}
+
+// Whether the account belongs to this wedding. Used to check a choice of wedding.
+export async function belongsToWedding(userId: string, weddingId: string): Promise<boolean> {
+  return (await listMembershipsByUserId(userId)).some(
+    (d) => d.weddingId.toHexString() === weddingId,
+  );
 }
 
 // Whether this member belongs to this wedding (used to check who a task is assigned to).
@@ -122,7 +149,7 @@ export async function memberExists(weddingId: string, memberId: string): Promise
 }
 
 // Attaches the creator of a wedding to it as admin. Called inside the wedding-creation
-// transaction, so it takes the session. A user can belong to one wedding only (unique index).
+// transaction, so it takes the session.
 export async function addAdminMember(
   input: { userId: string; weddingId: string },
   options?: { session?: ClientSession },
@@ -131,7 +158,7 @@ export async function addAdminMember(
     await insertMembership({ ...input, role: "admin" }, options);
   } catch (err) {
     if (err instanceof MongoServerError && err.code === 11000) {
-      throw new AppError("FORBIDDEN", "You already belong to a wedding.");
+      throw new AppError("FORBIDDEN", "You are already on this wedding.");
     }
     throw err;
   }
@@ -258,9 +285,9 @@ async function sendInviteEmail(input: {
   });
 }
 
-// Invites a person to join as a Manager. An address that already belongs to a wedding cannot be
-// invited (a person belongs to exactly one). Inviting someone who already has a pending
-// invitation just renews it, so there is never more than one live link per address.
+// Invites a person to join as a Manager. Someone who belongs to other weddings can be invited too,
+// but not someone already on this one. Inviting someone who already has a pending invitation just
+// renews it, so there is never more than one live link per address.
 export async function inviteMember(input: {
   weddingId: string;
   invitedByUserId: string;
@@ -269,8 +296,8 @@ export async function inviteMember(input: {
   email: string;
 }): Promise<{ inviteId: string; renewed: boolean }> {
   const existing = await findUserByEmail(input.email);
-  if (existing && (await findMembershipByUserId(existing._id.toHexString()))) {
-    throw new AppError("EMAIL_IN_USE", "This email address already belongs to a wedding.");
+  if (existing && (await belongsToWedding(existing._id.toHexString(), input.weddingId))) {
+    throw new AppError("EMAIL_IN_USE", "This person is already on this wedding.");
   }
 
   const token = generateToken();
@@ -412,8 +439,8 @@ export async function signUpWithInvite(input: InviteSignupInput): Promise<Public
   return toPublicUser(user);
 }
 
-// Someone who already has an account (and no wedding) accepts while signed in. The invitation
-// must have been sent to their own address.
+// Someone who already has an account accepts while signed in, whether or not they have other
+// weddings. The invitation must have been sent to their own address.
 export async function acceptInvite(userId: string, token: string): Promise<{ weddingId: string }> {
   const [user, tokenHash] = [await findUserById(userId), hashToken(token)];
   const invite = await findInviteByTokenHash(tokenHash);
@@ -423,8 +450,8 @@ export async function acceptInvite(userId: string, token: string): Promise<{ wed
   if (invite.email !== user.email) {
     throw new AppError("FORBIDDEN", "This invitation was sent to a different email address.");
   }
-  if (await findMembershipByUserId(userId)) {
-    throw new AppError("FORBIDDEN", "You already belong to a wedding.");
+  if (await belongsToWedding(userId, invite.weddingId.toHexString())) {
+    throw new AppError("FORBIDDEN", "You are already on this wedding.");
   }
 
   return inTransaction(async (session) => {
@@ -435,7 +462,7 @@ export async function acceptInvite(userId: string, token: string): Promise<{ wed
       await insertMembership({ weddingId, userId, role: "manager" }, { session });
     } catch (err) {
       if (err instanceof MongoServerError && err.code === 11000) {
-        throw new AppError("FORBIDDEN", "You already belong to a wedding.");
+        throw new AppError("FORBIDDEN", "You are already on this wedding.");
       }
       throw err;
     }

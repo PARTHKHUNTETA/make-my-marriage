@@ -7,7 +7,7 @@ const repo = vi.hoisted(() => ({
   findUserByEmail: vi.fn(),
   findUserById: vi.fn(),
   insertUser: vi.fn(),
-  findMembershipByUserId: vi.fn(),
+  listMembershipsByUserId: vi.fn(),
   setMemberPalette: vi.fn(),
   insertMembership: vi.fn(),
   findAuthState: vi.fn(),
@@ -53,7 +53,7 @@ beforeEach(() => {
   repo.findUserByEmail.mockReset();
   repo.findUserById.mockReset();
   repo.insertUser.mockReset();
-  repo.findMembershipByUserId.mockReset();
+  repo.listMembershipsByUserId.mockReset();
   repo.insertMembership.mockReset();
   for (const fn of [
     repo.findAuthState,
@@ -153,43 +153,54 @@ describe("getProfile", () => {
 });
 
 describe("getMembership", () => {
+  const doc = (over: Record<string, unknown> = {}) => ({
+    _id: new ObjectId(),
+    weddingId: new ObjectId(),
+    role: "admin",
+    ...over,
+  });
+
   it("returns the wedding and role as plain strings", async () => {
-    const weddingId = new ObjectId();
-    const _id = new ObjectId();
-    repo.findMembershipByUserId.mockResolvedValue({ _id, weddingId, role: "admin" });
+    const d = doc();
+    repo.listMembershipsByUserId.mockResolvedValue([d]);
     expect(await getMembership("u1")).toEqual({
-      weddingId: weddingId.toHexString(),
-      memberId: _id.toHexString(),
+      weddingId: d.weddingId.toHexString(),
+      memberId: d._id.toHexString(),
       role: "admin",
       palette: "aubergine", // nothing chosen yet: the default
+      weddingIds: [d.weddingId.toHexString()],
     });
   });
 
   it("returns the colour theme this member chose", async () => {
-    repo.findMembershipByUserId.mockResolvedValue({
-      _id: new ObjectId(),
-      weddingId: new ObjectId(),
-      role: "manager",
-      palette: "emerald",
-    });
+    repo.listMembershipsByUserId.mockResolvedValue([doc({ role: "manager", palette: "emerald" })]);
     expect((await getMembership("u1"))?.palette).toBe("emerald");
   });
 
   it("reads a stored value that is not a theme (old data, a typo) as the default", async () => {
     for (const stored of ["neon", "", 42, null]) {
-      repo.findMembershipByUserId.mockResolvedValue({
-        _id: new ObjectId(),
-        weddingId: new ObjectId(),
-        role: "admin",
-        palette: stored,
-      });
+      repo.listMembershipsByUserId.mockResolvedValue([doc({ palette: stored })]);
       expect((await getMembership("u1"))?.palette).toBe("aubergine");
     }
   });
 
   it("is null before first-time setup", async () => {
-    repo.findMembershipByUserId.mockResolvedValue(null);
+    repo.listMembershipsByUserId.mockResolvedValue([]);
     expect(await getMembership("u1")).toBeNull();
+  });
+
+  it("with several weddings: the one asked for if they belong to it, otherwise the first", async () => {
+    const first = doc({ role: "admin" });
+    const second = doc({ role: "manager" });
+    repo.listMembershipsByUserId.mockResolvedValue([first, second]);
+    const ids = [first.weddingId.toHexString(), second.weddingId.toHexString()];
+
+    expect((await getMembership("u1", ids[1]))?.weddingId).toBe(ids[1]);
+    expect((await getMembership("u1", ids[1]))?.role).toBe("manager");
+    expect((await getMembership("u1"))?.weddingId).toBe(ids[0]);
+    // a wedding they do not belong to is just ignored
+    expect((await getMembership("u1", new ObjectId().toHexString()))?.weddingId).toBe(ids[0]);
+    expect((await getMembership("u1"))?.weddingIds).toEqual(ids);
   });
 });
 
@@ -205,7 +216,7 @@ describe("addAdminMember", () => {
     );
   });
 
-  it("reports an existing membership as FORBIDDEN (one wedding per account)", async () => {
+  it("reports being on this wedding already as FORBIDDEN", async () => {
     repo.insertMembership.mockRejectedValue(
       new MongoServerError({ code: 11000, message: "E11000 duplicate key" }),
     );

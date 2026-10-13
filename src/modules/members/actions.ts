@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
+import { setActiveWeddingId } from "@/lib/active-wedding";
 import { requireAdmin, requireMember, requireUser } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
 import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
@@ -13,10 +14,12 @@ import {
   inviteIdSchema,
   inviteMemberSchema,
   paletteSchema,
+  switchWeddingSchema,
   memberIdSchema,
 } from "./schema";
 import {
   acceptInvite,
+  belongsToWedding,
   cancelPendingInvite,
   changeMemberRole,
   getProfile,
@@ -129,7 +132,9 @@ export async function acceptInviteAction(input: unknown) {
     const ctx = await requireUser();
     const { token } = acceptInviteSchema.parse(input);
     const joined = await acceptInvite(ctx.userId, token);
-    await announceMemberJoined(ctx.userId);
+    await announceMemberJoined(ctx.userId, joined.weddingId);
+    // Land in the wedding they just joined.
+    await setActiveWeddingId(joined.weddingId);
     return joined;
   });
 }
@@ -144,5 +149,19 @@ export async function setPaletteAction(input: unknown) {
     // Every page paints with it, so every page is refreshed.
     revalidatePath("/", "layout");
     return { palette };
+  });
+}
+
+// Switches which of their weddings this person is working in. The choice must be one of the
+// weddings the account really belongs to.
+export async function switchWeddingAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requireUser();
+    const { weddingId } = switchWeddingSchema.parse(input);
+    if (!(await belongsToWedding(ctx.userId, weddingId)))
+      throw new AppError("FORBIDDEN", "You are not part of that wedding.");
+    await setActiveWeddingId(weddingId);
+    revalidatePath("/", "layout");
+    return {};
   });
 }

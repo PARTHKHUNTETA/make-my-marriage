@@ -3,6 +3,7 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 import { CommandPalette } from "./command-palette";
 import { MobileNav } from "./mobile-nav";
 import { QuickActions } from "./quick-actions";
+import type { SwitcherProps } from "./sidebar";
 
 // Today, as the people planning the wedding read it (India time), e.g. "Wednesday, 7 Oct".
 const today = () =>
@@ -13,11 +14,11 @@ const today = () =>
     timeZone: "Asia/Kolkata",
   }).format(new Date());
 
-export function Topbar({ isAdmin }: { isAdmin: boolean }) {
+export function Topbar({ isAdmin, switcher }: { isAdmin: boolean; switcher?: SwitcherProps }) {
   return (
     <header className="fixed top-0 right-0 left-0 z-40 flex h-16 items-center justify-between bg-blush/85 px-4 shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl transition-[left] duration-200 sm:px-6 lg:left-64 lg:group-data-[sidebar=collapsed]/shell:left-16 print:hidden">
       <div className="flex items-center gap-2 sm:gap-4">
-        <MobileNav />
+        <MobileNav switcher={switcher} />
         <CommandPalette isAdmin={isAdmin} />
         <div className="hidden items-center gap-1 font-mono text-xs text-ink-2 xl:flex">
           <Clock className="size-4" />

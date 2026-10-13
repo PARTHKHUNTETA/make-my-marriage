@@ -7,8 +7,11 @@ const requireMember = vi.hoisted(() => vi.fn());
 const consumeRateLimit = vi.hoisted(() => vi.fn());
 const getWedding = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
+const setActiveWeddingId = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/active-wedding", () => ({ setActiveWeddingId }));
 const svc = vi.hoisted(() => ({
   acceptInvite: vi.fn(),
+  belongsToWedding: vi.fn(),
   cancelPendingInvite: vi.fn(),
   changeMemberRole: vi.fn(),
   getProfile: vi.fn(),
@@ -37,6 +40,7 @@ import {
   removeMemberAction,
   resendInviteAction,
   setPaletteAction,
+  switchWeddingAction,
 } from "./actions";
 
 const W = "a".repeat(24);
@@ -219,7 +223,8 @@ describe("other team actions use the admin's own wedding", () => {
   it("accepting an invitation tells the admins a member joined", async () => {
     svc.acceptInvite.mockResolvedValue({ weddingId: W });
     expect(await acceptInviteAction({ token: "t".repeat(30) })).toMatchObject({ ok: true });
-    expect(notify.announceMemberJoined).toHaveBeenCalledWith("u1");
+    expect(notify.announceMemberJoined).toHaveBeenCalledWith("u1", W);
+    expect(setActiveWeddingId).toHaveBeenCalledWith(W); // lands in the wedding just joined
   });
 
   it("removeMemberAction", async () => {
@@ -316,5 +321,33 @@ describe("setPaletteAction", () => {
       error: { code: "NOT_FOUND" },
     });
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("switchWeddingAction", () => {
+  it("switches to a wedding the account belongs to", async () => {
+    svc.belongsToWedding.mockResolvedValue(true);
+    expect(await switchWeddingAction({ weddingId: ID })).toEqual({ ok: true, data: {} });
+    expect(svc.belongsToWedding).toHaveBeenCalledWith("u1", ID);
+    expect(setActiveWeddingId).toHaveBeenCalledWith(ID);
+  });
+
+  it("refuses a wedding the account is not part of, and changes nothing", async () => {
+    svc.belongsToWedding.mockResolvedValue(false);
+    expect(await switchWeddingAction({ weddingId: ID })).toMatchObject({
+      ok: false,
+      error: { code: "FORBIDDEN" },
+    });
+    expect(setActiveWeddingId).not.toHaveBeenCalled();
+  });
+
+  it("refuses a malformed id and needs sign-in", async () => {
+    expect(await switchWeddingAction({ weddingId: "../x" })).toMatchObject({ ok: false });
+    requireUser.mockRejectedValue(new AppError("UNAUTHENTICATED", "Sign in to continue"));
+    expect(await switchWeddingAction({ weddingId: ID })).toMatchObject({
+      ok: false,
+      error: { code: "UNAUTHENTICATED" },
+    });
+    expect(setActiveWeddingId).not.toHaveBeenCalled();
   });
 });

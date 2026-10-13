@@ -19,7 +19,7 @@ export type JoinMode =
   | { kind: "new" } // not signed in: create an account
   | { kind: "accept" } // signed in as the invited address
   | { kind: "wrong-account"; signedInAs: string } // signed in as someone else
-  | { kind: "has-wedding" }; // already belongs to a wedding
+  | { kind: "has-wedding" }; // already on this wedding
 
 type Props = {
   token: string;
@@ -99,16 +99,15 @@ export function JoinInvite({ token, weddingTitle, inviterName, email, mode }: Pr
 
   if (mode.kind === "has-wedding") {
     return (
-      <AuthCard title="You're already on a wedding" subtitle={intro(inviterName, weddingTitle)}>
+      <AuthCard title="You're already on this wedding" subtitle={intro(inviterName, weddingTitle)}>
         <p className="text-[13px] leading-5 text-ink-2">
-          An account can belong to one wedding at a time, and yours already does. If you meant to
-          join this one instead, ask the person who runs your current wedding to remove you first.
+          Your account is already part of this wedding&apos;s team, so there is nothing to accept.
         </p>
         <Link
           href="/dashboard"
           className="mt-5 flex h-11 items-center justify-center rounded-lg bg-bronze text-sm font-semibold text-white shadow-sm transition-all hover:bg-bronze/90"
         >
-          Go to my wedding
+          Go to the wedding
         </Link>
       </AuthCard>
     );

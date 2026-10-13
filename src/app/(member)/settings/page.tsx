@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Bell, ChevronRight, Palette, Settings2, Trash2, Users } from "lucide-react";
+import { Bell, ChevronRight, Heart, Palette, Settings2, Trash2, Users } from "lucide-react";
 import { canManageMembers, requireMember } from "@/lib/authz";
 
 export const metadata: Metadata = { title: "Settings — Make My Marriage" };
@@ -19,6 +19,19 @@ export default async function SettingsPage() {
       <p className="mt-1 mb-6 text-sm text-ink-2">Things that apply to the whole wedding.</p>
 
       <div className="flex flex-col gap-3">
+        <Link href="/setup?new=1" className={`${card} transition-colors hover:bg-rose-50`}>
+          <span className="flex size-10 items-center justify-center rounded-lg bg-rose-100">
+            <Heart className="size-5 text-plum" aria-hidden />
+          </span>
+          <span className="flex-1">
+            <span className="block text-sm font-semibold text-ink">Start another wedding</span>
+            <span className="block text-[13px] text-ink-2">
+              Plan a second wedding with this same account, or join one by invitation, and switch
+              between them from the sidebar.
+            </span>
+          </span>
+          <ChevronRight className="size-4 text-ink-2" aria-hidden />
+        </Link>
         {canManageMembers(ctx) ? (
           <Link href="/settings/members" className={`${card} transition-colors hover:bg-rose-50`}>
             <span className="flex size-10 items-center justify-center rounded-lg bg-rose-100">

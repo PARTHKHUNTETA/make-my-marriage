@@ -101,10 +101,14 @@ export async function readAll(who: Who): Promise<void> {
 }
 
 // Tells the admins that someone has just joined (from an invitation).
-export async function announceMemberJoined(userId: string): Promise<void> {
+export async function announceMemberJoined(userId: string, weddingId?: string): Promise<void> {
   try {
-    const [membership, profile] = await Promise.all([getMembership(userId), getProfile(userId)]);
-    if (!membership || !profile) return;
+    // The wedding they just joined, not whichever of their weddings comes first.
+    const [membership, profile] = await Promise.all([
+      getMembership(userId, weddingId),
+      getProfile(userId),
+    ]);
+    if (!membership || (weddingId && membership.weddingId !== weddingId) || !profile) return;
     await notifyMembers(membership.weddingId, {
       type: "member_change",
       message: `${profile.name} joined the wedding team.`,

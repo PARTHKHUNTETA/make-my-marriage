@@ -1,5 +1,6 @@
 "use server";
 
+import { setActiveWeddingId } from "@/lib/active-wedding";
 import { safeAction } from "@/lib/action";
 import { revalidatePath } from "next/cache";
 import { requireMember, requireUser } from "@/lib/authz";
@@ -12,7 +13,10 @@ export async function createWeddingAction(input: unknown) {
   return safeAction(async () => {
     const ctx = await requireUser();
     const parsed = createWeddingSchema.parse(input);
-    return createWedding(ctx.userId, parsed);
+    const created = await createWedding(ctx.userId, parsed);
+    // Work in the wedding just made, even if the account has others.
+    await setActiveWeddingId(created.weddingId);
+    return created;
   });
 }
 

@@ -10,7 +10,7 @@ const repo = vi.hoisted(() => ({
   findWeddingById: vi.fn(),
   updateWeddingDetails: vi.fn(),
 }));
-const members = vi.hoisted(() => ({ getMembership: vi.fn(), addAdminMember: vi.fn() }));
+const members = vi.hoisted(() => ({ listMyMemberships: vi.fn(), addAdminMember: vi.fn() }));
 vi.mock("@/lib/db", () => ({ inTransaction }));
 vi.mock("./repository", () => repo);
 vi.mock("@/modules/members/service", () => members);
@@ -40,7 +40,7 @@ beforeEach(() => {
   repo.insertWedding.mockReset().mockImplementation(async (w) => ({ _id: new ObjectId(), ...w }));
   repo.findWeddingById.mockReset();
   repo.updateWeddingDetails.mockReset().mockResolvedValue(true);
-  members.getMembership.mockReset().mockResolvedValue(null);
+  members.listMyMemberships.mockReset().mockResolvedValue([]);
   members.addAdminMember.mockReset().mockResolvedValue(undefined);
 });
 
@@ -82,8 +82,16 @@ describe("createWedding", () => {
     });
   });
 
-  it("refuses an account that already belongs to a wedding, before writing anything", async () => {
-    members.getMembership.mockResolvedValue({ weddingId: "w0", role: "admin" });
+  it("lets an account that already has a wedding start another", async () => {
+    members.listMyMemberships.mockResolvedValue([{ weddingId: "w0", role: "admin" }]);
+    await expect(createWedding("user-1", input)).resolves.toBeTruthy();
+    expect(members.addAdminMember).toHaveBeenCalledOnce();
+  });
+
+  it("stops at five weddings per account, before writing anything", async () => {
+    members.listMyMemberships.mockResolvedValue(
+      Array.from({ length: 5 }, (_, i) => ({ weddingId: `w${i}`, role: "admin" })),
+    );
     await expect(createWedding("user-1", input)).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(inTransaction).not.toHaveBeenCalled();
     expect(repo.insertWedding).not.toHaveBeenCalled();
@@ -128,7 +136,7 @@ describe("createWedding", () => {
   it("surfaces 'already a member' when a concurrent request got there first", async () => {
     const { AppError } = await import("@/lib/errors");
     members.addAdminMember.mockRejectedValue(
-      new AppError("FORBIDDEN", "You already belong to a wedding."),
+      new AppError("FORBIDDEN", "You are already on this wedding."),
     );
     await expect(createWedding("user-1", input)).rejects.toMatchObject({ code: "FORBIDDEN" });
   });

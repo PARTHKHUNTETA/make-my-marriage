@@ -5,6 +5,7 @@ import Link from "next/link";
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { SIDEBAR_COOKIE } from "./sidebar-cookie";
+import { WeddingSwitcher } from "./wedding-switcher";
 import { SigningOutOverlay, useSignOut } from "@/components/auth/use-sign-out";
 import {
   CalendarDays,
@@ -62,7 +63,15 @@ const sections: { title: string; items: NavItem[] }[] = [
 // Collapsing is a `data-sidebar` attribute on #app-shell, which the layout's own widths (this
 // sidebar, the content's left padding, the top bar) read through `group-data-[sidebar=collapsed]`.
 // So nothing re-renders to collapse it and there is no flash on load.
-export function Sidebar({ collapsed: initial }: { collapsed: boolean }) {
+export type SwitcherProps = { weddings: { id: string; title: string }[]; currentId: string };
+
+export function Sidebar({
+  collapsed: initial,
+  switcher,
+}: {
+  collapsed: boolean;
+  switcher?: SwitcherProps;
+}) {
   const [collapsed, setCollapsed] = React.useState(initial);
 
   function toggle() {
@@ -75,7 +84,7 @@ export function Sidebar({ collapsed: initial }: { collapsed: boolean }) {
 
   return (
     <aside className="fixed top-0 left-0 z-50 hidden h-full w-64 flex-col justify-between overflow-x-hidden overflow-y-auto bg-rose-50 shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-[width] duration-200 group-data-[sidebar=collapsed]/shell:w-16 lg:flex print:!hidden">
-      <SidebarContent collapsible onToggle={toggle} collapsed={collapsed} />
+      <SidebarContent collapsible onToggle={toggle} collapsed={collapsed} switcher={switcher} />
     </aside>
   );
 }
@@ -87,11 +96,13 @@ export function SidebarContent({
   collapsible = false,
   collapsed = false,
   onToggle,
+  switcher,
 }: {
   onNavigate?: () => void;
   collapsible?: boolean;
   collapsed?: boolean;
   onToggle?: () => void;
+  switcher?: SwitcherProps;
 }) {
   const pathname = usePathname();
   const { signOut, pending, error } = useSignOut();
@@ -130,6 +141,12 @@ export function SidebarContent({
             </button>
           ) : null}
         </div>
+
+        {switcher ? (
+          <div className={collapsible ? "group-data-[sidebar=collapsed]/shell:hidden" : ""}>
+            <WeddingSwitcher weddings={switcher.weddings} currentId={switcher.currentId} />
+          </div>
+        ) : null}
 
         <nav aria-label="Workspace" className="flex flex-col gap-1 px-2">
           {sections.map((section) => (

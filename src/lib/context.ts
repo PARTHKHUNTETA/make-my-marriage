@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import type { PaletteId } from "@/lib/palettes";
+import { readActiveWeddingId } from "@/lib/active-wedding";
 import { isSessionRevoked } from "@/lib/revoked-sessions";
 import { readSession, readVendorSession } from "@/lib/session";
 import { getVendorAuthState } from "@/modules/marketplace/service";
@@ -21,6 +22,8 @@ export type Context =
       role: "admin" | "manager";
       // This member's own colour theme.
       palette: PaletteId;
+      // Every wedding this account belongs to; more than one means a switcher is shown.
+      weddingIds: string[];
     }
   | { kind: "user"; userId: string }
   | { kind: "vendor"; vendorAccountId: string }
@@ -42,7 +45,7 @@ export const resolveContext = cache(async (): Promise<Context> => {
   if (!session) return { kind: "anonymous" };
   const [auth, membership, revoked] = await Promise.all([
     getAuthState(session.userId),
-    getMembership(session.userId),
+    readActiveWeddingId().then((preferred) => getMembership(session.userId, preferred)),
     isSessionRevoked(session.id),
   ]);
   // The account was deleted, this session was signed out, or the password was reset since.

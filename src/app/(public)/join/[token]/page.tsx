@@ -4,7 +4,7 @@ import { AuthCard } from "@/components/auth/auth-card";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { JoinInvite, type JoinMode } from "@/components/members/join-invite";
 import { resolveContext } from "@/lib/context";
-import { getProfile, previewInvite } from "@/modules/members/service";
+import { belongsToWedding, getProfile, previewInvite } from "@/modules/members/service";
 import { getWedding } from "@/modules/wedding/service";
 
 export const metadata: Metadata = {
@@ -71,13 +71,17 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   }
 
   let mode: JoinMode = { kind: "new" };
-  if (ctx.kind === "member") mode = { kind: "has-wedding" };
-  else if (ctx.kind === "user") {
+  // Someone already signed in, with or without weddings of their own, can accept: an account can
+  // belong to several. The only refusals are another person's invitation, or a wedding they are
+  // already on.
+  if (ctx.kind === "user" || ctx.kind === "member") {
     const me = await getProfile(ctx.userId);
-    mode =
-      me && me.email === preview.email
-        ? { kind: "accept" }
-        : { kind: "wrong-account", signedInAs: me?.email ?? "another account" };
+    if (await belongsToWedding(ctx.userId, preview.weddingId)) mode = { kind: "has-wedding" };
+    else
+      mode =
+        me && me.email === preview.email
+          ? { kind: "accept" }
+          : { kind: "wrong-account", signedInAs: me?.email ?? "another account" };
   }
 
   return (

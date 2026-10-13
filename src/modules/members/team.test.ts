@@ -9,7 +9,7 @@ const repo = vi.hoisted(() => ({
   deleteMembership: vi.fn(),
   findInviteByTokenHash: vi.fn(),
   findMembership: vi.fn(),
-  findMembershipByUserId: vi.fn(),
+  listMembershipsByUserId: vi.fn(),
   findPendingInviteByEmail: vi.fn(),
   findUserByEmail: vi.fn(),
   findUserById: vi.fn(),
@@ -86,7 +86,7 @@ beforeEach(() => {
   for (const fn of Object.values(repo)) fn.mockReset();
   queueEmail.mockReset().mockResolvedValue(undefined);
   repo.findUserByEmail.mockResolvedValue(null);
-  repo.findMembershipByUserId.mockResolvedValue(null);
+  repo.listMembershipsByUserId.mockResolvedValue([]);
   repo.findPendingInviteByEmail.mockResolvedValue(null);
   repo.insertInvite.mockImplementation(async (_w, input) =>
     inviteDoc({ email: input.email, tokenHash: input.tokenHash, expiresAt: input.expiresAt }),
@@ -146,9 +146,9 @@ describe("inviteMember", () => {
     expect(queueEmail).toHaveBeenCalledOnce();
   });
 
-  it("refuses an address that already belongs to a wedding, and sends nothing", async () => {
+  it("refuses an address that is already on this wedding, and sends nothing", async () => {
     repo.findUserByEmail.mockResolvedValue(userDoc());
-    repo.findMembershipByUserId.mockResolvedValue(member("manager"));
+    repo.listMembershipsByUserId.mockResolvedValue([member("manager")]);
     await expect(inviteMember(base)).rejects.toMatchObject({ code: "EMAIL_IN_USE" });
     expect(repo.insertInvite).not.toHaveBeenCalled();
     expect(queueEmail).not.toHaveBeenCalled();
@@ -157,6 +157,15 @@ describe("inviteMember", () => {
   it("allows an address that has an account but no wedding yet", async () => {
     repo.findUserByEmail.mockResolvedValue(userDoc());
     await expect(inviteMember(base)).resolves.toMatchObject({ renewed: false });
+  });
+
+  it("allows an address that belongs to other weddings: one account can be on several", async () => {
+    repo.findUserByEmail.mockResolvedValue(userDoc());
+    repo.listMembershipsByUserId.mockResolvedValue([
+      { ...member("admin"), weddingId: new ObjectId() },
+    ]);
+    await expect(inviteMember(base)).resolves.toMatchObject({ renewed: false });
+    expect(queueEmail).toHaveBeenCalledOnce();
   });
 
   it("reports NOT_FOUND if the pending invitation vanished mid-renewal", async () => {
@@ -463,12 +472,20 @@ describe("acceptInvite", () => {
     expect(repo.consumeInvite).not.toHaveBeenCalled();
   });
 
-  it("refuses someone who already belongs to a wedding", async () => {
-    repo.findMembershipByUserId.mockResolvedValue(member("admin"));
+  it("refuses someone who is already on this wedding", async () => {
+    repo.listMembershipsByUserId.mockResolvedValue([member("admin")]);
     await expect(acceptInvite(me._id.toHexString(), token)).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
     expect(repo.consumeInvite).not.toHaveBeenCalled();
+  });
+
+  it("lets someone who is on other weddings join this one too", async () => {
+    repo.listMembershipsByUserId.mockResolvedValue([
+      { ...member("admin"), weddingId: new ObjectId() },
+    ]);
+    await expect(acceptInvite(me._id.toHexString(), token)).resolves.toEqual({ weddingId: W });
+    expect(repo.insertMembership).toHaveBeenCalled();
   });
 
   it("an unknown, cancelled or expired link is LINK_INVALID", async () => {

@@ -177,14 +177,14 @@ export async function consumeResetToken(
   );
 }
 
-// ---- weddingMembers: the link between a user and their one wedding (db-design §3) ----
+// ---- weddingMembers: the link between a user and a wedding they belong to (db-design §3) ----
 
 export type MemberRole = "admin" | "manager";
 
 export type MembershipDoc = {
   _id: ObjectId;
   weddingId: ObjectId;
-  userId: ObjectId; // unique: a user belongs to exactly one wedding
+  userId: ObjectId; // a user can belong to several weddings, but only once to each
   role: MemberRole;
   mutedNotificationTypes?: string[];
   // This person's colour theme (a PaletteId). Stored as text so an old or odd value is read back as the
@@ -200,7 +200,9 @@ let membersReady: Promise<Collection<MembershipDoc>> | undefined;
 function memberships(): Promise<Collection<MembershipDoc>> {
   membersReady ??= (async () => {
     const col = (await getDb()).collection<MembershipDoc>("weddingMembers");
-    await col.createIndex({ userId: 1 }, { unique: true });
+    // Earlier versions allowed one wedding per account, with a unique index on userId alone.
+    await col.dropIndex("userId_1").catch(() => undefined);
+    await col.createIndex({ userId: 1, weddingId: 1 }, { unique: true });
     await col.createIndex({ weddingId: 1 });
     return col;
   })();
@@ -211,14 +213,19 @@ function memberships(): Promise<Collection<MembershipDoc>> {
 }
 
 // The one deliberately unscoped read in the codebase. Resolving who someone is has to happen
-// before any weddingId is known, and userId is unique, so this returns at most one document
-// and can never mix weddings. Everything after it is scoped.
-export async function findMembershipByUserId(userId: string): Promise<MembershipDoc | null> {
-  if (!ObjectId.isValid(userId)) return null;
-  return (await memberships()).findOne({ userId: new ObjectId(userId) });
+// before any weddingId is known, so this lists every wedding the account belongs to (a few at
+// most). Each document carries its own weddingId, and everything after choosing one is scoped.
+// Oldest membership first, so the default wedding is stable.
+export async function listMembershipsByUserId(userId: string): Promise<MembershipDoc[]> {
+  if (!ObjectId.isValid(userId)) return [];
+  return (await memberships())
+    .find({ userId: new ObjectId(userId) })
+    .sort({ joinedAt: 1, _id: 1 })
+    .limit(50)
+    .toArray();
 }
 
-// Throws the driver's duplicate-key error (code 11000) if the user already has a wedding.
+// Throws the driver's duplicate-key error (code 11000) if the user is already in this wedding.
 export async function insertMembership(
   input: { weddingId: string; userId: string; role: MemberRole },
   options?: { session?: ClientSession },

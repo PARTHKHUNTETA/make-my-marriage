@@ -10,11 +10,17 @@ export const metadata: Metadata = {
 };
 
 // First-time setup, shown between sign-up and the dashboard. Signed out goes to sign-in; an
-// account that already has a wedding never sees this (PRD 5.1).
-export default async function SetupPage() {
+// account that already has a wedding sees this only when starting another one (?new=1).
+export default async function SetupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ new?: string }>;
+}) {
   const ctx = await resolveContext();
-  if (ctx.kind === "member") redirect("/dashboard");
-  if (ctx.kind !== "user") redirect("/login");
+  // Someone who already has a wedding only comes here on purpose, to start another.
+  const another = (await searchParams).new === "1";
+  if (ctx.kind === "member" && !another) redirect("/dashboard");
+  if (ctx.kind !== "user" && ctx.kind !== "member") redirect("/login");
   return (
     <AuthShell>
       <CreateWeddingForm />

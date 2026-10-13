@@ -390,3 +390,7 @@ guest data is processed in India, not only stored there. In the Vercel project:
 - **Sign out ends the session on the server.** The token's id goes into `revokedSessions` (TTL-cleared when the token would have expired), and every request checks it, so a copied cookie stops working. A password reset still ends all sessions.
 - **Login limits:** 30 per IP, 10 per email from one IP (cleared by a successful login), 60 per email overall, each per 15 minutes. The client IP comes from `x-vercel-forwarded-for` on Vercel, otherwise `x-real-ip` or the last `x-forwarded-for` entry, never the client-supplied first one.
 - **Known and accepted:** sign-up says when an email is already registered (needed because it signs you in at once), and the CSP still allows inline scripts, since nonces would make every page dynamic and end static caching of wedding sites.
+
+## One account, several weddings
+
+An account can belong to up to 5 weddings: its own, and any it is invited to. `weddingMembers` is unique on (user, wedding) (the old unique index on user alone is dropped automatically the first time the collection is used). The wedding being worked in is a preference cookie (`mmm_wedding`) that is checked against the account's real memberships on every request, so a forged value changes nothing; without it, the oldest membership is used. The sidebar shows a switcher when there is more than one wedding. Roles, themes and notification settings are per wedding.

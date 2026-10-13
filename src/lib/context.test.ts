@@ -4,6 +4,8 @@ const readSession = vi.hoisted(() => vi.fn());
 const getMembership = vi.hoisted(() => vi.fn());
 const getAuthState = vi.hoisted(() => vi.fn());
 const isSessionRevoked = vi.hoisted(() => vi.fn());
+const readActiveWeddingId = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/active-wedding", () => ({ readActiveWeddingId }));
 vi.mock("@/lib/revoked-sessions", () => ({ isSessionRevoked }));
 vi.mock("@/lib/session", () => ({ readSession }));
 vi.mock("@/modules/members/service", () => ({ getMembership, getAuthState }));
@@ -15,6 +17,7 @@ const NOW = Math.floor(Date.now() / 1000);
 beforeEach(() => {
   readSession.mockReset();
   isSessionRevoked.mockReset().mockResolvedValue(false);
+  readActiveWeddingId.mockReset().mockResolvedValue(undefined);
   getMembership.mockReset().mockResolvedValue(null);
   getAuthState.mockReset().mockResolvedValue({ emailVerified: true });
 });
@@ -97,5 +100,25 @@ describe("resolveContext after sign-out", () => {
     isSessionRevoked.mockResolvedValue(true);
     expect(await resolveContext()).toEqual({ kind: "anonymous" });
     expect(isSessionRevoked).toHaveBeenCalledWith("j1");
+  });
+});
+
+describe("resolveContext with several weddings", () => {
+  it("asks for the wedding the person last chose, and carries every wedding they belong to", async () => {
+    readSession.mockResolvedValue({ userId: "u1", issuedAt: NOW });
+    readActiveWeddingId.mockResolvedValue("w2");
+    getMembership.mockResolvedValue({
+      weddingId: "w2",
+      memberId: "m2",
+      role: "manager",
+      palette: "aubergine",
+      weddingIds: ["w1", "w2"],
+    });
+    expect(await resolveContext()).toMatchObject({
+      kind: "member",
+      weddingId: "w2",
+      weddingIds: ["w1", "w2"],
+    });
+    expect(getMembership).toHaveBeenCalledWith("u1", "w2");
   });
 });

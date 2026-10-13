@@ -6,6 +6,8 @@ const requireMember = vi.hoisted(() => vi.fn());
 const createWedding = vi.hoisted(() => vi.fn());
 const updateWeddingDetails = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
+const setActiveWeddingId = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/active-wedding", () => ({ setActiveWeddingId }));
 vi.mock("@/lib/authz", () => ({ requireUser, requireMember }));
 vi.mock("./service", () => ({ createWedding, updateWeddingDetails }));
 vi.mock("next/cache", () => ({ revalidatePath }));
@@ -28,6 +30,7 @@ beforeEach(() => {
     .mockResolvedValue({ kind: "member", userId: "u1", weddingId: "w1", role: "manager" });
   updateWeddingDetails.mockReset().mockResolvedValue(undefined);
   revalidatePath.mockReset();
+  setActiveWeddingId.mockReset().mockResolvedValue(undefined);
 });
 
 describe("createWeddingAction", () => {
@@ -37,6 +40,8 @@ describe("createWeddingAction", () => {
       "u1",
       expect.objectContaining({ brideName: "Priya", city: "Jaipur" }),
     );
+    // the new wedding becomes the one they work in, even if they have others
+    expect(setActiveWeddingId).toHaveBeenCalledWith("w1");
   });
 
   it("takes the account from the session, never from the input", async () => {

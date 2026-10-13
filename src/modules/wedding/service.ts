@@ -7,7 +7,7 @@ import { AppError } from "@/lib/errors";
 import { isReservedSlug } from "@/lib/reserved-slugs";
 import { SLUG_MAX, SLUG_MIN, slugify } from "@/lib/slug";
 import { generateToken } from "@/lib/tokens";
-import { addAdminMember, getMembership } from "@/modules/members/service";
+import { addAdminMember, listMyMemberships } from "@/modules/members/service";
 import {
   findWeddingById,
   insertWedding,
@@ -37,6 +37,7 @@ import {
 // Business rules for the wedding module.
 
 const MAX_SLUG_ATTEMPTS = 10;
+export const MAX_WEDDINGS_PER_ACCOUNT = 5;
 
 // "priya-weds-aarav", then "priya-weds-aarav-2", "-3", ... Reserved words are skipped.
 export function slugCandidate(base: string, attempt: number): string {
@@ -57,8 +58,12 @@ export async function createWedding(
   userId: string,
   input: CreateWeddingInput,
 ): Promise<{ weddingId: string }> {
-  if (await getMembership(userId)) {
-    throw new AppError("FORBIDDEN", "You already belong to a wedding.");
+  // An account can run or help with several weddings, within reason.
+  if ((await listMyMemberships(userId)).length >= MAX_WEDDINGS_PER_ACCOUNT) {
+    throw new AppError(
+      "FORBIDDEN",
+      `One account can belong to up to ${MAX_WEDDINGS_PER_ACCOUNT} weddings.`,
+    );
   }
   const date = istDate(input.date);
   if (!date) throw new AppError("VALIDATION_FAILED", "Enter a valid wedding date.");

@@ -36,6 +36,7 @@ A running log of what has been built in Make My Marriage, newest at the bottom o
 | 2026-10-13 | Collapsible sidebar | Desktop sidebar collapses to an icon strip; remembered per browser in a cookie. Name/countdown and wedding cards removed from the sidebar. |
 | 2026-10-13 | Events: two-part form, day-by-day list | Add/edit event is split into Event details and Time details; the events page groups by date with Today/In N days labels and an "Already happened" section. |
 | 2026-10-13 | Photo of the bill on an expense | Optional photo when adding or editing an expense; shrunk in the browser, checked on the server, shown on the expense and marked with a paperclip in the list; deleted with the expense and with the wedding. |
+| 2026-10-13 | One account, several weddings | The same email can belong to several weddings (up to 5): invitations to people already on other weddings work, a switcher appears in the sidebar, and Settings → Start another wedding creates a new one. The last wedding chosen is remembered. |
 
 ## Not done yet
 
