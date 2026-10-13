@@ -32,6 +32,16 @@ const FIELDS = [
   "dressCode",
 ] as const;
 
+// The form is in two parts: what the event is, and when it happens.
+const STEPS = [
+  {
+    key: "details",
+    title: "Event details",
+    fields: ["type", "name", "venueName", "address", "dressCode", "description"],
+  },
+  { key: "time", title: "Time details", fields: ["date", "startTime", "endTime"] },
+] as const;
+
 export function EventForm({
   initial,
   eventId,
@@ -43,12 +53,14 @@ export function EventForm({
   const router = useRouter();
   const [saved, setSaved] = React.useState(false);
   const [problem, setProblem] = React.useState<string | null>(null);
+  const [step, setStep] = React.useState(0);
   const {
     register,
     handleSubmit,
     setError,
     setValue,
     getValues,
+    trigger,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<EventFormValues, undefined, EventInput>({
@@ -82,22 +94,70 @@ export function EventForm({
     }
     const { code, message, details } = result.error;
     if (code === "VALIDATION_FAILED" && details && typeof details === "object") {
+      let firstStep: number | null = null;
       for (const field of FIELDS) {
         const first = (details as Record<string, string[] | undefined>)[field]?.[0];
-        if (first) setError(field, { message: first });
+        if (first) {
+          setError(field, { message: first });
+          const at = STEPS.findIndex((s) => (s.fields as readonly string[]).includes(field));
+          firstStep = firstStep === null ? at : Math.min(firstStep, at);
+        }
       }
+      // Show the part of the form that holds the first mistake.
+      if (firstStep !== null) setStep(firstStep);
       return;
     }
     setProblem(message);
   }
 
+  // Moving on checks only this part, so a mistake is shown where it was made.
+  async function next() {
+    if (await trigger([...STEPS[0].fields])) setStep(1);
+  }
+
+  // Pressing Enter in the first part moves on instead of saving half the event.
+  function onKeyDown(event: React.KeyboardEvent<HTMLFormElement>) {
+    if (event.key === "Enter" && step === 0 && !(event.target instanceof HTMLTextAreaElement)) {
+      event.preventDefault();
+      void next();
+    }
+  }
+
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
+      onKeyDown={onKeyDown}
       onChange={() => setSaved(false)}
       noValidate
       className="rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)] sm:p-6"
     >
+      <ol className="mb-5 flex gap-2" aria-label="Form parts">
+        {STEPS.map((part, i) => (
+          <li key={part.key} className="flex-1">
+            <button
+              type="button"
+              onClick={() => (i === 0 ? setStep(0) : void next())}
+              aria-current={step === i ? "step" : undefined}
+              className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-[13px] font-semibold transition-colors ${
+                step === i
+                  ? "border-plum bg-plum text-white"
+                  : "border-line bg-white text-ink-2 hover:bg-rose-50"
+              }`}
+            >
+              <span
+                className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] ${
+                  step === i ? "bg-white/20" : "bg-rose-200"
+                }`}
+                aria-hidden
+              >
+                {i + 1}
+              </span>
+              {part.title}
+            </button>
+          </li>
+        ))}
+      </ol>
+
       <fieldset disabled={isSubmitting} className="flex flex-col gap-4">
         {problem ? <FormAlert title="Couldn't save the event">{problem}</FormAlert> : null}
         {saved ? (
@@ -109,122 +169,160 @@ export function EventForm({
           </p>
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <SelectField
-            id="type"
-            label="Event type"
-            error={errors.type?.message}
-            {...type}
-            onChange={(event) => {
-              // Suggest the type's name while the name is empty or still the previous suggestion.
-              const previous = getValues("type") as EventType;
-              const name = getValues("name").trim();
-              const next = event.target.value as EventType;
-              if (next !== "custom" && (name === "" || name === EVENT_TYPE_LABELS[previous]))
-                setValue("name", EVENT_TYPE_LABELS[next], { shouldDirty: true });
-              void type.onChange(event);
-            }}
-          >
-            {EVENT_TYPES.map((value) => (
-              <option key={value} value={value}>
-                {EVENT_TYPE_LABELS[value]}
-              </option>
-            ))}
-          </SelectField>
+        {/* Part 1: what the event is. Hidden, not removed, so its values stay in the form. */}
+        <div hidden={step !== 0} className="flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SelectField
+              id="type"
+              label="Event type"
+              error={errors.type?.message}
+              {...type}
+              onChange={(event) => {
+                // Suggest the type's name while the name is empty or still the previous suggestion.
+                const previous = getValues("type") as EventType;
+                const name = getValues("name").trim();
+                const next = event.target.value as EventType;
+                if (next !== "custom" && (name === "" || name === EVENT_TYPE_LABELS[previous]))
+                  setValue("name", EVENT_TYPE_LABELS[next], { shouldDirty: true });
+                void type.onChange(event);
+              }}
+            >
+              {EVENT_TYPES.map((value) => (
+                <option key={value} value={value}>
+                  {EVENT_TYPE_LABELS[value]}
+                </option>
+              ))}
+            </SelectField>
+            <Field
+              id="name"
+              label="Event name"
+              autoComplete="off"
+              placeholder="e.g. Mehndi Night"
+              error={errors.name?.message}
+              {...register("name")}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              id="venueName"
+              label="Venue (optional)"
+              autoComplete="off"
+              placeholder="e.g. Royal Garden"
+              hint="Guests see “Venue to be announced” until you add one."
+              error={errors.venueName?.message}
+              {...register("venueName")}
+            />
+            <Field
+              id="dressCode"
+              label="Dress code (optional)"
+              autoComplete="off"
+              placeholder="e.g. Green traditional"
+              error={errors.dressCode?.message}
+              {...register("dressCode")}
+            />
+          </div>
+
           <Field
-            id="name"
-            label="Event name"
+            id="address"
+            label="Address (optional)"
             autoComplete="off"
-            placeholder="e.g. Mehndi Night"
-            error={errors.name?.message}
-            {...register("name")}
+            error={errors.address?.message}
+            {...register("address")}
           />
-        </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field
-            id="date"
-            label="Date"
-            type="date"
-            error={errors.date?.message}
-            {...register("date")}
-          />
-          <Field
-            id="startTime"
-            label="Start time"
-            type="time"
-            error={errors.startTime?.message}
-            {...register("startTime")}
-          />
-          <Field
-            id="endTime"
-            label="End time (optional)"
-            type="time"
-            error={errors.endTime?.message}
-            {...register("endTime")}
-          />
-        </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="description" className="text-xs font-semibold tracking-wide text-ink">
+              Description (optional)
+            </label>
+            <Textarea
+              id="description"
+              aria-invalid={errors.description ? true : undefined}
+              {...register("description")}
+            />
+            {errors.description?.message ? (
+              <FieldError id="description-error">{errors.description.message}</FieldError>
+            ) : null}
+          </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            id="venueName"
-            label="Venue (optional)"
-            autoComplete="off"
-            placeholder="e.g. Royal Garden"
-            hint="Guests see “Venue to be announced” until you add one."
-            error={errors.venueName?.message}
-            {...register("venueName")}
-          />
-          <Field
-            id="dressCode"
-            label="Dress code (optional)"
-            autoComplete="off"
-            placeholder="e.g. Green traditional"
-            error={errors.dressCode?.message}
-            {...register("dressCode")}
-          />
-        </div>
-
-        <Field
-          id="address"
-          label="Address (optional)"
-          autoComplete="off"
-          error={errors.address?.message}
-          {...register("address")}
-        />
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="description" className="text-xs font-semibold tracking-wide text-ink">
-            Description (optional)
-          </label>
-          <Textarea
-            id="description"
-            aria-invalid={errors.description ? true : undefined}
-            {...register("description")}
-          />
-          {errors.description?.message ? (
-            <FieldError id="description-error">{errors.description.message}</FieldError>
-          ) : null}
-        </div>
-
-        <label className="flex items-start gap-3 text-sm text-ink">
-          <input
-            type="checkbox"
-            className="mt-0.5 size-4 accent-plum"
-            {...register("showOnWebsite")}
-          />
-          <span>
-            Show on the wedding website
-            <span className="block text-xs text-ink-2">
-              Turn this off for a private event, like a family roka.
+          <label className="flex items-start gap-3 text-sm text-ink">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 accent-plum"
+              {...register("showOnWebsite")}
+            />
+            <span>
+              Show on the wedding website
+              <span className="block text-xs text-ink-2">
+                Turn this off for a private event, like a family roka.
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
+        </div>
 
-        <div className="w-full sm:w-auto sm:min-w-56">
-          <SubmitButton pending={isSubmitting} pendingLabel="Saving...">
-            {eventId ? "Save changes" : "Add event"}
-          </SubmitButton>
+        {/* Part 2: when it happens. */}
+        <div hidden={step !== 1} className="flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field
+              id="date"
+              label="Date"
+              type="date"
+              error={errors.date?.message}
+              {...register("date")}
+            />
+            <Field
+              id="startTime"
+              label="Start time"
+              type="time"
+              error={errors.startTime?.message}
+              {...register("startTime")}
+            />
+            <Field
+              id="endTime"
+              label="End time (optional)"
+              type="time"
+              hint="Can be after midnight."
+              error={errors.endTime?.message}
+              {...register("endTime")}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {step === 0 ? (
+            <div className="w-full sm:w-auto sm:min-w-56">
+              <button
+                type="button"
+                onClick={() => void next()}
+                className="h-11 w-full rounded-lg bg-plum px-5 text-sm font-semibold text-white hover:bg-plum-hover"
+              >
+                Next: time details
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setStep(0)}
+                className="h-11 rounded-lg border border-line-soft/60 bg-white px-5 text-sm font-semibold text-ink-2 hover:bg-rose-50"
+              >
+                Back
+              </button>
+              <div className="w-full sm:w-auto sm:min-w-56">
+                <SubmitButton pending={isSubmitting} pendingLabel="Saving...">
+                  {eventId ? "Save changes" : "Add event"}
+                </SubmitButton>
+              </div>
+            </>
+          )}
+          {/* An existing event can be saved from either part. */}
+          {eventId && step === 0 ? (
+            <div className="w-full sm:w-auto sm:min-w-40">
+              <SubmitButton pending={isSubmitting} pendingLabel="Saving...">
+                Save changes
+              </SubmitButton>
+            </div>
+          ) : null}
         </div>
       </fieldset>
     </form>
