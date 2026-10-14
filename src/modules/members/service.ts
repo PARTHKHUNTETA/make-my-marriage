@@ -4,6 +4,13 @@ import { inTransaction } from "@/lib/db";
 import { absoluteUrl } from "@/lib/app-url";
 import { queueEmail } from "@/lib/email";
 import { toPaletteId, type PaletteId } from "@/lib/palettes";
+import {
+  BUILT_IN_ROLES,
+  isBuiltInRoleId,
+  legacyRoleFor,
+  mergeGrants,
+  type PermissionSet,
+} from "@/lib/permissions";
 import { AppError } from "@/lib/errors";
 import { burnPasswordCheck, hashPassword, verifyPassword } from "@/lib/passwords";
 import { generateToken, hashToken } from "@/lib/tokens";
@@ -17,6 +24,7 @@ import {
   findAuthState,
   findInviteByTokenHash,
   findMembership,
+  findWeddingRoles,
   listMembershipsByUserId,
   findPendingInviteByEmail,
   findUsersByIds,
@@ -96,25 +104,54 @@ export async function getProfile(userId: string): Promise<PublicUser | null> {
   return user ? toPublicUser(user) : null;
 }
 
-export type Membership = {
+export type MembershipSummary = {
   weddingId: string;
   memberId: string;
+  // Legacy "admin" / "manager", derived from the roles (admin = can manage the team).
   role: MemberRole;
+  roleIds: string[];
   palette: PaletteId;
   // Every wedding the account belongs to, oldest first. More than one shows the wedding switcher.
   weddingIds: string[];
 };
 
-const toMembership = (
-  doc: { weddingId: ObjectId; _id: ObjectId; role: MemberRole; palette?: string },
-  all: { weddingId: ObjectId }[],
-): Membership => ({
+// The wedding being worked in, with what this member may do there.
+export type Membership = MembershipSummary & { permissions: PermissionSet };
+
+type MembershipLike = {
+  weddingId: ObjectId;
+  _id: ObjectId;
+  role: MemberRole;
+  roleIds?: string[];
+  palette?: string;
+};
+
+// A member from before roles existed has only the old field; its value is a built-in role's key.
+const roleIdsOf = (doc: Pick<MembershipLike, "role" | "roleIds">): string[] =>
+  doc.roleIds && doc.roleIds.length > 0 ? doc.roleIds : [doc.role];
+
+const toSummary = (doc: MembershipLike, all: { weddingId: ObjectId }[]): MembershipSummary => ({
   weddingId: doc.weddingId.toHexString(),
   memberId: doc._id.toHexString(),
   role: doc.role,
+  roleIds: roleIdsOf(doc),
   palette: toPaletteId(doc.palette),
   weddingIds: all.map((d) => d.weddingId.toHexString()),
 });
+
+// What a set of roles allows in this wedding: built-in roles come from code, custom ones from this
+// wedding's own roles (an id that is not one of them grants nothing). One query, and only when
+// the member holds a custom role.
+export async function resolvePermissions(
+  weddingId: string,
+  roleIds: string[],
+): Promise<PermissionSet> {
+  const builtIn = roleIds.filter(isBuiltInRoleId).map((id) => BUILT_IN_ROLES[id].grants);
+  const customIds = roleIds.filter((id) => !isBuiltInRoleId(id));
+  const custom =
+    customIds.length > 0 ? (await findWeddingRoles(weddingId, customIds)).map((r) => r.grants) : [];
+  return mergeGrants([...builtIn, ...custom]);
+}
 
 // The wedding an account is working in, or null before first-time setup. An account can belong
 // to several weddings: `preferredWeddingId` (the one they last chose) wins if they still belong
@@ -127,13 +164,16 @@ export async function getMembership(
   const chosen =
     docs.find((d) => preferredWeddingId && d.weddingId.toHexString() === preferredWeddingId) ??
     docs[0];
-  return chosen ? toMembership(chosen, docs) : null;
+  if (!chosen) return null;
+  const summary = toSummary(chosen, docs);
+  const permissions = await resolvePermissions(summary.weddingId, summary.roleIds);
+  return { ...summary, role: legacyRoleFor(permissions), permissions };
 }
 
-// Every wedding the account belongs to, with the role in each.
-export async function listMyMemberships(userId: string): Promise<Membership[]> {
+// Every wedding the account belongs to, with the roles held in each.
+export async function listMyMemberships(userId: string): Promise<MembershipSummary[]> {
   const docs = await listMembershipsByUserId(userId);
-  return docs.map((d) => toMembership(d, docs));
+  return docs.map((d) => toSummary(d, docs));
 }
 
 // Whether the account belongs to this wedding. Used to check a choice of wedding.

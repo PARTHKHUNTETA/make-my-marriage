@@ -19,6 +19,8 @@ export type UserDoc = {
   resetTokenExpiresAt?: Date;
   // Sessions issued before this moment are no longer valid (set when the password is reset).
   sessionsValidAfter?: Date;
+  // Make My Marriage staff roles ("super_admin", "moderator", "support"). Absent for everyone else.
+  platformRoles?: string[];
   createdAt: Date;
   updatedAt: Date;
 };
@@ -32,6 +34,7 @@ function users(): Promise<Collection<UserDoc>> {
     await col.createIndex({ email: 1 }, { unique: true });
     await col.createIndex({ verifyTokenHash: 1 }, { sparse: true });
     await col.createIndex({ resetTokenHash: 1 }, { sparse: true });
+    await col.createIndex({ platformRoles: 1 }, { sparse: true });
     return col;
   })();
   ready.catch(() => {
@@ -185,7 +188,11 @@ export type MembershipDoc = {
   _id: ObjectId;
   weddingId: ObjectId;
   userId: ObjectId; // a user can belong to several weddings, but only once to each
+  // Legacy: "admin" or "manager", still written so older code keeps working during the rollout.
+  // Derived from roleIds (admin if they can manage the team).
   role: MemberRole;
+  // The roles this member holds: built-in template keys ("admin", "viewer") or custom role ids.
+  roleIds?: string[];
   mutedNotificationTypes?: string[];
   // This person's colour theme (a PaletteId). Stored as text so an old or odd value is read back as the
   // default instead of breaking the page.
@@ -204,6 +211,9 @@ function memberships(): Promise<Collection<MembershipDoc>> {
     await col.dropIndex("userId_1").catch(() => undefined);
     await col.createIndex({ userId: 1, weddingId: 1 }, { unique: true });
     await col.createIndex({ weddingId: 1 });
+    // Members from before roles existed get the role they had ("admin" or "manager"), which are
+    // also the keys of the built-in roles. Idempotent: only touches members without roleIds.
+    await col.updateMany({ roleIds: { $exists: false } }, [{ $set: { roleIds: ["$role"] } }]);
     return col;
   })();
   membersReady.catch(() => {
@@ -236,6 +246,7 @@ export async function insertMembership(
       _id: new ObjectId(),
       userId: new ObjectId(input.userId),
       role: input.role,
+      roleIds: [input.role],
       joinedAt: now,
       createdAt: now,
       updatedAt: now,
@@ -295,9 +306,31 @@ export async function setMemberRole(
 ): Promise<void> {
   await scoped(await memberships(), { weddingId }).updateOne(
     { _id: new ObjectId(memberId) },
-    { $set: { role, updatedAt: new Date() } },
+    { $set: { role, roleIds: [role], updatedAt: new Date() } },
     options,
   );
+}
+
+// Gives a member exactly these roles. `legacyRole` keeps the old field in step (see MembershipDoc).
+export async function setMemberRoleIds(
+  weddingId: string,
+  memberId: string,
+  roleIds: string[],
+  legacyRole: MemberRole,
+  options?: { session?: ClientSession },
+): Promise<boolean> {
+  if (!ObjectId.isValid(memberId)) return false;
+  const result = await scoped(await memberships(), { weddingId }).updateOne(
+    { _id: new ObjectId(memberId) },
+    { $set: { roleIds, role: legacyRole, updatedAt: new Date() } },
+    options,
+  );
+  return result.matchedCount === 1;
+}
+
+// How many members of the wedding hold any of these roles.
+export async function countMembersWithRoles(weddingId: string, roleIds: string[]): Promise<number> {
+  return scoped(await memberships(), { weddingId }).countDocuments({ roleIds: { $in: roleIds } });
 }
 
 export async function deleteMembership(
@@ -428,4 +461,137 @@ export async function consumeInvite(
     { tokenHash, status: "pending", expiresAt: { $gt: now } },
     { ...options, includeResultMetadata: false },
   );
+}
+
+// ---- weddingRoles: custom roles a wedding's admins define (RBAC design, section a) ----
+
+export type WeddingRoleDoc = {
+  _id: ObjectId;
+  weddingId: ObjectId;
+  name: string;
+  description?: string;
+  // Permissions, each optionally narrowed to a scope ("task.edit@assigned"). See lib/permissions.ts.
+  grants: string[];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+let rolesReady: Promise<Collection<WeddingRoleDoc>> | undefined;
+
+function weddingRoles(): Promise<Collection<WeddingRoleDoc>> {
+  rolesReady ??= (async () => {
+    const col = (await getDb()).collection<WeddingRoleDoc>("weddingRoles");
+    // Names are unique within a wedding, ignoring case.
+    await col.createIndex(
+      { weddingId: 1, name: 1 },
+      { unique: true, collation: { locale: "en", strength: 2 } },
+    );
+    return col;
+  })();
+  rolesReady.catch(() => {
+    rolesReady = undefined;
+  });
+  return rolesReady;
+}
+
+export async function listWeddingRoles(weddingId: string): Promise<WeddingRoleDoc[]> {
+  return scoped(await weddingRoles(), { weddingId })
+    .find({}, { sort: { name: 1 }, collation: { locale: "en", strength: 2 } })
+    .toArray();
+}
+
+// Only ids that are real custom roles of THIS wedding come back: an id from another wedding, or a
+// made-up one, simply grants nothing.
+export async function findWeddingRoles(
+  weddingId: string,
+  ids: string[],
+): Promise<WeddingRoleDoc[]> {
+  const valid = ids.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id));
+  if (valid.length === 0) return [];
+  return scoped(await weddingRoles(), { weddingId })
+    .find({ _id: { $in: valid } })
+    .toArray();
+}
+
+// Null when the name is already used in this wedding.
+export async function insertWeddingRole(
+  weddingId: string,
+  input: { name: string; description?: string; grants: string[] },
+): Promise<WeddingRoleDoc | null> {
+  const now = new Date();
+  const doc = {
+    _id: new ObjectId(),
+    name: input.name,
+    ...(input.description ? { description: input.description } : {}),
+    grants: input.grants,
+    createdAt: now,
+    updatedAt: now,
+  };
+  try {
+    await scoped(await weddingRoles(), { weddingId }).insertOne(doc);
+  } catch (err) {
+    if (err instanceof MongoServerError && err.code === 11000) return null;
+    throw err;
+  }
+  return { ...doc, weddingId: new ObjectId(weddingId) };
+}
+
+// Returns the role as it was before the change (for the audit log), "taken" if the new name is
+// used by another role, or null if the role does not exist in this wedding.
+export async function updateWeddingRole(
+  weddingId: string,
+  id: string,
+  input: { name: string; description?: string; grants: string[] },
+): Promise<WeddingRoleDoc | "taken" | null> {
+  if (!ObjectId.isValid(id)) return null;
+  try {
+    return await scoped(await weddingRoles(), { weddingId }).findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      input.description
+        ? {
+            $set: {
+              name: input.name,
+              description: input.description,
+              grants: input.grants,
+              updatedAt: new Date(),
+            },
+          }
+        : {
+            $set: { name: input.name, grants: input.grants, updatedAt: new Date() },
+            $unset: { description: "" },
+          },
+      { returnDocument: "before" },
+    );
+  } catch (err) {
+    if (err instanceof MongoServerError && err.code === 11000) return "taken";
+    throw err;
+  }
+}
+
+export async function deleteWeddingRole(
+  weddingId: string,
+  id: string,
+): Promise<WeddingRoleDoc | null> {
+  if (!ObjectId.isValid(id)) return null;
+  return scoped(await weddingRoles(), { weddingId }).findOneAndDelete({ _id: new ObjectId(id) });
+}
+
+// ---- platform roles (Make My Marriage staff) ----
+
+export async function setPlatformRoles(userId: string, roles: string[]): Promise<UserDoc | null> {
+  if (!ObjectId.isValid(userId)) return null;
+  return (await users()).findOneAndUpdate(
+    { _id: new ObjectId(userId) },
+    roles.length > 0
+      ? { $set: { platformRoles: roles, updatedAt: new Date() } }
+      : { $unset: { platformRoles: "" }, $set: { updatedAt: new Date() } },
+    { returnDocument: "before" },
+  );
+}
+
+export async function listStaffUsers(): Promise<UserDoc[]> {
+  return (await users())
+    .find({ platformRoles: { $exists: true, $ne: [] } })
+    .limit(200)
+    .toArray();
 }

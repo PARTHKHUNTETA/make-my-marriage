@@ -8,6 +8,7 @@ const repo = vi.hoisted(() => ({
   findUserById: vi.fn(),
   insertUser: vi.fn(),
   listMembershipsByUserId: vi.fn(),
+  findWeddingRoles: vi.fn(),
   setMemberPalette: vi.fn(),
   insertMembership: vi.fn(),
   findAuthState: vi.fn(),
@@ -54,6 +55,7 @@ beforeEach(() => {
   repo.findUserById.mockReset();
   repo.insertUser.mockReset();
   repo.listMembershipsByUserId.mockReset();
+  repo.findWeddingRoles.mockReset().mockResolvedValue([]);
   repo.insertMembership.mockReset();
   for (const fn of [
     repo.findAuthState,
@@ -163,13 +165,37 @@ describe("getMembership", () => {
   it("returns the wedding and role as plain strings", async () => {
     const d = doc();
     repo.listMembershipsByUserId.mockResolvedValue([d]);
-    expect(await getMembership("u1")).toEqual({
+    expect(await getMembership("u1")).toMatchObject({
       weddingId: d.weddingId.toHexString(),
       memberId: d._id.toHexString(),
       role: "admin",
+      roleIds: ["admin"], // read from the old field: no roleIds stored yet
       palette: "aubergine", // nothing chosen yet: the default
       weddingIds: [d.weddingId.toHexString()],
     });
+  });
+
+  it("resolves what the member may do from their roles, custom roles from this wedding only", async () => {
+    const d = doc({ role: "manager", roleIds: ["viewer", "507f1f77bcf86cd799439011"] });
+    repo.listMembershipsByUserId.mockResolvedValue([d]);
+    repo.findWeddingRoles.mockResolvedValue([{ grants: ["expense.edit", "task.edit@assigned"] }]);
+    const m = await getMembership("u1");
+    expect(repo.findWeddingRoles).toHaveBeenCalledWith(d.weddingId.toHexString(), [
+      "507f1f77bcf86cd799439011",
+    ]);
+    expect(m?.permissions).toMatchObject({
+      "guest.view": "wedding",
+      "expense.edit": "wedding",
+      "task.edit": "assigned",
+    });
+    expect(m?.permissions["guest.edit"]).toBeUndefined();
+    expect(m?.role).toBe("manager"); // cannot manage the team
+  });
+
+  it("does not query custom roles when the member holds only built-in ones", async () => {
+    repo.listMembershipsByUserId.mockResolvedValue([doc({ roleIds: ["admin"] })]);
+    expect((await getMembership("u1"))?.permissions["wedding.delete"]).toBe("wedding");
+    expect(repo.findWeddingRoles).not.toHaveBeenCalled();
   });
 
   it("returns the colour theme this member chose", async () => {
