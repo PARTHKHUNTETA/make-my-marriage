@@ -8,7 +8,11 @@ const updateWeddingDetails = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
 const setActiveWeddingId = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/active-wedding", () => ({ setActiveWeddingId }));
-vi.mock("@/lib/authz", () => ({ requireUser, requireMember }));
+vi.mock("@/lib/authz", () => ({
+  requireUser,
+  requireMember,
+  requirePermission: async () => ({ ...(await requireMember()), scope: "wedding" }),
+}));
 vi.mock("./service", () => ({ createWedding, updateWeddingDetails }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 

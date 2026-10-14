@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { toCsv } from "@/lib/csv";
 import { toIstYmd } from "@/lib/dates";
 import { jsonError } from "@/lib/http";
@@ -15,7 +15,7 @@ const rupees = (paise: number) => (paise / 100).toFixed(2);
 // still owed. Members only; amounts are in rupees.
 export async function GET() {
   try {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("vendor.export");
     const [vendors, events] = await Promise.all([
       listVendors(ctx.weddingId),
       listEvents(ctx.weddingId),

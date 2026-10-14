@@ -13,7 +13,10 @@ const service = vi.hoisted(() => ({
 }));
 const events = vi.hoisted(() => ({ getEvent: vi.fn(), setEventShowTable: vi.fn() }));
 const getGuest = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/authz", () => ({ requireMember }));
+vi.mock("@/lib/authz", () => ({
+  requireMember,
+  requirePermission: async () => ({ ...(await requireMember()), scope: "wedding" }),
+}));
 vi.mock("./service", () => service);
 vi.mock("@/modules/events/service", () => events);
 vi.mock("@/modules/guests/service", () => ({ getGuest }));

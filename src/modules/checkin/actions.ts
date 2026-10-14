@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
 import {
   checkInSchema,
@@ -37,7 +37,7 @@ const refresh = () => revalidatePath("/guests/checkin");
 
 export async function lookupEntryAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("checkin.use");
     await limit(ctx.memberId);
     const { eventId, entryToken } = lookupSchema.parse(input);
     return lookupEntry(ctx.weddingId, eventId, entryToken);
@@ -46,7 +46,7 @@ export async function lookupEntryAction(input: unknown) {
 
 export async function searchPartiesAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("checkin.use");
     await limit(ctx.memberId);
     const { eventId, query } = searchSchema.parse(input);
     return searchParties(ctx.weddingId, eventId, query);
@@ -55,7 +55,7 @@ export async function searchPartiesAction(input: unknown) {
 
 export async function checkInAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("checkin.use");
     await limit(ctx.memberId);
     const outcome = await checkInParty(ctx.weddingId, ctx.memberId, checkInSchema.parse(input));
     refresh();
@@ -65,7 +65,7 @@ export async function checkInAction(input: unknown) {
 
 export async function admitWalkInAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("checkin.use");
     await limit(ctx.memberId);
     const outcome = await admitWalkIn(ctx.weddingId, ctx.memberId, walkInSchema.parse(input));
     refresh();
@@ -75,7 +75,7 @@ export async function admitWalkInAction(input: unknown) {
 
 export async function syncScansAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("checkin.use");
     await limit(ctx.memberId);
     const { eventId, scans } = syncSchema.parse(input);
     const results = await syncScans(ctx.weddingId, ctx.memberId, eventId, scans);
@@ -86,7 +86,7 @@ export async function syncScansAction(input: unknown) {
 
 export async function counterAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("checkin.use");
     return getCounter(ctx.weddingId, eventOnlySchema.parse(input).eventId);
   });
 }

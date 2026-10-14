@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Download, Mail, Phone, Plus } from "lucide-react";
 import { VendorFilters } from "@/components/vendors/vendor-filters";
 import { VendorsTabs } from "@/components/vendors/vendors-tabs";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatRupees } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
 import { VENDOR_CATEGORY_LABELS, parseVendorQuery } from "@/modules/vendors/schema";
@@ -16,7 +16,7 @@ export default async function VendorsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("vendor.view");
   const query = parseVendorQuery(await searchParams);
   const [events, list] = await Promise.all([
     listEvents(ctx.weddingId),

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ExpenseForm } from "@/components/money/expense-form";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { toIstYmd } from "@/lib/dates";
 import { listEvents } from "@/modules/events/service";
 import { listVendors } from "@/modules/vendors/service";
@@ -16,7 +16,7 @@ export default async function NewExpensePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("expense.edit");
   const { eventId } = await searchParams;
   const [events, wedding, vendors] = await Promise.all([
     listEvents(ctx.weddingId),

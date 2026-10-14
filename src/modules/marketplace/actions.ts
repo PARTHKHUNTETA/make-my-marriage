@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
-import { requireMember, requireStaff, requireVendor } from "@/lib/authz";
+import { requirePermission, requirePlatform, requireVendor } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
 import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
 import { getEventsByIds } from "@/modules/events/service";
@@ -114,7 +114,7 @@ export async function makeListingPhotoFirstAction(input: unknown) {
 
 export async function decideListingAction(input: unknown) {
   return safeAction(async () => {
-    await requireStaff();
+    await requirePlatform("listing.review");
     const { listingId, decision, note } = staffDecisionSchema.parse(input);
     const listing = await decideListing(listingId, decision, note);
     refresh();
@@ -128,7 +128,7 @@ export async function decideListingAction(input: unknown) {
 // are copied into the request, which is all the vendor will ever see of the wedding.
 export async function sendBookingRequestAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("marketplace.book");
     const parsed = bookingRequestSchema.parse(input);
     await consumeRateLimit("booking-request", subjectKey("wedding", ctx.weddingId), {
       limit: 20,
@@ -156,7 +156,7 @@ export async function sendBookingRequestAction(input: unknown) {
 
 export async function cancelBookingAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("marketplace.book");
     await cancelBooking(ctx.weddingId, requestIdSchema.parse(input).requestId);
     refresh();
     return {};
@@ -165,7 +165,7 @@ export async function cancelBookingAction(input: unknown) {
 
 export async function acceptQuoteAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("marketplace.book");
     const { requestId, amount } = acceptQuoteSchema.parse(input);
     await acceptQuote(ctx.weddingId, requestId, amount);
     refresh();
@@ -207,7 +207,7 @@ const NOT_ELIGIBLE: Record<"not_booked" | "not_linked" | "not_yet", string> = {
 // wedding per vendor; writing again changes it.
 export async function writeReviewAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("marketplace.review");
     const parsed = reviewSchema.parse(input);
     await consumeRateLimit("review", subjectKey("wedding", ctx.weddingId), {
       limit: 20,
@@ -241,7 +241,7 @@ export async function replyToReviewAction(input: unknown) {
 // The team removes an abusive review.
 export async function removeReviewAction(input: unknown) {
   return safeAction(async () => {
-    await requireStaff();
+    await requirePlatform("review.moderate");
     await removeReview(reviewIdSchema.parse(input).reviewId);
     refresh();
     return {};

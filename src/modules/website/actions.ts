@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { getWedding } from "@/modules/wedding/service";
 import { liveSettingsSchema, websiteSettingsSchema } from "./schema";
 import { saveLiveSettings, saveWebsiteSettings } from "./service";
@@ -11,7 +11,7 @@ import { saveLiveSettings, saveWebsiteSettings } from "./service";
 // signed-in member. The old address is refreshed too, so a changed address stops serving the site.
 export async function saveWebsiteSettingsAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("wedding.update");
     const parsed = websiteSettingsSchema.parse(input);
     const before = await getWedding(ctx.weddingId);
     await saveWebsiteSettings(ctx.weddingId, parsed);
@@ -26,7 +26,7 @@ export async function saveWebsiteSettingsAction(input: unknown) {
 // address, theme and other sections are untouched, and the public page is refreshed straight away.
 export async function saveLiveSettingsAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("wedding.update");
     const parsed = liveSettingsSchema.parse(input);
     await saveLiveSettings(ctx.weddingId, parsed);
     const wedding = await getWedding(ctx.weddingId);

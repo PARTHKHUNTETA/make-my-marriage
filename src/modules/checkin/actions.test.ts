@@ -10,7 +10,10 @@ const service = vi.hoisted(() => ({
   searchParties: vi.fn(),
   syncScans: vi.fn(),
 }));
-vi.mock("@/lib/authz", () => ({ requireMember }));
+vi.mock("@/lib/authz", () => ({
+  requireMember,
+  requirePermission: async () => ({ ...(await requireMember()), scope: "wedding" }),
+}));
 vi.mock("@/lib/ratelimit", () => ({
   consumeRateLimit,
   subjectKey: (a: string, b: string) => `${a}:${b}`,

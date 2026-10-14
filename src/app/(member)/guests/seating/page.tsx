@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Download, Printer } from "lucide-react";
 import { GuestsHeader } from "@/components/guests/guests-header";
 import { SeatingBoard } from "@/components/seating/seating-board";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatLongDate } from "@/lib/dates";
 import { formatTime } from "@/modules/events/schema";
 import { listEvents } from "@/modules/events/service";
@@ -16,7 +16,7 @@ export default async function SeatingPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("seating.view");
   const raw = await searchParams;
   const events = await listEvents(ctx.weddingId);
   const requested = typeof raw.eventId === "string" ? raw.eventId : undefined;

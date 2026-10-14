@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
 import { setActiveWeddingId } from "@/lib/active-wedding";
-import { requireAdmin, requireMember, requireUser } from "@/lib/authz";
+import { requireMember, requirePermission, requireUser } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
 import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
 import { announceMemberJoined, notifyMembers } from "@/modules/notifications/service";
@@ -60,7 +60,7 @@ const limitInvites = (weddingId: string) =>
 
 export async function inviteMemberAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireAdmin();
+    const ctx = await requirePermission("member.invite");
     const { email } = inviteMemberSchema.parse(input);
     await limitInvites(ctx.weddingId);
     const names = await inviteContext(ctx);
@@ -77,7 +77,7 @@ export async function inviteMemberAction(input: unknown) {
 
 export async function resendInviteAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireAdmin();
+    const ctx = await requirePermission("member.invite");
     const { inviteId } = inviteIdSchema.parse(input);
     await limitInvites(ctx.weddingId);
     const names = await inviteContext(ctx);
@@ -89,7 +89,7 @@ export async function resendInviteAction(input: unknown) {
 
 export async function cancelInviteAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireAdmin();
+    const ctx = await requirePermission("member.invite");
     const { inviteId } = inviteIdSchema.parse(input);
     await cancelPendingInvite(ctx.weddingId, inviteId);
     revalidatePath(TEAM_PAGE);
@@ -99,7 +99,7 @@ export async function cancelInviteAction(input: unknown) {
 
 export async function changeRoleAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireAdmin();
+    const ctx = await requirePermission("member.manage");
     const { memberId, role } = changeRoleSchema.parse(input);
     await changeMemberRole({ weddingId: ctx.weddingId, memberId, role });
     revalidatePath(TEAM_PAGE);
@@ -109,7 +109,7 @@ export async function changeRoleAction(input: unknown) {
 
 export async function removeMemberAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireAdmin();
+    const ctx = await requirePermission("member.manage");
     const { memberId } = memberIdSchema.parse(input);
     const who = (await listTeam(ctx.weddingId)).members.find((m) => m.memberId === memberId);
     await removeMember({ weddingId: ctx.weddingId, memberId });

@@ -6,7 +6,7 @@ import { ReviewForm } from "@/components/marketplace/review-form";
 import { Stars } from "@/components/marketplace/stars";
 import { BookingActions } from "@/components/marketplace/booking-actions";
 import { BookingRequestForm } from "@/components/marketplace/booking-request-form";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatLongDate } from "@/lib/dates";
 import { formatRupees } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
@@ -27,7 +27,7 @@ import { getProfile } from "@/modules/members/service";
 export const metadata: Metadata = { title: "Vendor — Make My Marriage" };
 
 export default async function ListingPage({ params }: { params: Promise<{ id: string }> }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("marketplace.book");
   const { id } = await params;
   const listing = await getLiveListing(id);
   if (!listing) notFound();

@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { GuestImport } from "@/components/guests/guest-import";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { listEvents } from "@/modules/events/service";
 
 export const metadata: Metadata = { title: "Import guests — Make My Marriage" };
 
 export default async function ImportGuestsPage() {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("guest.edit");
   const events = await listEvents(ctx.weddingId);
   return (
     <main className="mx-auto w-full max-w-4xl pt-6">

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { DeleteTaskButton } from "@/components/tasks/delete-task-button";
 import { TaskForm } from "@/components/tasks/task-form";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { toIstYmd } from "@/lib/dates";
 import { listEvents } from "@/modules/events/service";
 import { listTeam } from "@/modules/members/service";
@@ -13,9 +13,11 @@ import { getTask } from "@/modules/tasks/service";
 export const metadata: Metadata = { title: "Task — Make My Marriage" };
 
 export default async function TaskPage({ params }: { params: Promise<{ id: string }> }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("task.view");
   const { id } = await params;
-  const task = await getTask(ctx.weddingId, id);
+  const task = await getTask(ctx.weddingId, id, {
+    onlyAssignedTo: ctx.scope === "assigned" ? ctx.memberId : undefined,
+  });
   if (!task) notFound();
   const [events, team] = await Promise.all([listEvents(ctx.weddingId), listTeam(ctx.weddingId)]);
   // A task may still point at someone who has since been removed; show it as unassigned.

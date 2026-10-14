@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
 import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
 import { eventExists } from "@/modules/events/service";
@@ -53,7 +53,7 @@ const refresh = () => revalidatePath("/", "layout");
 
 export async function createExpenseAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("expense.edit");
     const parsed: ExpenseInput = expenseInputSchema.parse(input);
     await checkEvent(ctx.weddingId, parsed.eventId);
     await checkVendor(ctx.weddingId, parsed.vendorId);
@@ -66,7 +66,7 @@ export async function createExpenseAction(input: unknown) {
 
 export async function updateExpenseAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("expense.edit");
     const { expenseId, ...fields } = (input ?? {}) as { expenseId?: unknown };
     const id = expenseIdSchema.parse({ expenseId }).expenseId;
     const parsed = expenseInputSchema.parse(fields);
@@ -81,7 +81,7 @@ export async function updateExpenseAction(input: unknown) {
 
 export async function deleteExpenseAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("expense.edit");
     await deleteExpense(ctx.weddingId, expenseIdSchema.parse(input).expenseId);
     refresh();
     return {};
@@ -91,7 +91,7 @@ export async function deleteExpenseAction(input: unknown) {
 // A blank amount removes that budget.
 export async function setOverallBudgetAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("budget.edit");
     const { amount } = overallBudgetSchema.parse(input);
     await setOverallBudget(ctx.weddingId, amount ?? null);
     refresh();
@@ -101,7 +101,7 @@ export async function setOverallBudgetAction(input: unknown) {
 
 export async function setCategoryBudgetAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("budget.edit");
     const { category, amount } = categoryBudgetSchema.parse(input);
     await setCategoryBudget(ctx.weddingId, category, amount ?? null);
     refresh();
@@ -111,7 +111,7 @@ export async function setCategoryBudgetAction(input: unknown) {
 
 export async function setEventBudgetAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("budget.edit");
     const { eventId, amount } = eventBudgetSchema.parse(input);
     await checkEvent(ctx.weddingId, eventId);
     await setEventBudget(ctx.weddingId, eventId, amount ?? null);
@@ -122,7 +122,7 @@ export async function setEventBudgetAction(input: unknown) {
 
 export async function saveSplitDefaultAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("budget.edit");
     const { category, shares } = splitDefaultSchema.parse(input);
     await setSplitDefault(ctx.weddingId, category, shares);
     refresh();
@@ -134,7 +134,7 @@ export async function saveSplitDefaultAction(input: unknown) {
 
 export async function requestReceiptUploadAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("expense.edit");
     await consumeRateLimit("receipt-slots", subjectKey("member", ctx.memberId), {
       limit: 60,
       windowSeconds: 15 * 60,
@@ -146,7 +146,7 @@ export async function requestReceiptUploadAction(input: unknown) {
 
 export async function confirmReceiptAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("expense.edit");
     const { expenseId, receiptId } = receiptConfirmSchema.parse(input);
     await confirmReceipt(ctx.weddingId, expenseId, receiptId);
     refresh();
@@ -156,7 +156,7 @@ export async function confirmReceiptAction(input: unknown) {
 
 export async function removeReceiptAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("expense.edit");
     await removeReceipt(ctx.weddingId, expenseIdSchema.parse(input).expenseId);
     refresh();
     return {};

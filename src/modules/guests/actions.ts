@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { safeAction } from "@/lib/action";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
 import { getEventsByIds, listEvents } from "@/modules/events/service";
 import { setWhatsappMessage } from "@/modules/wedding/service";
@@ -45,7 +45,7 @@ const refresh = () => revalidatePath("/", "layout");
 
 export async function createGuestAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("guest.edit");
     const parsed = guestInputSchema.parse(input);
     await checkEvents(ctx.weddingId, parsed);
     const guest = await createGuest(ctx.weddingId, parsed);
@@ -56,7 +56,7 @@ export async function createGuestAction(input: unknown) {
 
 export async function updateGuestAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("guest.edit");
     const { guestId, ...fields } = (input ?? {}) as { guestId?: unknown };
     const id = guestIdSchema.parse({ guestId }).guestId;
     const parsed = guestInputSchema.parse(fields);
@@ -69,7 +69,7 @@ export async function updateGuestAction(input: unknown) {
 
 export async function deleteGuestAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("guest.edit");
     await deleteGuest(ctx.weddingId, guestIdSchema.parse(input).guestId);
     refresh();
     return {};
@@ -79,7 +79,7 @@ export async function deleteGuestAction(input: unknown) {
 // For the warning under the phone field while typing (PRD 5.5): not an error, just a heads-up.
 export async function checkPhoneAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("guest.edit");
     const { phone, excludeGuestId } = phoneCheckSchema.parse(input);
     const normalized = normalizePhone(phone);
     const duplicateOf = normalized
@@ -92,7 +92,7 @@ export async function checkPhoneAction(input: unknown) {
 // Tapping "Share on WhatsApp" records it; delivery cannot be confirmed (PRD 5.6).
 export async function recordWhatsappShareAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("invitation.send");
     await recordWhatsappShare(ctx.weddingId, guestIdSchema.parse(input).guestId);
     refresh();
     return {};
@@ -101,7 +101,7 @@ export async function recordWhatsappShareAction(input: unknown) {
 
 export async function overrideRsvpAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("guest.edit");
     const { guestId, eventId, status, numberAttending } = memberRsvpSchema.parse(input);
     await overrideRsvp(ctx.weddingId, guestId, eventId, { status, numberAttending });
     refresh();
@@ -115,7 +115,7 @@ const whatsappSchema = z.object({
 
 export async function saveWhatsappMessageAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("invitation.send");
     await setWhatsappMessage(ctx.weddingId, whatsappSchema.parse(input).message);
     refresh();
     return {};
@@ -146,7 +146,7 @@ async function previewFor(weddingId: string, table: string[][]) {
 
 export async function previewGuestImportAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("guest.edit");
     const { table } = importSchema.parse(input);
     const rows = await previewFor(ctx.weddingId, table);
     return {
@@ -159,7 +159,7 @@ export async function previewGuestImportAction(input: unknown) {
 
 export async function confirmGuestImportAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("guest.edit");
     const { table, includeDuplicates } = importSchema.parse(input);
     const rows = await previewFor(ctx.weddingId, table);
     const toCreate = rowsToImport(rows, includeDuplicates);

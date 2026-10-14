@@ -4,7 +4,10 @@ import { AppError } from "@/lib/errors";
 const requireMember = vi.hoisted(() => vi.fn());
 const consumeRateLimit = vi.hoisted(() => vi.fn());
 const searchWedding = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/authz", () => ({ requireMember }));
+vi.mock("@/lib/authz", () => ({
+  requireMember,
+  requirePermission: async () => ({ ...(await requireMember()), scope: "wedding" }),
+}));
 vi.mock("@/lib/ratelimit", () => ({
   consumeRateLimit,
   subjectKey: (a: string, b: string) => `${a}:${b}`,
@@ -14,14 +17,12 @@ vi.mock("./service", () => ({ searchWedding }));
 import { searchAction } from "./actions";
 
 beforeEach(() => {
-  requireMember
-    .mockReset()
-    .mockResolvedValue({
-      kind: "member",
-      weddingId: "w1",
-      memberId: "m1",
-      permissions: { "event.view": "wedding" },
-    });
+  requireMember.mockReset().mockResolvedValue({
+    kind: "member",
+    weddingId: "w1",
+    memberId: "m1",
+    permissions: { "event.view": "wedding" },
+  });
   consumeRateLimit.mockReset().mockResolvedValue(undefined);
   searchWedding
     .mockReset()

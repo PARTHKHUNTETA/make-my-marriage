@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
 import { getEvent, setEventShowTable } from "@/modules/events/service";
 import { getGuest } from "@/modules/guests/service";
@@ -74,7 +74,7 @@ function tooMany(name: string, need: number, elsewhere: number) {
 
 export async function createTableAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("seating.edit");
     const parsed = tableInputSchema.parse(input);
     if (!(await getEvent(ctx.weddingId, parsed.eventId)))
       throw new AppError("NOT_FOUND", "That event no longer exists.");
@@ -86,7 +86,7 @@ export async function createTableAction(input: unknown) {
 
 export async function updateTableAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("seating.edit");
     const { tableId, name, capacity } = tableChangeSchema.parse(input);
     await editTable(ctx.weddingId, tableId, { name, capacity });
     refresh();
@@ -96,7 +96,7 @@ export async function updateTableAction(input: unknown) {
 
 export async function deleteTableAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("seating.edit");
     await removeTable(ctx.weddingId, tableIdSchema.parse(input).tableId);
     refresh();
     return {};
@@ -105,7 +105,7 @@ export async function deleteTableAction(input: unknown) {
 
 export async function assignPartyAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("seating.edit");
     const { tableId, guestId, seats } = assignSchema.parse(input);
     const table = await getTable(ctx.weddingId, tableId);
     if (!table) throw new AppError("NOT_FOUND", "That table no longer exists.");
@@ -121,7 +121,7 @@ export async function assignPartyAction(input: unknown) {
 
 export async function moveSeatedPartyAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("seating.edit");
     const { guestId, fromTableId, toTableId, seats } = moveSchema.parse(input);
     const [from, to] = await Promise.all([
       getTable(ctx.weddingId, fromTableId),
@@ -150,7 +150,7 @@ export async function moveSeatedPartyAction(input: unknown) {
 
 export async function unassignPartyAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("seating.edit");
     const { tableId, guestId } = unassignSchema.parse(input);
     await unassignParty(ctx.weddingId, tableId, guestId);
     refresh();
@@ -161,7 +161,7 @@ export async function unassignPartyAction(input: unknown) {
 // "Your table" on the guests' invitation pages, per event. Off until switched on.
 export async function setShowTableAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("seating.edit");
     const { eventId, on } = showTableSchema.parse(input);
     await setEventShowTable(ctx.weddingId, eventId, on);
     refresh();

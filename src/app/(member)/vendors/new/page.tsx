@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { VendorForm } from "@/components/vendors/vendor-form";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { prefillFromQuery } from "@/modules/vendors/schema";
 import { listEvents } from "@/modules/events/service";
 
@@ -14,7 +14,7 @@ export default async function NewVendorPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const prefill = prefillFromQuery(await searchParams);
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("vendor.edit");
   const events = await listEvents(ctx.weddingId);
   return (
     <main className="mx-auto w-full max-w-3xl pt-6">

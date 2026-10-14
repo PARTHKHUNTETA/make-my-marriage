@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { WebsiteSettingsForm } from "@/components/site/website-settings-form";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { absoluteUrl } from "@/lib/app-url";
 import { getWedding } from "@/modules/wedding/service";
 
 export const metadata: Metadata = { title: "Wedding website — Make My Marriage" };
 
 export default async function WebsitePage() {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("wedding.update");
   const wedding = await getWedding(ctx.weddingId);
   if (!wedding) return null;
   const site = wedding.website;

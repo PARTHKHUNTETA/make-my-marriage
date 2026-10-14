@@ -4,7 +4,10 @@ const requireMember = vi.hoisted(() => vi.fn());
 const service = vi.hoisted(() => ({ saveWebsiteSettings: vi.fn(), saveLiveSettings: vi.fn() }));
 const getWedding = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/authz", () => ({ requireMember }));
+vi.mock("@/lib/authz", () => ({
+  requireMember,
+  requirePermission: async () => ({ ...(await requireMember()), scope: "wedding" }),
+}));
 vi.mock("./service", () => service);
 vi.mock("@/modules/wedding/service", () => ({ getWedding }));
 vi.mock("next/cache", () => ({ revalidatePath }));

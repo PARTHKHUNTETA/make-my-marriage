@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { BudgetEditor } from "@/components/money/budget-editor";
 import { MoneyHeader } from "@/components/money/money-header";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatRupees } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
 import type { BudgetRow } from "@/modules/money/calc";
@@ -64,7 +64,7 @@ function Line({ row, editor }: { row: BudgetRow; editor: React.ReactNode }) {
 }
 
 export default async function BudgetPage() {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("expense.view");
   const [events, wedding] = await Promise.all([
     listEvents(ctx.weddingId),
     getWedding(ctx.weddingId),

@@ -3,7 +3,7 @@
 import { setActiveWeddingId } from "@/lib/active-wedding";
 import { safeAction } from "@/lib/action";
 import { revalidatePath } from "next/cache";
-import { requireMember, requireUser } from "@/lib/authz";
+import { requirePermission, requireUser } from "@/lib/authz";
 import { createWeddingSchema, updateWeddingSchema } from "./schema";
 import { createWedding, updateWeddingDetails } from "./service";
 
@@ -24,7 +24,7 @@ export async function createWeddingAction(input: unknown) {
 // taken from the session, never from the input.
 export async function updateWeddingAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("wedding.update");
     const parsed = updateWeddingSchema.parse(input);
     await updateWeddingDetails(ctx.weddingId, parsed);
     // The sidebar, dashboard hero and settings all show these details.

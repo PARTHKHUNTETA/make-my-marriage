@@ -20,7 +20,13 @@ const service = vi.hoisted(() => ({
   replyToReview: vi.fn(),
   removeReview: vi.fn(),
 }));
-vi.mock("@/lib/authz", () => ({ requireVendor, requireStaff, requireMember }));
+vi.mock("@/lib/authz", () => ({
+  requireVendor,
+  requireStaff,
+  requireMember,
+  requirePermission: async () => ({ ...(await requireMember()), scope: "wedding" }),
+  requirePlatform: () => requireStaff(),
+}));
 vi.mock("@/modules/events/service", () => ({ getEventsByIds }));
 vi.mock("@/modules/wedding/service", () => ({ getWedding }));
 vi.mock("@/modules/vendors/service", () => ({ getVendorByListing }));

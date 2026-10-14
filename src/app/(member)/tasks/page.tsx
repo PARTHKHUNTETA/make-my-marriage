@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ListPlus } from "lucide-react";
 import { TaskFilters } from "@/components/tasks/task-filters";
 import { TaskRow } from "@/components/tasks/task-row";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { listEvents } from "@/modules/events/service";
 import { listTeam } from "@/modules/members/service";
 import { parseTaskQuery, type TaskItem } from "@/modules/tasks/schema";
@@ -16,10 +16,13 @@ export default async function TasksPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("task.view");
   const query = parseTaskQuery(await searchParams);
   const [tasks, events, team] = await Promise.all([
-    listTasks(ctx.weddingId, query, ctx.memberId),
+    // Someone allowed only their own tasks sees only those, whichever view they pick.
+    listTasks(ctx.weddingId, query, ctx.memberId, {
+      onlyAssignedTo: ctx.scope === "assigned" ? ctx.memberId : undefined,
+    }),
     listEvents(ctx.weddingId),
     listTeam(ctx.weddingId),
   ]);

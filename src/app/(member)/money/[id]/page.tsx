@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { DeleteExpenseButton } from "@/components/money/delete-expense-button";
 import { ExpenseForm } from "@/components/money/expense-form";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { toIstYmd } from "@/lib/dates";
 import { toRupeeInput } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
@@ -22,7 +22,7 @@ export default async function ExpensePage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ receipt?: string }>;
 }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("expense.view");
   const { id } = await params;
   const { receipt } = await searchParams;
   const [expense, events, wedding, vendors] = await Promise.all([

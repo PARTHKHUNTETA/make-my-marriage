@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { MoneyHeader } from "@/components/money/money-header";
 import { SplitDefaultRow } from "@/components/money/split-default-row";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatRupees } from "@/lib/money";
 import {
   CATEGORY_LABELS,
@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Who paid — Make My Marriage" };
 const box = "rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)]";
 
 export default async function SplitsPage() {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("expense.view");
   const [summary, wedding] = await Promise.all([
     getSummary(ctx.weddingId),
     getWedding(ctx.weddingId),

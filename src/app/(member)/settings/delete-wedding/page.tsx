@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { DeleteWeddingForm } from "@/components/settings/delete-wedding-form";
-import { requireAdmin } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { PURGE_AFTER_DAYS } from "@/modules/deletion/schema";
 import { getWedding } from "@/modules/wedding/service";
 
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 // Admins only: requireAdmin turns anyone else away.
 export default async function DeleteWeddingPage() {
-  const ctx = await requireAdmin();
+  const ctx = await requirePagePermission("wedding.delete");
   const wedding = await getWedding(ctx.weddingId);
   return (
     <main className="mx-auto w-full max-w-3xl pt-6">

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/seating/print-button";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatLongDate } from "@/lib/dates";
 import { getEvent } from "@/modules/events/service";
 import { getSeatingPlan } from "@/modules/seating/plan";
@@ -20,7 +20,7 @@ export default async function PrintSeatingPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("seating.view");
   const { eventId } = await searchParams;
   const event = typeof eventId === "string" ? await getEvent(ctx.weddingId, eventId) : null;
   if (!event) notFound();

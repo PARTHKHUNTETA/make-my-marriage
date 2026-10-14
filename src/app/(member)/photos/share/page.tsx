@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { PhotosHeader } from "@/components/photos/photos-header";
 import { SharePanel } from "@/components/photos/share-panel";
 import { absoluteUrl } from "@/lib/app-url";
-import { canManageMembers, requireMember } from "@/lib/authz";
+import { hasPermission } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { qrDataUrl } from "@/lib/qr";
 import { getSummary } from "@/modules/photos/service";
 import { getGallerySettings } from "@/modules/wedding/service";
@@ -11,7 +12,7 @@ export const metadata: Metadata = { title: "Share photos — Make My Marriage" }
 export const dynamic = "force-dynamic";
 
 export default async function SharePage() {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("gallery.share");
   const [settings, summary] = await Promise.all([
     getGallerySettings(ctx.weddingId),
     getSummary(ctx.weddingId),
@@ -24,7 +25,7 @@ export default async function SharePage() {
         link={link}
         qr={await qrDataUrl(link)}
         uploadsOn={settings.uploadsOn}
-        isAdmin={canManageMembers(ctx)}
+        isAdmin={hasPermission(ctx, "gallery.reset_link")}
       />
     </main>
   );

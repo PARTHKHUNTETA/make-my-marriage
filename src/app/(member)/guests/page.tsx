@@ -5,7 +5,7 @@ import { GuestFilters } from "@/components/guests/guest-filters";
 import { GuestList } from "@/components/guests/guest-list";
 import { GuestsHeader, StatCard } from "@/components/guests/guests-header";
 import { WhatsappMessageForm } from "@/components/guests/whatsapp-message-form";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { absoluteUrl } from "@/lib/app-url";
 import { listEvents } from "@/modules/events/service";
 import { parseGuestQuery } from "@/modules/guests/schema";
@@ -24,7 +24,7 @@ export default async function GuestsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("guest.view");
   const raw = await searchParams;
   const query = parseGuestQuery(raw);
   const [wedding, events, stats, list] = await Promise.all([

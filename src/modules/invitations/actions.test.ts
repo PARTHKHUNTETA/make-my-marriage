@@ -8,7 +8,10 @@ const sending = vi.hoisted(() => ({
 const setReminderSettings = vi.hoisted(() => vi.fn());
 const consumeRateLimit = vi.hoisted(() => vi.fn());
 const getProfile = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/authz", () => ({ requireMember }));
+vi.mock("@/lib/authz", () => ({
+  requireMember,
+  requirePermission: async () => ({ ...(await requireMember()), scope: "wedding" }),
+}));
 vi.mock("./sending", () => sending);
 vi.mock("@/modules/members/service", () => ({ getProfile }));
 vi.mock("@/modules/wedding/service", () => ({ setReminderSettings }));

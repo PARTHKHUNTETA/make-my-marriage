@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
 import { jsonError } from "@/lib/http";
 import { qrPng } from "@/lib/qr";
@@ -15,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string; eventId: string }> },
 ) {
   try {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("guest.view");
     const { id, eventId } = await params;
     const token = await getEntryTokenForMember(ctx.weddingId, id, eventId);
     if (!token)

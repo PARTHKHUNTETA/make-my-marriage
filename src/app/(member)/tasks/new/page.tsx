@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { TaskForm } from "@/components/tasks/task-form";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { listEvents } from "@/modules/events/service";
 import { listTeam } from "@/modules/members/service";
 
@@ -13,7 +13,7 @@ export default async function NewTaskPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("task.edit");
   const { eventId } = await searchParams;
   const [events, team] = await Promise.all([listEvents(ctx.weddingId), listTeam(ctx.weddingId)]);
   // Arriving from an event's page pre-selects that event, if it is a real one in this wedding.

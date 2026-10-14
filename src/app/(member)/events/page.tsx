@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarPlus, MapPin } from "lucide-react";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatLongDate } from "@/lib/dates";
 import { dayLabel, groupEventsByDay, type EventDay } from "@/modules/events/group";
 import { EVENT_TYPE_LABELS, formatTime, type EventItem } from "@/modules/events/schema";
@@ -11,7 +11,7 @@ import { taskCountsByEvent } from "@/modules/tasks/service";
 export const metadata: Metadata = { title: "Events — Make My Marriage" };
 
 export default async function EventsPage() {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("event.view");
   const [events, taskCounts] = await Promise.all([
     listEvents(ctx.weddingId),
     taskCountsByEvent(ctx.weddingId),

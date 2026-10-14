@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PrintButton } from "@/components/seating/print-button";
 import { absoluteUrl } from "@/lib/app-url";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatLongDate } from "@/lib/dates";
 import { qrDataUrl } from "@/lib/qr";
 import { getGallerySettings, getWedding } from "@/modules/wedding/service";
@@ -20,7 +20,7 @@ export default async function PosterPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("gallery.share");
   const { size } = await searchParams;
   const a5 = size === "a5";
   const [settings, wedding] = await Promise.all([

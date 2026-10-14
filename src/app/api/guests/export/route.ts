@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { jsonError } from "@/lib/http";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { toCsv } from "@/lib/csv";
 import { listEvents } from "@/modules/events/service";
 import { RSVP_LABELS } from "@/modules/guests/schema";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 // With an event, one row per invited guest; without, one row per guest and event.
 export async function GET(request: Request) {
   try {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("guest.export");
     const eventId = new URL(request.url).searchParams.get("eventId") ?? undefined;
     const events = await listEvents(ctx.weddingId);
     const names = new Map(events.map((e) => [e.id, e.name]));

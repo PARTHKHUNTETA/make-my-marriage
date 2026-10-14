@@ -5,7 +5,10 @@ const requireAdmin = vi.hoisted(() => vi.fn());
 const deleteWedding = vi.hoisted(() => vi.fn());
 const getWedding = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/authz", () => ({ requireAdmin }));
+vi.mock("@/lib/authz", () => ({
+  requireAdmin,
+  requirePermission: async () => ({ ...(await requireAdmin()), scope: "wedding" }),
+}));
 vi.mock("./service", () => ({ deleteWedding }));
 vi.mock("@/modules/wedding/service", () => ({ getWedding }));
 vi.mock("next/cache", () => ({ revalidatePath }));

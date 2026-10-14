@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { toCsv } from "@/lib/csv";
 import { toIstYmd } from "@/lib/dates";
 import { jsonError } from "@/lib/http";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 // (and the right to take your information with you). Members only; amounts are in rupees.
 export async function GET() {
   try {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("expense.export");
     const [expenses, events, vendors] = await Promise.all([
       listEveryExpense(ctx.weddingId),
       listEvents(ctx.weddingId),

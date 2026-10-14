@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { toCsv } from "@/lib/csv";
 import { jsonError } from "@/lib/http";
 import { listEvents } from "@/modules/events/service";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 // examples. Members only.
 export async function GET() {
   try {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("guest.edit");
     const events = await listEvents(ctx.weddingId);
     return new NextResponse(toCsv(templateRows(events.map((e) => e.name))), {
       headers: {

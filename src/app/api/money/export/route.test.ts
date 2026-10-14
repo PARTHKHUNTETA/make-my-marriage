@@ -5,7 +5,10 @@ const requireMember = vi.hoisted(() => vi.fn());
 const listEveryExpense = vi.hoisted(() => vi.fn());
 const listEvents = vi.hoisted(() => vi.fn());
 const listVendors = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/authz", () => ({ requireMember }));
+vi.mock("@/lib/authz", () => ({
+  requireMember,
+  requirePermission: async () => ({ ...(await requireMember()), scope: "wedding" }),
+}));
 vi.mock("@/modules/money/service", () => ({ listEveryExpense }));
 vi.mock("@/modules/events/service", () => ({ listEvents }));
 vi.mock("@/modules/vendors/service", () => ({ listVendors }));

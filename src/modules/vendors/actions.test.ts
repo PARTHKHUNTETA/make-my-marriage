@@ -12,7 +12,10 @@ const service = vi.hoisted(() => ({
   markInstallmentUnpaid: vi.fn(),
 }));
 const getEventsByIds = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/authz", () => ({ requireMember }));
+vi.mock("@/lib/authz", () => ({
+  requireMember,
+  requirePermission: async () => ({ ...(await requireMember()), scope: "wedding" }),
+}));
 vi.mock("./service", () => service);
 vi.mock("@/modules/events/service", () => ({ getEventsByIds }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));

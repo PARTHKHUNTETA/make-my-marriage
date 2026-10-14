@@ -21,7 +21,22 @@ const svc = vi.hoisted(() => ({
   updatePalette: vi.fn(),
   resendInvite: vi.fn(),
 }));
-vi.mock("@/lib/authz", () => ({ requireAdmin, requireUser, requireMember }));
+const ADMIN_ONLY = [
+  "member.invite",
+  "member.manage",
+  "role.manage",
+  "gallery.reset_link",
+  "wedding.delete",
+];
+vi.mock("@/lib/authz", () => ({
+  requireAdmin,
+  requireUser,
+  requireMember,
+  requirePermission: async (permission: string) => ({
+    ...(await (ADMIN_ONLY.includes(permission) ? requireAdmin() : requireMember())),
+    scope: "wedding",
+  }),
+}));
 vi.mock("@/lib/ratelimit", async (orig) => ({
   ...(await orig<typeof import("@/lib/ratelimit")>()),
   consumeRateLimit,

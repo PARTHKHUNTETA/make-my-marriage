@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { DiscoverSearch } from "@/components/vendors/discover-search";
 import { VendorsTabs } from "@/components/vendors/vendors-tabs";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { getWedding } from "@/modules/wedding/service";
 
 export const metadata: Metadata = { title: "Discover vendors — Make My Marriage" };
 
 export default async function DiscoverPage() {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("marketplace.book");
   const wedding = await getWedding(ctx.weddingId);
   return (
     <main className="mx-auto w-full max-w-4xl pt-6">

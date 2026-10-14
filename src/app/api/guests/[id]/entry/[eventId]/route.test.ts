@@ -4,7 +4,10 @@ import { AppError } from "@/lib/errors";
 vi.mock("server-only", () => ({}));
 const requireMember = vi.hoisted(() => vi.fn());
 const getEntryTokenForMember = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/authz", () => ({ requireMember }));
+vi.mock("@/lib/authz", () => ({
+  requireMember,
+  requirePermission: async () => ({ ...(await requireMember()), scope: "wedding" }),
+}));
 vi.mock("@/modules/guests/service", () => ({ getEntryTokenForMember }));
 
 import { GET } from "./route";

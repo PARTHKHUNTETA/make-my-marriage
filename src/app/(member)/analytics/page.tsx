@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChartCard } from "@/components/analytics/chart-card";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { chartTheme } from "@/lib/palettes";
 import { analyticsFilterSchema } from "@/modules/analytics/schema";
 import { getAnalytics } from "@/modules/analytics/service";
@@ -18,7 +18,7 @@ export default async function AnalyticsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("analytics.view");
   const raw = await searchParams;
   const pick = (k: string) =>
     typeof raw[k] === "string" && raw[k] !== "" ? (raw[k] as string) : undefined;

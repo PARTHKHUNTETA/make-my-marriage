@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PhotoGallery } from "@/components/photos/photo-gallery";
 import { PhotosHeader } from "@/components/photos/photos-header";
 import { absoluteUrl } from "@/lib/app-url";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { listEvents } from "@/modules/events/service";
 import { listPhotosSchema } from "@/modules/photos/schema";
 import { getGallerySettings } from "@/modules/wedding/service";
@@ -16,7 +16,7 @@ export default async function PhotosPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("photo.view");
   const raw = await searchParams;
   // What does not depend on anything else is fetched together; the rest follows in as few steps as
   // the data allows (events -> albums -> this page of photos).

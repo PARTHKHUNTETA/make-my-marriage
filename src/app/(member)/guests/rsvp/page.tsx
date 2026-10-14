@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Download } from "lucide-react";
 import { GuestsHeader, StatCard } from "@/components/guests/guests-header";
 import { RsvpOverride } from "@/components/guests/rsvp-override";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatLongDate } from "@/lib/dates";
 import { EVENT_TYPE_LABELS, formatTime } from "@/modules/events/schema";
 import { listEvents } from "@/modules/events/service";
@@ -16,7 +16,7 @@ export default async function RsvpPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("guest.view");
   const raw = await searchParams;
   const events = await listEvents(ctx.weddingId);
   const requested = typeof raw.eventId === "string" ? raw.eventId : undefined;

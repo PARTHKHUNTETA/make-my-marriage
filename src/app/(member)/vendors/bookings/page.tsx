@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BookingActions } from "@/components/marketplace/booking-actions";
 import { VendorsTabs } from "@/components/vendors/vendors-tabs";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatLongDate } from "@/lib/dates";
 import { formatRupees } from "@/lib/money";
 import { BOOKING_STATUS_LABELS, type BookingStatus } from "@/modules/marketplace/schema";
@@ -19,7 +19,7 @@ const tone: Record<BookingStatus, string> = {
 };
 
 export default async function BookingsPage() {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("marketplace.book");
   const bookings = await listBookings(ctx.weddingId);
 
   return (

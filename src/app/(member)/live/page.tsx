@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { LiveStreamForm } from "@/components/site/live-stream-form";
 import { absoluteUrl } from "@/lib/app-url";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { parseYouTube } from "@/lib/youtube";
 import { getWedding } from "@/modules/wedding/service";
 
@@ -15,7 +15,7 @@ const card = "rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)] sm:
 // Live streaming is a YouTube link shown on the wedding website; the product builds no streaming of
 // its own (PRD 5.11). This page is where the family sets it up and checks it before the day.
 export default async function LiveStreamPage() {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("wedding.update");
   const wedding = await getWedding(ctx.weddingId);
   if (!wedding) return null;
   const { showLive, youtubeUrl, isOn, slug } = wedding.website;

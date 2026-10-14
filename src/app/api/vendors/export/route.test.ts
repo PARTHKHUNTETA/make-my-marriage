@@ -4,7 +4,10 @@ import { AppError } from "@/lib/errors";
 const requireMember = vi.hoisted(() => vi.fn());
 const listVendors = vi.hoisted(() => vi.fn());
 const listEvents = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/authz", () => ({ requireMember }));
+vi.mock("@/lib/authz", () => ({
+  requireMember,
+  requirePermission: async () => ({ ...(await requireMember()), scope: "wedding" }),
+}));
 vi.mock("@/modules/vendors/service", () => ({ listVendors }));
 vi.mock("@/modules/events/service", () => ({ listEvents }));
 

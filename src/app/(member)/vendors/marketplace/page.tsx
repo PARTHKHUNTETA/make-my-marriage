@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { MarketplaceFilters } from "@/components/marketplace/marketplace-filters";
 import { VendorsTabs } from "@/components/vendors/vendors-tabs";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatRupees } from "@/lib/money";
 import { parseListingQuery } from "@/modules/marketplace/schema";
 import { listingPhotoUrls } from "@/modules/marketplace/photos";
@@ -18,7 +18,7 @@ export default async function MarketplacePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("marketplace.book");
   const raw = await searchParams;
   const wedding = await getWedding(ctx.weddingId);
   // The wedding's own city is where most people look, so it is the starting point.

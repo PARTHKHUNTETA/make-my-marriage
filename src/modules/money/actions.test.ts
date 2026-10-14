@@ -18,7 +18,10 @@ vi.mock("@/lib/ratelimit", () => ({
 }));
 const eventExists = vi.hoisted(() => vi.fn());
 const wedding = vi.hoisted(() => ({ setOverallBudget: vi.fn(), setSplitDefault: vi.fn() }));
-vi.mock("@/lib/authz", () => ({ requireMember }));
+vi.mock("@/lib/authz", () => ({
+  requireMember,
+  requirePermission: async () => ({ ...(await requireMember()), scope: "wedding" }),
+}));
 vi.mock("./service", () => service);
 vi.mock("@/modules/events/service", () => ({ eventExists }));
 vi.mock("@/modules/wedding/service", () => wedding);

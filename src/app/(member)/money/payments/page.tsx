@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MoneyHeader } from "@/components/money/money-header";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatRupees } from "@/lib/money";
 import { INSTALLMENT_LABELS, type InstallmentStatus } from "@/modules/vendors/schema";
 import { getPaymentSchedule } from "@/modules/vendors/service";
@@ -23,7 +23,7 @@ const date = new Intl.DateTimeFormat("en-IN", {
 const box = "rounded-xl bg-white shadow-[0_1px_3px_rgba(35,31,32,0.04)]";
 
 export default async function PaymentsPage() {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("vendor.view");
   const { rows, balances } = await getPaymentSchedule(ctx.weddingId);
   const toPay = rows.filter((r) => r.installment.status !== "paid");
   const overdue = toPay.filter((r) => r.installment.status === "overdue");

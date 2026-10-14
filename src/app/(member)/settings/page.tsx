@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Bell, ChevronRight, Heart, Palette, Settings2, Trash2, Users } from "lucide-react";
-import { canManageMembers, requireMember } from "@/lib/authz";
+import { hasPermission, requireMember } from "@/lib/authz";
 
 export const metadata: Metadata = { title: "Settings — Make My Marriage" };
 
@@ -32,7 +32,7 @@ export default async function SettingsPage() {
           </span>
           <ChevronRight className="size-4 text-ink-2" aria-hidden />
         </Link>
-        {canManageMembers(ctx) ? (
+        {hasPermission(ctx, "member.manage") ? (
           <Link href="/settings/members" className={`${card} transition-colors hover:bg-rose-50`}>
             <span className="flex size-10 items-center justify-center rounded-lg bg-rose-100">
               <Users className="size-5 text-plum" aria-hidden />
@@ -85,7 +85,7 @@ export default async function SettingsPage() {
           </span>
           <ChevronRight className="size-4 text-ink-2" aria-hidden />
         </Link>
-        {canManageMembers(ctx) ? (
+        {hasPermission(ctx, "wedding.delete") ? (
           <Link
             href="/settings/delete-wedding"
             className={`${card} transition-colors hover:bg-rose-50`}

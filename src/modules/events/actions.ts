@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { eventIdSchema, eventInputSchema } from "./schema";
 import { createEvent, deleteEvent, previewEventDelete, updateEvent } from "./service";
 
@@ -16,7 +16,7 @@ function refresh() {
 
 export async function createEventAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("event.edit");
     const event = await createEvent(ctx.weddingId, eventInputSchema.parse(input));
     refresh();
     return { id: event.id };
@@ -25,7 +25,7 @@ export async function createEventAction(input: unknown) {
 
 export async function updateEventAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("event.edit");
     const { eventId, ...fields } = (input ?? {}) as { eventId?: unknown };
     const id = eventIdSchema.parse({ eventId }).eventId;
     await updateEvent(ctx.weddingId, id, eventInputSchema.parse(fields));
@@ -36,14 +36,14 @@ export async function updateEventAction(input: unknown) {
 
 export async function previewEventDeleteAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("event.edit");
     return previewEventDelete(ctx.weddingId, eventIdSchema.parse(input).eventId);
   });
 }
 
 export async function deleteEventAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("event.edit");
     await deleteEvent(ctx.weddingId, eventIdSchema.parse(input).eventId);
     refresh();
     return {};

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { toCsv } from "@/lib/csv";
 import { jsonError } from "@/lib/http";
 import { getEvent } from "@/modules/events/service";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 // parties still to seat. Members only.
 export async function GET(request: Request) {
   try {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("seating.view");
     const eventId = new URL(request.url).searchParams.get("eventId") ?? "";
     const event = await getEvent(ctx.weddingId, eventId);
     if (!event)

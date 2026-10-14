@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { CoverImageField } from "@/components/photos/cover-image-field";
 import { EditWeddingForm } from "@/components/wedding/edit-wedding-form";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { toIstYmd } from "@/lib/dates";
 import { coverUrl } from "@/modules/photos/covers";
 import { getWedding } from "@/modules/wedding/service";
@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Wedding details — Make My Marriage
 
 // Open to Admins and Managers alike (PRD 3).
 export default async function WeddingDetailsPage() {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("wedding.update");
   const wedding = await getWedding(ctx.weddingId);
   if (!wedding) notFound();
 

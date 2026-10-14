@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteView } from "@/components/site/site-view";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { getSitePreview } from "@/modules/website/service";
 
 export const metadata: Metadata = { title: "Preview — Make My Marriage", robots: { index: false } };
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 // The couple's own website as guests will see it, shown even while the site is off.
 export default async function PreviewPage() {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("wedding.update");
   const site = await getSitePreview(ctx.weddingId);
   if (!site) notFound();
   return (

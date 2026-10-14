@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
 import { getEventsByIds } from "@/modules/events/service";
 import {
@@ -42,7 +42,7 @@ const refresh = () => revalidatePath("/", "layout");
 
 export async function createVendorAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("vendor.edit");
     const parsed = vendorInputSchema.parse(input);
     await checkEvents(ctx.weddingId, parsed);
     const vendor = await createVendor(ctx.weddingId, parsed);
@@ -53,7 +53,7 @@ export async function createVendorAction(input: unknown) {
 
 export async function updateVendorAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("vendor.edit");
     const { vendorId, ...fields } = (input ?? {}) as { vendorId?: unknown };
     const id = vendorIdSchema.parse({ vendorId }).vendorId;
     const parsed = vendorInputSchema.parse(fields);
@@ -66,7 +66,7 @@ export async function updateVendorAction(input: unknown) {
 
 export async function deleteVendorAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("vendor.edit");
     await deleteVendor(ctx.weddingId, vendorIdSchema.parse(input).vendorId);
     refresh();
     return {};
@@ -75,7 +75,7 @@ export async function deleteVendorAction(input: unknown) {
 
 export async function addInstallmentAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("vendor.edit");
     const { vendorId, ...fields } = (input ?? {}) as { vendorId?: unknown };
     const id = vendorIdSchema.parse({ vendorId }).vendorId;
     await addInstallment(ctx.weddingId, id, installmentInputSchema.parse(fields));
@@ -86,7 +86,7 @@ export async function addInstallmentAction(input: unknown) {
 
 export async function updateInstallmentAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("vendor.edit");
     const { vendorId, installmentId, label, amount, dueDate } =
       updateInstallmentSchema.parse(input);
     await updateInstallment(ctx.weddingId, vendorId, installmentId, { label, amount, dueDate });
@@ -97,7 +97,7 @@ export async function updateInstallmentAction(input: unknown) {
 
 export async function deleteInstallmentAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("vendor.edit");
     const { vendorId, installmentId } = installmentRefSchema.parse(input);
     await deleteInstallment(ctx.weddingId, vendorId, installmentId);
     refresh();
@@ -107,7 +107,7 @@ export async function deleteInstallmentAction(input: unknown) {
 
 export async function markInstallmentPaidAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("vendor.edit");
     const { vendorId, installmentId, paidBy, paidOn } = markPaidSchema.parse(input);
     await markInstallmentPaid(ctx.weddingId, vendorId, installmentId, { paidBy, paidOn });
     refresh();
@@ -117,7 +117,7 @@ export async function markInstallmentPaidAction(input: unknown) {
 
 export async function markInstallmentUnpaidAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("vendor.edit");
     const { vendorId, installmentId } = installmentRefSchema.parse(input);
     await markInstallmentUnpaid(ctx.weddingId, vendorId, installmentId);
     refresh();

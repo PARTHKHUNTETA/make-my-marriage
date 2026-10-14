@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { DeleteVendorButton } from "@/components/vendors/delete-vendor-button";
 import { PaymentSchedule } from "@/components/vendors/payment-schedule";
 import { VendorForm } from "@/components/vendors/vendor-form";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatRupees, toRupeeInput } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
 import { getVendor, getVendorSpend } from "@/modules/vendors/service";
@@ -13,7 +13,7 @@ import { getVendor, getVendorSpend } from "@/modules/vendors/service";
 export const metadata: Metadata = { title: "Vendor — Make My Marriage" };
 
 export default async function VendorPage({ params }: { params: Promise<{ id: string }> }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("vendor.view");
   const { id } = await params;
   const [vendor, events, spent] = await Promise.all([
     getVendor(ctx.weddingId, id),

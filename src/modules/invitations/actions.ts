@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { safeAction } from "@/lib/action";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
 import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
 import { getProfile } from "@/modules/members/service";
@@ -46,7 +46,7 @@ async function limit(weddingId: string) {
 
 export async function sendInvitationsAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("invitation.send");
     const wanted = target.parse(input);
     await assertVerified(ctx.userId);
     await limit(ctx.weddingId);
@@ -58,7 +58,7 @@ export async function sendInvitationsAction(input: unknown) {
 
 export async function sendRemindersAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("invitation.send");
     const wanted = reminderTarget.parse(input);
     await assertVerified(ctx.userId);
     await limit(ctx.weddingId);
@@ -71,7 +71,7 @@ export async function sendRemindersAction(input: unknown) {
 // The form sends the days as text ("14, 3").
 export async function saveReminderSettingsAction(input: unknown) {
   return safeAction(async () => {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("invitation.send");
     const { enabled, days } = z
       .object({ enabled: z.boolean(), days: z.string().max(100) })
       .parse(input);

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireMember } from "@/lib/authz";
+import { requirePermission } from "@/lib/authz";
 import { jsonError } from "@/lib/http";
 import { absoluteUrl } from "@/lib/app-url";
 import { qrPng, qrSvg } from "@/lib/qr";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 // a signed-in member of the wedding can get it, since it encodes the private gallery link.
 export async function GET(request: Request) {
   try {
-    const ctx = await requireMember();
+    const ctx = await requirePermission("gallery.share");
     const format = new URL(request.url).searchParams.get("format") === "svg" ? "svg" : "png";
     const { token } = await getGallerySettings(ctx.weddingId);
     const link = absoluteUrl(`/g/${token}`);

@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { CoverImageField } from "@/components/photos/cover-image-field";
 import { DeleteEventButton } from "@/components/events/delete-event-button";
 import { EventForm } from "@/components/events/event-form";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { toIstYmd } from "@/lib/dates";
 import { getEvent } from "@/modules/events/service";
 import { coverUrl } from "@/modules/photos/covers";
@@ -20,7 +20,7 @@ import { listTasks } from "@/modules/tasks/service";
 export const metadata: Metadata = { title: "Event — Make My Marriage" };
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("event.view");
   const { id } = await params;
   const event = await getEvent(ctx.weddingId, id);
   if (!event) notFound();

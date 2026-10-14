@@ -5,14 +5,14 @@ import { ArrowLeft } from "lucide-react";
 import { EntryCodes } from "@/components/guests/entry-codes";
 import { DeleteGuestButton } from "@/components/guests/delete-guest-button";
 import { GuestForm } from "@/components/guests/guest-form";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { listEvents } from "@/modules/events/service";
 import { getGuest } from "@/modules/guests/service";
 
 export const metadata: Metadata = { title: "Guest — Make My Marriage" };
 
 export default async function GuestPage({ params }: { params: Promise<{ id: string }> }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("guest.view");
   const { id } = await params;
   const [guest, events] = await Promise.all([
     getGuest(ctx.weddingId, id),

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Download, Paperclip, Plus } from "lucide-react";
 import { ExpenseFilters } from "@/components/money/expense-filters";
 import { MoneyHeader } from "@/components/money/money-header";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatLongDate } from "@/lib/dates";
 import { formatRupees } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
@@ -25,7 +25,7 @@ export default async function MoneyPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("expense.view");
   const raw = await searchParams;
   const query = parseExpenseQuery(raw);
   const [events, vendors, summary, list] = await Promise.all([

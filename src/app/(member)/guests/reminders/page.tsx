@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ReminderSettingsForm } from "@/components/guests/reminder-settings-form";
 import { SendPanel } from "@/components/guests/send-panel";
 import { GuestsHeader } from "@/components/guests/guests-header";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 import { absoluteUrl } from "@/lib/app-url";
 import { eventStartsAt } from "@/modules/events/schema";
 import { listEvents } from "@/modules/events/service";
@@ -38,7 +38,7 @@ const stamp = new Intl.DateTimeFormat("en-IN", {
 });
 
 export default async function RemindersPage() {
-  const ctx = await requireMember();
+  const ctx = await requirePagePermission("invitation.send");
   const [wedding, events, guests, log] = await Promise.all([
     getWedding(ctx.weddingId),
     listEvents(ctx.weddingId),

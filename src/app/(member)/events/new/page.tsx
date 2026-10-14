@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { EventForm } from "@/components/events/event-form";
-import { requireMember } from "@/lib/authz";
+import { requirePagePermission } from "@/lib/page-guard";
 
 export const metadata: Metadata = { title: "Add event — Make My Marriage" };
 
 export default async function NewEventPage() {
-  await requireMember();
+  await requirePagePermission("event.edit");
   return (
     <main className="mx-auto w-full max-w-3xl pt-6">
       <Link
