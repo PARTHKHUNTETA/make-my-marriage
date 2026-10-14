@@ -5,7 +5,9 @@ import { ArrowLeft } from "lucide-react";
 import { DeleteVendorButton } from "@/components/vendors/delete-vendor-button";
 import { PaymentSchedule } from "@/components/vendors/payment-schedule";
 import { VendorForm } from "@/components/vendors/vendor-form";
+import { hasPermission } from "@/lib/authz";
 import { requirePagePermission } from "@/lib/page-guard";
+import { ViewOnly } from "@/components/permissions/view-only";
 import { formatRupees, toRupeeInput } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
 import { getVendor, getVendorSpend } from "@/modules/vendors/service";
@@ -14,6 +16,7 @@ export const metadata: Metadata = { title: "Vendor — Make My Marriage" };
 
 export default async function VendorPage({ params }: { params: Promise<{ id: string }> }) {
   const ctx = await requirePagePermission("vendor.view");
+  const canEdit = hasPermission(ctx, "vendor.edit");
   const { id } = await params;
   const [vendor, events, spent] = await Promise.all([
     getVendor(ctx.weddingId, id),
@@ -44,22 +47,26 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
           : ""}
       </p>
       <div className="flex flex-col gap-6">
-        <VendorForm
-          vendorId={vendor.id}
-          initial={{
-            name: vendor.name,
-            category: vendor.category,
-            phone: vendor.phone ?? "",
-            email: vendor.email ?? "",
-            address: vendor.address ?? "",
-            totalCost: vendor.totalCost === undefined ? "" : toRupeeInput(vendor.totalCost),
-            eventIds: vendor.eventIds.filter((e) => known.has(e)),
-            notes: vendor.notes ?? "",
-          }}
-          events={events.map((e) => ({ id: e.id, name: e.name }))}
-        />
-        <PaymentSchedule vendorId={vendor.id} installments={vendor.installments} />
-        <DeleteVendorButton vendorId={vendor.id} name={vendor.name} />
+        <ViewOnly when={!canEdit}>
+          <VendorForm
+            vendorId={vendor.id}
+            initial={{
+              name: vendor.name,
+              category: vendor.category,
+              phone: vendor.phone ?? "",
+              email: vendor.email ?? "",
+              address: vendor.address ?? "",
+              totalCost: vendor.totalCost === undefined ? "" : toRupeeInput(vendor.totalCost),
+              eventIds: vendor.eventIds.filter((e) => known.has(e)),
+              notes: vendor.notes ?? "",
+            }}
+            events={events.map((e) => ({ id: e.id, name: e.name }))}
+          />
+        </ViewOnly>
+        <ViewOnly when={!canEdit}>
+          <PaymentSchedule vendorId={vendor.id} installments={vendor.installments} />
+        </ViewOnly>
+        {canEdit ? <DeleteVendorButton vendorId={vendor.id} name={vendor.name} /> : null}
       </div>
     </main>
   );

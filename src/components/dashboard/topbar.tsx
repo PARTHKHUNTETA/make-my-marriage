@@ -14,12 +14,12 @@ const today = () =>
     timeZone: "Asia/Kolkata",
   }).format(new Date());
 
-export function Topbar({ isAdmin, switcher }: { isAdmin: boolean; switcher?: SwitcherProps }) {
+export function Topbar({ switcher }: { switcher?: SwitcherProps }) {
   return (
     <header className="fixed top-0 right-0 left-0 z-40 flex h-16 items-center justify-between bg-blush/85 px-4 shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl transition-[left] duration-200 sm:px-6 lg:left-64 lg:group-data-[sidebar=collapsed]/shell:left-16 print:hidden">
       <div className="flex items-center gap-2 sm:gap-4">
         <MobileNav switcher={switcher} />
-        <CommandPalette isAdmin={isAdmin} />
+        <CommandPalette />
         <div className="hidden items-center gap-1 font-mono text-xs text-ink-2 xl:flex">
           <Clock className="size-4" />
           <span>{today()}</span>

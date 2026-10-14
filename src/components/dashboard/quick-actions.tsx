@@ -3,11 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { Plus, Zap } from "lucide-react";
-import { QUICK_ACTIONS } from "./nav-data";
+import { usePermissions } from "@/components/permissions/permissions-provider";
+import { quickActionsFor } from "./nav-data";
 
 // The "Quick Action" button: the things people do most, one click from any page. A plain list of
 // links that opens below the button and closes on a choice, on Escape, or a click elsewhere.
 export function QuickActions() {
+  const actions = quickActionsFor(usePermissions());
   const [open, setOpen] = React.useState(false);
   const box = React.useRef<HTMLDivElement>(null);
   const button = React.useRef<HTMLButtonElement>(null);
@@ -31,6 +33,9 @@ export function QuickActions() {
     };
   }, [open]);
 
+  // Someone who can add nothing (a Viewer) gets no button rather than an empty menu.
+  if (actions.length === 0) return null;
+
   return (
     <div ref={box} className="relative">
       <button
@@ -48,7 +53,7 @@ export function QuickActions() {
       </button>
       {open ? (
         <ul className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl bg-white py-1 shadow-xl ring-1 ring-line">
-          {QUICK_ACTIONS.map(({ label, href, icon: Icon }) => (
+          {actions.map(({ label, href, icon: Icon }) => (
             <li key={href + label}>
               <Link
                 href={href}

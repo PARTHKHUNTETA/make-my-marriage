@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ListPlus } from "lucide-react";
 import { TaskFilters } from "@/components/tasks/task-filters";
 import { TaskRow } from "@/components/tasks/task-row";
+import { hasPermission } from "@/lib/authz";
 import { requirePagePermission } from "@/lib/page-guard";
 import { listEvents } from "@/modules/events/service";
 import { listTeam } from "@/modules/members/service";
@@ -60,12 +61,14 @@ export default async function TasksPage({
             Your team&rsquo;s checklist. Only members can see it.
           </p>
         </div>
-        <Link
-          href="/tasks/new"
-          className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
-        >
-          <ListPlus className="size-4" aria-hidden /> Add task
-        </Link>
+        {hasPermission(ctx, "task.edit") ? (
+          <Link
+            href="/tasks/new"
+            className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
+          >
+            <ListPlus className="size-4" aria-hidden /> Add task
+          </Link>
+        ) : null}
       </div>
 
       <div className="mt-6">

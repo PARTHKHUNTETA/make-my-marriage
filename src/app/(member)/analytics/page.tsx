@@ -29,7 +29,12 @@ export default async function AnalyticsPage({
   });
   const filter = parsed.success ? parsed.data : {};
   const theme = chartTheme(ctx.palette);
-  const { charts, events, notes } = await getAnalytics(ctx.weddingId, filter, ctx.memberId);
+  const { charts, events, notes } = await getAnalytics(
+    ctx.weddingId,
+    filter,
+    ctx.memberId,
+    ctx.permissions,
+  );
   // Any filter in the address counts, even one that was not valid and so was ignored.
   const filtered = Boolean(pick("event") || pick("from") || pick("to"));
 

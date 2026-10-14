@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import * as React from "react";
 import { usePathname } from "next/navigation";
+import { usePermissions } from "@/components/permissions/permissions-provider";
+import { canOpen } from "@/lib/route-permissions";
 import { SIDEBAR_COOKIE } from "./sidebar-cookie";
 import { WeddingSwitcher } from "./wedding-switcher";
 import { SigningOutOverlay, useSignOut } from "@/components/auth/use-sign-out";
@@ -105,6 +107,14 @@ export function SidebarContent({
   switcher?: SwitcherProps;
 }) {
   const pathname = usePathname();
+  // Only links this member can open; a section left empty is not shown.
+  const permissions = usePermissions();
+  const visible = sections
+    .map((s) => ({
+      ...s,
+      items: s.items.filter((i) => canOpen(i.href, (p) => permissions[p] !== undefined)),
+    }))
+    .filter((s) => s.items.length > 0);
   const { signOut, pending, error } = useSignOut();
 
   return (
@@ -149,7 +159,7 @@ export function SidebarContent({
         ) : null}
 
         <nav aria-label="Workspace" className="flex flex-col gap-1 px-2">
-          {sections.map((section) => (
+          {visible.map((section) => (
             <div key={section.title} className="flex flex-col gap-1">
               <div
                 className={`px-2 pt-4 pb-1 text-[11px] font-medium tracking-wider text-ink-2/60 uppercase first:pt-1 ${

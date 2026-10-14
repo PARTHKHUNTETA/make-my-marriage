@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/sidebar";
+import { PermissionsProvider } from "@/components/permissions/permissions-provider";
 import { SIDEBAR_COOKIE } from "@/components/dashboard/sidebar-cookie";
 import { Topbar } from "@/components/dashboard/topbar";
 import { VerifyEmailBanner } from "@/components/verify-email-banner";
@@ -44,25 +45,27 @@ export default async function MemberLayout({ children }: Readonly<{ children: Re
   return (
     // This person's colour theme: variables on the shell recolour everything inside it. It is rendered
     // on the server, so the first paint is already the right colours. The default adds no style.
-    <div
-      id="app-shell"
-      data-palette={ctx.palette}
-      data-sidebar={collapsed ? "collapsed" : "expanded"}
-      style={paletteStyle(ctx.palette)}
-      className="group/shell min-h-screen bg-blush"
-    >
-      <Sidebar collapsed={collapsed} switcher={switcher} />
-      <div className="transition-[padding] duration-200 lg:pl-64 lg:group-data-[sidebar=collapsed]/shell:pl-16 print:pl-0">
-        <Topbar isAdmin={ctx.role === "admin"} switcher={switcher} />
-        <div className="px-6 pt-16 pb-6 print:p-0">
-          {profile.emailVerified ? null : (
-            <div className="pt-4 print:hidden">
-              <VerifyEmailBanner email={profile.email} />
-            </div>
-          )}
-          {children}
+    <PermissionsProvider permissions={ctx.permissions}>
+      <div
+        id="app-shell"
+        data-palette={ctx.palette}
+        data-sidebar={collapsed ? "collapsed" : "expanded"}
+        style={paletteStyle(ctx.palette)}
+        className="group/shell min-h-screen bg-blush"
+      >
+        <Sidebar collapsed={collapsed} switcher={switcher} />
+        <div className="transition-[padding] duration-200 lg:pl-64 lg:group-data-[sidebar=collapsed]/shell:pl-16 print:pl-0">
+          <Topbar switcher={switcher} />
+          <div className="px-6 pt-16 pb-6 print:p-0">
+            {profile.emailVerified ? null : (
+              <div className="pt-4 print:hidden">
+                <VerifyEmailBanner email={profile.email} />
+              </div>
+            )}
+            {children}
+          </div>
         </div>
       </div>
-    </div>
+    </PermissionsProvider>
   );
 }

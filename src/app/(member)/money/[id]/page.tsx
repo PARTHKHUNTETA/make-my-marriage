@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { DeleteExpenseButton } from "@/components/money/delete-expense-button";
 import { ExpenseForm } from "@/components/money/expense-form";
+import { hasPermission } from "@/lib/authz";
 import { requirePagePermission } from "@/lib/page-guard";
+import { ViewOnly } from "@/components/permissions/view-only";
 import { toIstYmd } from "@/lib/dates";
 import { toRupeeInput } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
@@ -23,6 +25,7 @@ export default async function ExpensePage({
   searchParams: Promise<{ receipt?: string }>;
 }) {
   const ctx = await requirePagePermission("expense.view");
+  const canEdit = hasPermission(ctx, "expense.edit");
   const { id } = await params;
   const { receipt } = await searchParams;
   const [expense, events, wedding, vendors] = await Promise.all([
@@ -75,32 +78,36 @@ export default async function ExpensePage({
               The expense is saved, but its photo could not be added. You can add it again below.
             </p>
           ) : null}
-          <ExpenseForm
-            expenseId={expense.id}
-            initial={{
-              title: expense.title,
-              amount: toRupeeInput(expense.amount),
-              date: toIstYmd(expense.date),
-              category: expense.category,
-              paidBy: expense.paidBy,
-              eventId: events.some((e) => e.id === expense.eventId) ? (expense.eventId ?? "") : "",
-              vendorId: vendors.some((v) => v.vendor.id === expense.vendorId)
-                ? (expense.vendorId ?? "")
-                : "",
-              notes: expense.notes ?? "",
-              splitMode: byAmount ? "amount" : "percentage",
-              shareBride: share("bride_family"),
-              shareGroom: share("groom_family"),
-              shareCouple: share("couple"),
-            }}
-            events={events.map((e) => ({ id: e.id, name: e.name }))}
-            vendors={vendors.map((v) => ({ id: v.vendor.id, name: v.vendor.name }))}
-            receiptUrl={receiptUrl}
-            splitDefaults={
-              (wedding?.splitDefaults ?? {}) as Partial<Record<ExpenseCategory, SplitDefault>>
-            }
-          />
-          <DeleteExpenseButton expenseId={expense.id} />
+          <ViewOnly when={!canEdit}>
+            <ExpenseForm
+              expenseId={expense.id}
+              initial={{
+                title: expense.title,
+                amount: toRupeeInput(expense.amount),
+                date: toIstYmd(expense.date),
+                category: expense.category,
+                paidBy: expense.paidBy,
+                eventId: events.some((e) => e.id === expense.eventId)
+                  ? (expense.eventId ?? "")
+                  : "",
+                vendorId: vendors.some((v) => v.vendor.id === expense.vendorId)
+                  ? (expense.vendorId ?? "")
+                  : "",
+                notes: expense.notes ?? "",
+                splitMode: byAmount ? "amount" : "percentage",
+                shareBride: share("bride_family"),
+                shareGroom: share("groom_family"),
+                shareCouple: share("couple"),
+              }}
+              events={events.map((e) => ({ id: e.id, name: e.name }))}
+              vendors={vendors.map((v) => ({ id: v.vendor.id, name: v.vendor.name }))}
+              receiptUrl={receiptUrl}
+              splitDefaults={
+                (wedding?.splitDefaults ?? {}) as Partial<Record<ExpenseCategory, SplitDefault>>
+              }
+            />
+          </ViewOnly>
+          {canEdit ? <DeleteExpenseButton expenseId={expense.id} /> : null}
         </div>
       )}
     </main>

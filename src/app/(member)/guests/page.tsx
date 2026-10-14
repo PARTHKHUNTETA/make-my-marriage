@@ -5,6 +5,7 @@ import { GuestFilters } from "@/components/guests/guest-filters";
 import { GuestList } from "@/components/guests/guest-list";
 import { GuestsHeader, StatCard } from "@/components/guests/guests-header";
 import { WhatsappMessageForm } from "@/components/guests/whatsapp-message-form";
+import { hasPermission } from "@/lib/authz";
 import { requirePagePermission } from "@/lib/page-guard";
 import { absoluteUrl } from "@/lib/app-url";
 import { listEvents } from "@/modules/events/service";
@@ -56,18 +57,22 @@ export default async function GuestsPage({
         active="guests"
         action={
           <div className="flex flex-wrap gap-2">
-            <Link
-              href="/guests/import"
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-ink shadow-[0_1px_3px_rgba(35,31,32,0.08)] hover:bg-rose-100"
-            >
-              <Upload className="size-4" aria-hidden /> Import
-            </Link>
-            <Link
-              href="/guests/new"
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
-            >
-              <UserPlus className="size-4" aria-hidden /> Add guest
-            </Link>
+            {hasPermission(ctx, "guest.edit") ? (
+              <Link
+                href="/guests/import"
+                className="inline-flex h-11 items-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-ink shadow-[0_1px_3px_rgba(35,31,32,0.08)] hover:bg-rose-100"
+              >
+                <Upload className="size-4" aria-hidden /> Import
+              </Link>
+            ) : null}
+            {hasPermission(ctx, "guest.edit") ? (
+              <Link
+                href="/guests/new"
+                className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
+              >
+                <UserPlus className="size-4" aria-hidden /> Add guest
+              </Link>
+            ) : null}
           </div>
         }
       />

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarPlus, MapPin } from "lucide-react";
+import { hasPermission } from "@/lib/authz";
 import { requirePagePermission } from "@/lib/page-guard";
 import { formatLongDate } from "@/lib/dates";
 import { dayLabel, groupEventsByDay, type EventDay } from "@/modules/events/group";
@@ -81,12 +82,14 @@ export default async function EventsPage() {
             Every function, from the roka to the reception, day by day.
           </p>
         </div>
-        <Link
-          href="/events/new"
-          className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
-        >
-          <CalendarPlus className="size-4" aria-hidden /> Add event
-        </Link>
+        {hasPermission(ctx, "event.edit") ? (
+          <Link
+            href="/events/new"
+            className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
+          >
+            <CalendarPlus className="size-4" aria-hidden /> Add event
+          </Link>
+        ) : null}
       </div>
 
       {events.length === 0 ? (

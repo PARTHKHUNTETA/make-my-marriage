@@ -7,7 +7,8 @@ import { CornerDownLeft, Search } from "lucide-react";
 import { matchEntries } from "@/lib/command-search";
 import { searchAction } from "@/modules/search/actions";
 import { KIND_LABELS, MIN_QUERY, type SearchHit, type SearchKind } from "@/modules/search/schema";
-import { pagesFor, QUICK_ACTIONS } from "./nav-data";
+import { usePermissions } from "@/components/permissions/permissions-provider";
+import { pagesFor, quickActionsFor } from "./nav-data";
 
 type Row = { key: string; group: string; label: string; hint?: string; href: string };
 
@@ -17,7 +18,8 @@ const DEBOUNCE_MS = 250;
 // The search box in the top bar (also ⌘K or Ctrl+K). It finds the app's pages and quick actions as
 // you type, and, from two letters on, guests, events, tasks, vendors and expenses in this wedding.
 // Arrow keys move, Enter opens, Escape closes.
-export function CommandPalette({ isAdmin }: { isAdmin: boolean }) {
+export function CommandPalette() {
+  const permissions = usePermissions();
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -94,8 +96,8 @@ export function CommandPalette({ isAdmin }: { isAdmin: boolean }) {
 
   const rows: Row[] = React.useMemo(() => {
     const out: Row[] = [];
-    const actions = matchEntries(QUICK_ACTIONS, typed);
-    const pages = matchEntries(pagesFor(isAdmin), typed);
+    const actions = matchEntries(quickActionsFor(permissions), typed);
+    const pages = matchEntries(pagesFor(permissions), typed);
     for (const a of actions)
       out.push({
         key: `a-${a.href}-${a.label}`,
@@ -115,7 +117,7 @@ export function CommandPalette({ isAdmin }: { isAdmin: boolean }) {
     for (const p of pages.slice(0, typed ? 6 : 8))
       out.push({ key: `p-${p.href}`, group: "Go to", label: p.label, href: p.href });
     return out;
-  }, [typed, hits, isAdmin]);
+  }, [typed, hits, permissions]);
 
   const current = Math.min(active, Math.max(0, rows.length - 1));
 

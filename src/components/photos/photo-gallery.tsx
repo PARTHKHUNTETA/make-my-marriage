@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useCan } from "@/components/permissions/permissions-provider";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Download, Eye, ImagePlus, Trash2, X } from "lucide-react";
@@ -74,6 +75,9 @@ export function PhotoGallery({
   const [selecting, setSelecting] = React.useState(false);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = React.useState(false);
+  // Buttons this member's roles do not allow are left out (the server refuses them anyway).
+  const canUpload = useCan("photo.upload");
+  const canManage = useCan("photo.manage");
   const [moveTo, setMoveTo] = React.useState("");
   const [message, setMessage] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -227,6 +231,7 @@ export function PhotoGallery({
           </label>
           <button
             type="button"
+            hidden={!canUpload}
             disabled={uploading || !target}
             onClick={() => fileInput.current?.click()}
             className={`${button} bg-plum text-white hover:bg-plum/90`}
@@ -387,57 +392,61 @@ export function PhotoGallery({
               >
                 <Download className="size-4" aria-hidden /> Download (ZIP)
               </button>
-              <select
-                aria-label="Move selected photos to"
-                value={moveTo}
-                onChange={(e) => setMoveTo(e.target.value)}
-                className="rounded-lg border border-line bg-white px-3 py-2 text-[13px] text-ink"
-              >
-                <option value="">Move to…</option>
-                {albums
-                  .filter((a) => a.id !== albumId)
-                  .map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-              </select>
-              <button
-                type="button"
-                disabled={!moveTo || selected.size === 0 || busy}
-                onClick={move}
-                className={`${button} bg-white text-ink hover:bg-rose-200`}
-              >
-                Move
-              </button>
-              {confirmDelete ? (
+              {canManage ? (
                 <>
+                  <select
+                    aria-label="Move selected photos to"
+                    value={moveTo}
+                    onChange={(e) => setMoveTo(e.target.value)}
+                    className="rounded-lg border border-line bg-white px-3 py-2 text-[13px] text-ink"
+                  >
+                    <option value="">Move to…</option>
+                    {albums
+                      .filter((a) => a.id !== albumId)
+                      .map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                  </select>
                   <button
                     type="button"
-                    disabled={busy}
-                    onClick={() => remove([...selected])}
-                    className={`${button} bg-destructive text-white`}
+                    disabled={!moveTo || selected.size === 0 || busy}
+                    onClick={move}
+                    className={`${button} bg-white text-ink hover:bg-rose-200`}
                   >
-                    Yes, delete {selected.size}
+                    Move
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDelete(false)}
-                    className={`${button} bg-white text-ink`}
-                  >
-                    Keep them
-                  </button>
+                  {confirmDelete ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => remove([...selected])}
+                        className={`${button} bg-destructive text-white`}
+                      >
+                        Yes, delete {selected.size}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete(false)}
+                        className={`${button} bg-white text-ink`}
+                      >
+                        Keep them
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={selected.size === 0}
+                      onClick={() => setConfirmDelete(true)}
+                      className={`${button} bg-white text-destructive hover:bg-rose-200`}
+                    >
+                      <Trash2 className="size-4" aria-hidden /> Delete
+                    </button>
+                  )}
                 </>
-              ) : (
-                <button
-                  type="button"
-                  disabled={selected.size === 0}
-                  onClick={() => setConfirmDelete(true)}
-                  className={`${button} bg-white text-destructive hover:bg-rose-200`}
-                >
-                  <Trash2 className="size-4" aria-hidden /> Delete
-                </button>
-              )}
+              ) : null}
               <button
                 type="button"
                 onClick={stopSelecting}
@@ -577,7 +586,7 @@ export function PhotoGallery({
           onIndex={setOpen}
           onClose={() => setOpen(null)}
           onDownload={download}
-          onDelete={(id) => remove([id])}
+          onDelete={canManage ? (id) => remove([id]) : undefined}
           busy={busy}
         />
       ) : null}
@@ -599,7 +608,8 @@ function Lightbox({
   onIndex: (i: number) => void;
   onClose: () => void;
   onDownload: (id: string) => void;
-  onDelete: (id: string) => void;
+  // Left out for someone who may not delete photos.
+  onDelete?: (id: string) => void;
   busy: boolean;
 }) {
   const photo = items[index]!;
@@ -654,7 +664,7 @@ function Lightbox({
           >
             <Download className="size-5" />
           </button>
-          {sure ? (
+          {!onDelete ? null : sure ? (
             <button
               type="button"
               disabled={busy}

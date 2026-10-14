@@ -9,11 +9,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Entry } from "@/lib/command-search";
+import type { Permission, PermissionSet } from "@/lib/permissions";
+import { canOpen } from "@/lib/route-permissions";
 
 // The app's pages and the things people do most, for the search box and the Quick Action menu.
 // Kept in one place so both always offer the same, and so a new page is added once.
 
-export type QuickAction = Entry & { icon: LucideIcon };
+// `permission` when the action needs more than opening its page (adding photos, not just seeing them).
+export type QuickAction = Entry & { icon: LucideIcon; permission?: Permission };
 
 export const QUICK_ACTIONS: QuickAction[] = [
   {
@@ -47,10 +50,16 @@ export const QUICK_ACTIONS: QuickAction[] = [
     href: "/guests/reminders",
     icon: Send,
   },
-  { label: "Add photos", keywords: "upload pictures gallery", href: "/photos", icon: ImagePlus },
+  {
+    label: "Add photos",
+    keywords: "upload pictures gallery",
+    href: "/photos",
+    icon: ImagePlus,
+    permission: "photo.upload",
+  },
 ];
 
-export type PageEntry = Entry & { adminOnly?: boolean };
+export type PageEntry = Entry;
 
 export const PAGES: PageEntry[] = [
   { label: "Dashboard", keywords: "home overview", href: "/dashboard" },
@@ -88,10 +97,17 @@ export const PAGES: PageEntry[] = [
     label: "Team members",
     keywords: "invite admin manager roles",
     href: "/settings/members",
-    adminOnly: true,
   },
 ];
 
-export function pagesFor(isAdmin: boolean): PageEntry[] {
-  return PAGES.filter((p) => isAdmin || !p.adminOnly);
+// Only what this member can open (lib/route-permissions.ts decides which permission a page needs).
+export function pagesFor(permissions: PermissionSet): PageEntry[] {
+  return PAGES.filter((p) => canOpen(p.href, (perm) => permissions[perm] !== undefined));
+}
+
+export function quickActionsFor(permissions: PermissionSet): QuickAction[] {
+  const holds = (perm: Permission) => permissions[perm] !== undefined;
+  return QUICK_ACTIONS.filter(
+    (a) => canOpen(a.href, holds) && (!a.permission || holds(a.permission)),
+  );
 }

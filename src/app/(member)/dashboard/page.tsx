@@ -20,11 +20,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { requireMember } from "@/lib/authz";
+import { hasPermission, requireMember } from "@/lib/authz";
+import type { Permission } from "@/lib/permissions";
+import { canOpen } from "@/lib/route-permissions";
 import { daysUntil, formatLongDate } from "@/lib/dates";
 import { EVENT_TYPE_LABELS, eventStartsAt, formatTime } from "@/modules/events/schema";
 import { listEvents } from "@/modules/events/service";
-import { RSVP_LABELS } from "@/modules/guests/schema";
+import { RSVP_LABELS, type GuestStats } from "@/modules/guests/schema";
 import { getReplyOverview, getStats } from "@/modules/guests/service";
 import { formatRupees } from "@/lib/money";
 import { getSummary as getMoneySummary } from "@/modules/money/service";
@@ -38,6 +40,21 @@ export const metadata: Metadata = { title: "Dashboard — Make My Marriage" };
 
 // Everything on this page is read from the wedding's own data: events, tasks and guests. Money,
 // vendors and photos show as "coming soon" until their release phases exist.
+
+// Stand-ins for data a member may not see; the cards that would show it are hidden.
+const EMPTY_STATS: GuestStats = {
+  parties: 0,
+  responded: 0,
+  pending: 0,
+  headcount: 0,
+  perEvent: [],
+};
+const EMPTY_REPLIES: Awaited<ReturnType<typeof getReplyOverview>> = {
+  attendingParties: 0,
+  declinedParties: 0,
+  recent: [],
+};
+const EMPTY_PHOTOS = { approved: 0, pending: 0, usage: { usedBytes: 0, quotaBytes: 0 } };
 
 const card = "rounded-xl bg-white p-4 shadow-sm transition-shadow hover:shadow-md";
 const eyebrow = "text-[11px] font-medium tracking-wider text-ink-2/60 uppercase";
@@ -117,14 +134,21 @@ function SoonCard({ title, icon: Icon, text }: { title: string; icon: LucideIcon
 export default async function DashboardPage() {
   const ctx = await requireMember();
   const now = new Date();
-  const [wedding, events, tasks, stats, replies, money, photos] = await Promise.all([
+  // Everyone gets a dashboard; each card shows only what this member's roles let them see, and
+  // the data behind a hidden card is not even read.
+  const may = (permission: Permission) => hasPermission(ctx, permission);
+  const [wedding, events, tasks, stats, replies, spent, photos] = await Promise.all([
     getWedding(ctx.weddingId),
-    listEvents(ctx.weddingId),
-    listTasks(ctx.weddingId, { view: "all" }, ctx.memberId),
-    getStats(ctx.weddingId),
-    getReplyOverview(ctx.weddingId),
-    getMoneySummary(ctx.weddingId),
-    getPhotoSummary(ctx.weddingId),
+    may("event.view") ? listEvents(ctx.weddingId) : ([] as Awaited<ReturnType<typeof listEvents>>),
+    may("task.view")
+      ? listTasks(ctx.weddingId, { view: "all" }, ctx.memberId, {
+          onlyAssignedTo: ctx.permissions["task.view"] === "assigned" ? ctx.memberId : undefined,
+        })
+      : ([] as Awaited<ReturnType<typeof listTasks>>),
+    may("guest.view") ? getStats(ctx.weddingId) : EMPTY_STATS,
+    may("guest.view") ? getReplyOverview(ctx.weddingId) : EMPTY_REPLIES,
+    may("expense.view") ? getMoneySummary(ctx.weddingId).then((m) => m.total) : 0,
+    may("photo.view") ? getPhotoSummary(ctx.weddingId) : EMPTY_PHOTOS,
   ]);
   if (!wedding) notFound();
 
@@ -271,32 +295,34 @@ export default async function DashboardPage() {
 
       {/* Quick actions */}
       <section aria-label="Quick actions" className="mb-10 grid grid-cols-2 gap-2 md:grid-cols-4">
-        {quickActions.map(({ label, hint, icon: Icon, href, primary }) => (
-          <Link
-            key={label}
-            href={href}
-            className={`group flex items-center justify-between rounded-xl p-2 shadow-sm transition-all hover:shadow-md sm:px-4 sm:py-3.5 ${
-              primary ? "bg-gold-soft text-bronze" : "bg-white text-ink hover:bg-rose-50"
-            }`}
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <span
-                className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${
-                  primary ? "bg-white/60" : "bg-rose-200"
-                }`}
-              >
-                <Icon className="size-5 transition-transform group-hover:scale-110" />
-              </span>
-              <span className="flex min-w-0 flex-col text-left">
-                <span className="truncate text-sm leading-snug font-semibold">{label}</span>
-                <span className="hidden truncate font-mono text-xs opacity-80 sm:inline">
-                  {hint}
+        {quickActions
+          .filter((a) => canOpen(a.href, may))
+          .map(({ label, hint, icon: Icon, href, primary }) => (
+            <Link
+              key={label}
+              href={href}
+              className={`group flex items-center justify-between rounded-xl p-2 shadow-sm transition-all hover:shadow-md sm:px-4 sm:py-3.5 ${
+                primary ? "bg-gold-soft text-bronze" : "bg-white text-ink hover:bg-rose-50"
+              }`}
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span
+                  className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${
+                    primary ? "bg-white/60" : "bg-rose-200"
+                  }`}
+                >
+                  <Icon className="size-5 transition-transform group-hover:scale-110" />
+                </span>
+                <span className="flex min-w-0 flex-col text-left">
+                  <span className="truncate text-sm leading-snug font-semibold">{label}</span>
+                  <span className="hidden truncate font-mono text-xs opacity-80 sm:inline">
+                    {hint}
+                  </span>
                 </span>
               </span>
-            </span>
-            <ArrowRight className="size-[18px] opacity-60 transition-transform group-hover:translate-x-0.5" />
-          </Link>
-        ))}
+              <ArrowRight className="size-[18px] opacity-60 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          ))}
       </section>
 
       {/* Status cards */}
@@ -307,399 +333,419 @@ export default async function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <div className={`${card} flex flex-col justify-between`}>
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className={eyebrow}>Events</span>
-                <PartyPopper className="size-5 text-plum" />
-              </div>
-              <div className="mb-1 flex items-baseline gap-2">
-                <span className="font-serif text-2xl">{events.length}</span>
-                <span className="text-[13px] text-ink-2">
-                  {events.length === 1 ? "event" : "events"}
-                </span>
-              </div>
-              <p className="text-[13px] text-ink-2">
-                {events.length === 0
-                  ? "Add the mehndi, sangeet, wedding and more."
-                  : events.length === 1
-                    ? events[0]!.name
-                    : `${events[0]!.name} to ${events[events.length - 1]!.name}`}
-              </p>
-            </div>
-            <CardFooter
-              href={events.length === 0 ? "/events/new" : "/events"}
-              label={events.length === 0 ? "Add an event" : "View events"}
-              trailing={
-                events.length > 0 ? (
-                  <span className="rounded bg-rose-100 px-1.5 py-0.5 font-mono text-xs text-ink-2">
-                    {shortDate.format(events[0]!.date)}
-                    {events.length > 1
-                      ? ` – ${shortDate.format(events[events.length - 1]!.date)}`
-                      : ""}
+          {may("event.view") ? (
+            <div className={`${card} flex flex-col justify-between`}>
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className={eyebrow}>Events</span>
+                  <PartyPopper className="size-5 text-plum" />
+                </div>
+                <div className="mb-1 flex items-baseline gap-2">
+                  <span className="font-serif text-2xl">{events.length}</span>
+                  <span className="text-[13px] text-ink-2">
+                    {events.length === 1 ? "event" : "events"}
                   </span>
-                ) : null
-              }
-            />
-          </div>
+                </div>
+                <p className="text-[13px] text-ink-2">
+                  {events.length === 0
+                    ? "Add the mehndi, sangeet, wedding and more."
+                    : events.length === 1
+                      ? events[0]!.name
+                      : `${events[0]!.name} to ${events[events.length - 1]!.name}`}
+                </p>
+              </div>
+              <CardFooter
+                href={events.length === 0 ? "/events/new" : "/events"}
+                label={events.length === 0 ? "Add an event" : "View events"}
+                trailing={
+                  events.length > 0 ? (
+                    <span className="rounded bg-rose-100 px-1.5 py-0.5 font-mono text-xs text-ink-2">
+                      {shortDate.format(events[0]!.date)}
+                      {events.length > 1
+                        ? ` – ${shortDate.format(events[events.length - 1]!.date)}`
+                        : ""}
+                    </span>
+                  ) : null
+                }
+              />
+            </div>
+          ) : null}
 
-          <div className={`${card} flex flex-col justify-between`}>
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className={eyebrow}>Tasks</span>
-                {overdue.length > 0 ? (
-                  <span className="rounded-full bg-[#ffdad6] px-2 py-0.5 text-[11px] font-medium text-[#93000a]">
-                    {overdue.length} overdue
+          {may("task.view") ? (
+            <div className={`${card} flex flex-col justify-between`}>
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className={eyebrow}>Tasks</span>
+                  {overdue.length > 0 ? (
+                    <span className="rounded-full bg-[#ffdad6] px-2 py-0.5 text-[11px] font-medium text-[#93000a]">
+                      {overdue.length} overdue
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mb-1 flex items-baseline gap-2">
+                  <span className="font-serif text-2xl">
+                    {done} <span className="font-sans text-sm text-ink-2">/ {tasks.length}</span>
                   </span>
-                ) : null}
-              </div>
-              <div className="mb-1 flex items-baseline gap-2">
-                <span className="font-serif text-2xl">
-                  {done} <span className="font-sans text-sm text-ink-2">/ {tasks.length}</span>
+                  <span className="text-[13px] text-ink-2">completed</span>
+                </div>
+                <div className="mt-2 mb-1 h-1.5 w-full overflow-hidden rounded-full bg-rose-100">
+                  <div
+                    className="h-full rounded-full bg-bronze"
+                    style={{ width: `${percentDone}%` }}
+                  />
+                </div>
+                <span className="font-mono text-xs text-ink-2">
+                  {tasks.length === 0 ? "No tasks yet" : `${percentDone}% done`}
                 </span>
-                <span className="text-[13px] text-ink-2">completed</span>
               </div>
-              <div className="mt-2 mb-1 h-1.5 w-full overflow-hidden rounded-full bg-rose-100">
-                <div
-                  className="h-full rounded-full bg-bronze"
-                  style={{ width: `${percentDone}%` }}
-                />
-              </div>
-              <span className="font-mono text-xs text-ink-2">
-                {tasks.length === 0 ? "No tasks yet" : `${percentDone}% done`}
-              </span>
+              <CardFooter
+                href={tasks.length === 0 ? "/tasks/new" : "/tasks"}
+                label={tasks.length === 0 ? "Add a task" : "Open tasks"}
+                trailing={<ListChecks className="size-4 text-ink-2/60" />}
+              />
             </div>
-            <CardFooter
-              href={tasks.length === 0 ? "/tasks/new" : "/tasks"}
-              label={tasks.length === 0 ? "Add a task" : "Open tasks"}
-              trailing={<ListChecks className="size-4 text-ink-2/60" />}
-            />
-          </div>
+          ) : null}
 
-          <div className={`${card} flex flex-col justify-between`}>
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className={eyebrow}>Guests</span>
-                <Users className="size-5 text-plum" />
-              </div>
-              <div className="mb-1 flex items-baseline gap-2">
-                <span className="font-serif text-2xl">{stats.parties}</span>
-                <span className="text-[13px] text-ink-2">
-                  {stats.parties === 1 ? "party invited" : "parties invited"}
-                </span>
-              </div>
-              <p className="text-[13px] text-ink-2">
-                {stats.headcount} {stats.headcount === 1 ? "person" : "people"} expected so far
-              </p>
-            </div>
-            <CardFooter
-              href={stats.parties === 0 ? "/guests/new" : "/guests"}
-              label={stats.parties === 0 ? "Add a guest" : "Manage guests"}
-            />
-          </div>
-
-          <div className={`${card} flex flex-col justify-between`}>
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className={eyebrow}>Replies</span>
-              </div>
-              <div className="mb-1 flex items-baseline gap-2">
-                <span className="font-serif text-2xl">{stats.responded}</span>
-                <span className="text-[13px] font-medium text-bronze">
-                  of {stats.parties} replied
-                </span>
-              </div>
-              <p className="text-[13px] text-ink-2">
-                {attendingParties} coming • {declined} declined • {stats.pending} waiting
-              </p>
-            </div>
-            <CardFooter
-              href="/guests/rsvp"
-              label="See replies"
-              trailing={
-                stats.parties > 0 ? (
-                  <span className="font-mono text-xs text-ink-2/60">
-                    {Math.round((stats.responded / stats.parties) * 100)}% replied
+          {may("guest.view") ? (
+            <div className={`${card} flex flex-col justify-between`}>
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className={eyebrow}>Guests</span>
+                  <Users className="size-5 text-plum" />
+                </div>
+                <div className="mb-1 flex items-baseline gap-2">
+                  <span className="font-serif text-2xl">{stats.parties}</span>
+                  <span className="text-[13px] text-ink-2">
+                    {stats.parties === 1 ? "party invited" : "parties invited"}
                   </span>
-                ) : null
-              }
-            />
-          </div>
+                </div>
+                <p className="text-[13px] text-ink-2">
+                  {stats.headcount} {stats.headcount === 1 ? "person" : "people"} expected so far
+                </p>
+              </div>
+              <CardFooter
+                href={stats.parties === 0 ? "/guests/new" : "/guests"}
+                label={stats.parties === 0 ? "Add a guest" : "Manage guests"}
+              />
+            </div>
+          ) : null}
+
+          {may("guest.view") ? (
+            <div className={`${card} flex flex-col justify-between`}>
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className={eyebrow}>Replies</span>
+                </div>
+                <div className="mb-1 flex items-baseline gap-2">
+                  <span className="font-serif text-2xl">{stats.responded}</span>
+                  <span className="text-[13px] font-medium text-bronze">
+                    of {stats.parties} replied
+                  </span>
+                </div>
+                <p className="text-[13px] text-ink-2">
+                  {attendingParties} coming • {declined} declined • {stats.pending} waiting
+                </p>
+              </div>
+              <CardFooter
+                href="/guests/rsvp"
+                label="See replies"
+                trailing={
+                  stats.parties > 0 ? (
+                    <span className="font-mono text-xs text-ink-2/60">
+                      {Math.round((stats.responded / stats.parties) * 100)}% replied
+                    </span>
+                  ) : null
+                }
+              />
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className={`${card} flex flex-col justify-between`}>
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className={eyebrow}>Budget &amp; expenses</span>
-                <IndianRupee className="size-5 text-plum" />
-              </div>
-              <div className="mb-1 flex items-baseline gap-2">
-                <span className="font-serif text-2xl">{formatRupees(money.total)}</span>
-                <span className="text-[13px] text-ink-2">spent</span>
-              </div>
-              {wedding.overallBudget ? (
-                <>
-                  <div className="mt-2 mb-1 h-1.5 w-full overflow-hidden rounded-full bg-rose-100">
-                    <div
-                      className={`h-full rounded-full ${money.total > wedding.overallBudget ? "bg-destructive" : "bg-bronze"}`}
-                      style={{
-                        width: `${Math.min(100, Math.round((money.total / wedding.overallBudget) * 100))}%`,
-                      }}
-                    />
-                  </div>
-                  <p
-                    className={`text-[13px] ${money.total > wedding.overallBudget ? "font-semibold text-destructive" : "text-ink-2"}`}
-                  >
-                    {money.total > wedding.overallBudget
-                      ? `${formatRupees(money.total - wedding.overallBudget)} over your ${formatRupees(wedding.overallBudget)} budget`
-                      : `${formatRupees(wedding.overallBudget - money.total)} left of ${formatRupees(wedding.overallBudget)}`}
+          {may("expense.view") ? (
+            <div className={`${card} flex flex-col justify-between`}>
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className={eyebrow}>Budget &amp; expenses</span>
+                  <IndianRupee className="size-5 text-plum" />
+                </div>
+                <div className="mb-1 flex items-baseline gap-2">
+                  <span className="font-serif text-2xl">{formatRupees(spent)}</span>
+                  <span className="text-[13px] text-ink-2">spent</span>
+                </div>
+                {wedding.overallBudget ? (
+                  <>
+                    <div className="mt-2 mb-1 h-1.5 w-full overflow-hidden rounded-full bg-rose-100">
+                      <div
+                        className={`h-full rounded-full ${spent > wedding.overallBudget ? "bg-destructive" : "bg-bronze"}`}
+                        style={{
+                          width: `${Math.min(100, Math.round((spent / wedding.overallBudget) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                    <p
+                      className={`text-[13px] ${spent > wedding.overallBudget ? "font-semibold text-destructive" : "text-ink-2"}`}
+                    >
+                      {spent > wedding.overallBudget
+                        ? `${formatRupees(spent - wedding.overallBudget)} over your ${formatRupees(wedding.overallBudget)} budget`
+                        : `${formatRupees(wedding.overallBudget - spent)} left of ${formatRupees(wedding.overallBudget)}`}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[13px] text-ink-2">
+                    {spent === 0 ? "No expenses yet." : "No budget set."}
                   </p>
-                </>
-              ) : (
+                )}
+              </div>
+              <CardFooter
+                href={spent === 0 && !wedding.overallBudget ? "/money/new" : "/money"}
+                label={spent === 0 && !wedding.overallBudget ? "Add an expense" : "Open expenses"}
+              />
+            </div>
+          ) : null}
+          {may("vendor.view") ? (
+            <SoonCard
+              title="Vendors"
+              icon={Handshake}
+              text="Keep your vendors, contracts and payments in one place."
+            />
+          ) : null}
+          {may("photo.view") ? (
+            <div className={`${card} flex flex-col justify-between`}>
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className={eyebrow}>Photos</span>
+                  <Camera className="size-5 text-plum" />
+                </div>
+                <div className="mb-1 flex items-baseline gap-2">
+                  <span className="font-serif text-2xl">{photos.approved}</span>
+                  <span className="text-[13px] text-ink-2">
+                    {photos.approved === 1 ? "photo" : "photos"}
+                  </span>
+                </div>
                 <p className="text-[13px] text-ink-2">
-                  {money.total === 0 ? "No expenses yet." : "No budget set."}
+                  {photos.pending > 0
+                    ? `${photos.pending} waiting for your approval`
+                    : photos.approved === 0
+                      ? "Nothing here yet."
+                      : `${formatBytes(photos.usage.usedBytes)} used`}
                 </p>
-              )}
-            </div>
-            <CardFooter
-              href={money.total === 0 && !wedding.overallBudget ? "/money/new" : "/money"}
-              label={
-                money.total === 0 && !wedding.overallBudget ? "Add an expense" : "Open expenses"
-              }
-            />
-          </div>
-          <SoonCard
-            title="Vendors"
-            icon={Handshake}
-            text="Keep your vendors, contracts and payments in one place."
-          />
-          <div className={`${card} flex flex-col justify-between`}>
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className={eyebrow}>Photos</span>
-                <Camera className="size-5 text-plum" />
               </div>
-              <div className="mb-1 flex items-baseline gap-2">
-                <span className="font-serif text-2xl">{photos.approved}</span>
-                <span className="text-[13px] text-ink-2">
-                  {photos.approved === 1 ? "photo" : "photos"}
-                </span>
-              </div>
-              <p className="text-[13px] text-ink-2">
-                {photos.pending > 0
-                  ? `${photos.pending} waiting for your approval`
-                  : photos.approved === 0
-                    ? "Nothing here yet."
-                    : `${formatBytes(photos.usage.usedBytes)} used`}
-              </p>
+              <CardFooter
+                href="/photos"
+                label={photos.pending > 0 ? "Review photos" : "Open photos"}
+              />
             </div>
-            <CardFooter
-              href="/photos"
-              label={photos.pending > 0 ? "Review photos" : "Open photos"}
-            />
-          </div>
+          ) : null}
         </div>
       </section>
 
       {/* Events */}
-      <section className="mb-6">
-        <div className="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-          <div>
-            <h2 className="font-serif text-2xl">Coming up</h2>
-            <p className="text-[13px] text-ink-2">Your next events and who is coming</p>
-          </div>
-          <Link
-            href="/events"
-            className="flex items-center gap-0.5 text-sm font-semibold text-plum hover:underline"
-          >
-            All events
-            <ChevronRight className="size-4" />
-          </Link>
-        </div>
-
-        {upcoming.length === 0 ? (
-          <div className="rounded-xl bg-white p-8 text-center shadow-sm">
-            <p className="font-serif text-xl text-ink">
-              {events.length === 0 ? "No events yet" : "No upcoming events"}
-            </p>
-            <p className="mt-1 text-sm text-ink-2">
-              {events.length === 0
-                ? "Add your events and they will show up here."
-                : "All your events have taken place."}
-            </p>
+      {may("event.view") ? (
+        <section className="mb-6">
+          <div className="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="font-serif text-2xl">Coming up</h2>
+              <p className="text-[13px] text-ink-2">Your next events and who is coming</p>
+            </div>
             <Link
-              href="/events/new"
-              className="mt-4 inline-flex h-10 items-center rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
+              href="/events"
+              className="flex items-center gap-0.5 text-sm font-semibold text-plum hover:underline"
             >
-              Add an event
+              All events
+              <ChevronRight className="size-4" />
             </Link>
           </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {upcoming.slice(0, 3).map((event) => {
-              const { dow, day, month } = dayParts(event.date);
-              const counts = statsByEvent.get(event.id);
-              return (
-                <article key={event.id} className={`${card} lg:p-6`}>
-                  <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-                    <div className="flex min-w-0 items-start gap-4">
-                      <div className="flex size-16 shrink-0 flex-col items-center justify-center rounded-xl bg-rose-50 p-1 text-plum">
-                        <span className="text-[11px] font-medium tracking-wider text-bronze uppercase">
-                          {dow}
-                        </span>
-                        <span className="font-serif text-2xl leading-none">{day}</span>
-                        <span className="font-mono text-[10px] text-ink-2/60 uppercase">
-                          {month}
-                        </span>
-                      </div>
-                      <div className="flex min-w-0 flex-col">
-                        <div className="mb-1 flex flex-wrap items-center gap-1">
-                          <span className="font-mono text-xs font-medium text-bronze">
-                            {formatTime(event.startTime)}
-                            {event.endTime ? ` – ${formatTime(event.endTime)}` : ""}
+
+          {upcoming.length === 0 ? (
+            <div className="rounded-xl bg-white p-8 text-center shadow-sm">
+              <p className="font-serif text-xl text-ink">
+                {events.length === 0 ? "No events yet" : "No upcoming events"}
+              </p>
+              <p className="mt-1 text-sm text-ink-2">
+                {events.length === 0
+                  ? "Add your events and they will show up here."
+                  : "All your events have taken place."}
+              </p>
+              <Link
+                href="/events/new"
+                className="mt-4 inline-flex h-10 items-center rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
+              >
+                Add an event
+              </Link>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {upcoming.slice(0, 3).map((event) => {
+                const { dow, day, month } = dayParts(event.date);
+                const counts = statsByEvent.get(event.id);
+                return (
+                  <article key={event.id} className={`${card} lg:p-6`}>
+                    <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+                      <div className="flex min-w-0 items-start gap-4">
+                        <div className="flex size-16 shrink-0 flex-col items-center justify-center rounded-xl bg-rose-50 p-1 text-plum">
+                          <span className="text-[11px] font-medium tracking-wider text-bronze uppercase">
+                            {dow}
                           </span>
-                          <span className="text-ink-2/60">•</span>
-                          <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-ink">
-                            {EVENT_TYPE_LABELS[event.type]}
+                          <span className="font-serif text-2xl leading-none">{day}</span>
+                          <span className="font-mono text-[10px] text-ink-2/60 uppercase">
+                            {month}
                           </span>
                         </div>
-                        <h3 className="truncate font-serif text-xl">{event.name}</h3>
-                        <p className="mt-1 flex items-center gap-1 truncate text-[13px] text-ink-2">
-                          <MapPin className="size-4 shrink-0 text-ink-2/60" />
-                          {event.venueName ?? "Venue to be announced"}
-                        </p>
+                        <div className="flex min-w-0 flex-col">
+                          <div className="mb-1 flex flex-wrap items-center gap-1">
+                            <span className="font-mono text-xs font-medium text-bronze">
+                              {formatTime(event.startTime)}
+                              {event.endTime ? ` – ${formatTime(event.endTime)}` : ""}
+                            </span>
+                            <span className="text-ink-2/60">•</span>
+                            <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-ink">
+                              {EVENT_TYPE_LABELS[event.type]}
+                            </span>
+                          </div>
+                          <h3 className="truncate font-serif text-xl">{event.name}</h3>
+                          <p className="mt-1 flex items-center gap-1 truncate text-[13px] text-ink-2">
+                            <MapPin className="size-4 shrink-0 text-ink-2/60" />
+                            {event.venueName ?? "Venue to be announced"}
+                          </p>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="flex shrink-0 flex-wrap items-center gap-4 pt-1 sm:flex-nowrap lg:justify-end lg:pt-0">
-                      {event.dressCode ? (
-                        <>
+                      <div className="flex shrink-0 flex-wrap items-center gap-4 pt-1 sm:flex-nowrap lg:justify-end lg:pt-0">
+                        {event.dressCode ? (
+                          <>
+                            <div className="flex flex-col">
+                              <span className="font-mono text-xs tracking-wider text-ink-2/60 uppercase">
+                                Dress code
+                              </span>
+                              <span className="text-sm font-semibold">{event.dressCode}</span>
+                            </div>
+                            <div className="hidden h-8 w-px bg-rose-200 sm:block" />
+                          </>
+                        ) : null}
+                        {may("guest.view") ? (
                           <div className="flex flex-col">
                             <span className="font-mono text-xs tracking-wider text-ink-2/60 uppercase">
-                              Dress code
+                              Guests
                             </span>
-                            <span className="text-sm font-semibold">{event.dressCode}</span>
+                            <span className="text-sm font-semibold">
+                              {counts?.headcount ?? 0} expected{" "}
+                              <span className="font-mono text-[11px] font-normal text-ink-2">
+                                ({counts?.invited ?? 0} invited, {counts?.pending ?? 0} waiting)
+                              </span>
+                            </span>
                           </div>
-                          <div className="hidden h-8 w-px bg-rose-200 sm:block" />
-                        </>
-                      ) : null}
-                      <div className="flex flex-col">
-                        <span className="font-mono text-xs tracking-wider text-ink-2/60 uppercase">
-                          Guests
-                        </span>
-                        <span className="text-sm font-semibold">
-                          {counts?.headcount ?? 0} expected{" "}
-                          <span className="font-mono text-[11px] font-normal text-ink-2">
-                            ({counts?.invited ?? 0} invited, {counts?.pending ?? 0} waiting)
-                          </span>
-                        </span>
+                        ) : null}
+                        <Link
+                          href={`/events/${event.id}`}
+                          className="flex shrink-0 items-center gap-1 rounded-lg bg-rose-100 px-3 py-2 text-xs font-semibold text-ink transition-colors hover:bg-rose-200"
+                        >
+                          Open
+                        </Link>
                       </div>
-                      <Link
-                        href={`/events/${event.id}`}
-                        className="flex shrink-0 items-center gap-1 rounded-lg bg-rose-100 px-3 py-2 text-xs font-semibold text-ink transition-colors hover:bg-rose-200"
-                      >
-                        Open
-                      </Link>
                     </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      ) : null}
 
       {/* Recent replies + overdue tasks */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <div className="flex flex-col rounded-xl bg-white p-4 shadow-sm lg:col-span-7">
-          <div className="mb-2 flex items-center justify-between">
-            <div>
-              <h3 className="font-serif text-xl">Recent replies</h3>
-              <p className="text-[13px] text-ink-2">The latest answers from your guests</p>
+        {may("guest.view") ? (
+          <div className="flex flex-col rounded-xl bg-white p-4 shadow-sm lg:col-span-7">
+            <div className="mb-2 flex items-center justify-between">
+              <div>
+                <h3 className="font-serif text-xl">Recent replies</h3>
+                <p className="text-[13px] text-ink-2">The latest answers from your guests</p>
+              </div>
+              <Link href="/guests/rsvp" className="text-xs font-semibold text-plum hover:underline">
+                All replies
+              </Link>
             </div>
-            <Link href="/guests/rsvp" className="text-xs font-semibold text-plum hover:underline">
-              All replies
-            </Link>
-          </div>
-          {recentReplies.length === 0 ? (
-            <p className="py-6 text-center text-[13px] text-ink-2">
-              {stats.parties === 0
-                ? "Add guests and share their invitation links. Replies will appear here."
-                : "No replies yet. Share invitations or send a reminder."}
-            </p>
-          ) : (
-            <ul className="divide-y divide-line">
-              {recentReplies.map((reply) => (
-                <li
-                  key={`${reply.guestId}-${reply.eventId}`}
-                  className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-[13px]"
-                >
-                  <div className="min-w-0">
-                    <Link
-                      href={`/guests/${reply.guestId}`}
-                      className="font-medium text-ink hover:underline"
+            {recentReplies.length === 0 ? (
+              <p className="py-6 text-center text-[13px] text-ink-2">
+                {stats.parties === 0
+                  ? "Add guests and share their invitation links. Replies will appear here."
+                  : "No replies yet. Share invitations or send a reminder."}
+              </p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {recentReplies.map((reply) => (
+                  <li
+                    key={`${reply.guestId}-${reply.eventId}`}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-[13px]"
+                  >
+                    <div className="min-w-0">
+                      <Link
+                        href={`/guests/${reply.guestId}`}
+                        className="font-medium text-ink hover:underline"
+                      >
+                        {reply.guestName}
+                      </Link>
+                      <span className="block font-mono text-xs text-ink-2">
+                        {eventNames.get(reply.eventId) ?? "Event"} •{" "}
+                        {shortDate.format(reply.respondedAt)}
+                      </span>
+                    </div>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        reply.status === "attending"
+                          ? "bg-[#f2f7f2] text-forest"
+                          : "bg-rose-100 text-ink-2"
+                      }`}
                     >
-                      {reply.guestName}
-                    </Link>
-                    <span className="block font-mono text-xs text-ink-2">
-                      {eventNames.get(reply.eventId) ?? "Event"} •{" "}
-                      {shortDate.format(reply.respondedAt)}
+                      {RSVP_LABELS[reply.status]}
+                      {reply.status === "attending" && reply.numberAttending
+                        ? ` (${reply.numberAttending})`
+                        : ""}
                     </span>
-                  </div>
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                      reply.status === "attending"
-                        ? "bg-[#f2f7f2] text-forest"
-                        : "bg-rose-100 text-ink-2"
-                    }`}
-                  >
-                    {RSVP_LABELS[reply.status]}
-                    {reply.status === "attending" && reply.numberAttending
-                      ? ` (${reply.numberAttending})`
-                      : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="flex flex-col rounded-xl bg-white p-4 shadow-sm lg:col-span-5">
-          <div className="mb-2 flex items-center justify-between">
-            <div>
-              <h3 className="font-serif text-xl">Needs attention</h3>
-              <p className="text-[13px] text-ink-2">Tasks past their due date</p>
-            </div>
-            <Link href="/tasks" className="text-xs font-semibold text-plum hover:underline">
-              All tasks
-            </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          {overdue.length === 0 ? (
-            <p className="py-6 text-center text-[13px] text-ink-2">
-              {tasks.length === 0 ? "No tasks yet." : "Nothing is overdue. Nice work."}
-            </p>
-          ) : (
-            <ul className="divide-y divide-line">
-              {overdue.slice(0, 5).map((task) => (
-                <li
-                  key={task.id}
-                  className="flex items-center justify-between gap-2 py-2.5 text-[13px]"
-                >
-                  <Link
-                    href={`/tasks/${task.id}`}
-                    className="min-w-0 truncate font-medium text-ink hover:underline"
+        ) : null}
+
+        {may("task.view") ? (
+          <div className="flex flex-col rounded-xl bg-white p-4 shadow-sm lg:col-span-5">
+            <div className="mb-2 flex items-center justify-between">
+              <div>
+                <h3 className="font-serif text-xl">Needs attention</h3>
+                <p className="text-[13px] text-ink-2">Tasks past their due date</p>
+              </div>
+              <Link href="/tasks" className="text-xs font-semibold text-plum hover:underline">
+                All tasks
+              </Link>
+            </div>
+            {overdue.length === 0 ? (
+              <p className="py-6 text-center text-[13px] text-ink-2">
+                {tasks.length === 0 ? "No tasks yet." : "Nothing is overdue. Nice work."}
+              </p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {overdue.slice(0, 5).map((task) => (
+                  <li
+                    key={task.id}
+                    className="flex items-center justify-between gap-2 py-2.5 text-[13px]"
                   >
-                    {task.title}
-                  </Link>
-                  <span className="shrink-0 font-mono text-xs font-medium text-destructive">
-                    Due {task.dueDate ? shortDate.format(task.dueDate) : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                    <Link
+                      href={`/tasks/${task.id}`}
+                      className="min-w-0 truncate font-medium text-ink hover:underline"
+                    >
+                      {task.title}
+                    </Link>
+                    <span className="shrink-0 font-mono text-xs font-medium text-destructive">
+                      Due {task.dueDate ? shortDate.format(task.dueDate) : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
       </section>
     </main>
   );

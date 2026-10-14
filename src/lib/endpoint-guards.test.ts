@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { PERMISSIONS, PLATFORM_PERMISSIONS } from "./permissions";
+import { permissionForPath } from "./route-permissions";
 
 // Deny by default, checked in CI: every Server Action, API route and member page must name the
 // guard that protects it. A new endpoint without one fails this test. The table of endpoints and
@@ -123,6 +124,17 @@ describe("every endpoint is protected (deny by default)", () => {
         .filter((g) => /^[a-z_]+\.[a-z_]+$/.test(g)),
     );
     for (const p of named) expect(WEDDING.has(p) || PLATFORM.has(p), p).toBe(true);
+  });
+
+  it("each page asks for the same permission the navigation uses to show its link", () => {
+    const mismatched = rows
+      .filter((r) => r.endpoint.startsWith("page ") && r.guard !== "member (self)")
+      .map((r) => {
+        const page = r.endpoint.slice("page ".length).replace(/\[[^\]]+\]/g, "x");
+        return { page, guard: r.guard, nav: permissionForPath(page) };
+      })
+      .filter((x) => x.guard !== x.nav);
+    expect(mismatched).toEqual([]);
   });
 
   it("docs/endpoint-permissions.md matches the code", () => {

@@ -1,4 +1,5 @@
 import "server-only";
+import { can, type Permission, type PermissionSet } from "@/lib/permissions";
 import { getArrivalsByEvent } from "@/modules/checkin/service";
 import { listEvents } from "@/modules/events/service";
 import { getStats } from "@/modules/guests/service";
@@ -26,10 +27,22 @@ export type Analytics = {
   notes: string[];
 };
 
+// Which permission each chart needs. A member sees only the charts their roles allow.
+const CHART_PERMISSION: Record<string, Permission> = {
+  "spending-by-category": "expense.view",
+  "spending-over-time": "expense.view",
+  "contribution-by-payer": "expense.view",
+  "rsvp-by-event": "guest.view",
+  "headcount-by-event": "guest.view",
+  "task-progress": "task.view",
+  "photos-by-event": "photo.view",
+};
+
 export async function getAnalytics(
   weddingId: string,
   filter: AnalyticsFilter,
   currentMemberId: string,
+  permissions: PermissionSet,
 ): Promise<Analytics> {
   const range = { from: filter.from, to: filter.to };
   const allEvents = await listEvents(weddingId);
@@ -43,7 +56,10 @@ export async function getAnalytics(
     getWedding(weddingId),
     listEveryExpense(weddingId),
     getStats(weddingId),
-    listTasks(weddingId, { view: "all" }, currentMemberId),
+    // Someone allowed only their own tasks sees progress on those alone.
+    listTasks(weddingId, { view: "all" }, currentMemberId, {
+      onlyAssignedTo: permissions["task.view"] === "assigned" ? currentMemberId : undefined,
+    }),
     getPhotoBreakdown(
       weddingId,
       allEvents.map((e) => ({ id: e.id, name: e.name })),
@@ -191,7 +207,15 @@ export async function getAnalytics(
   };
 
   return {
-    charts: [spendByCategory, spendOverTime, byPayer, rsvp, headcount, taskProgress, photosByEvent],
+    charts: [
+      spendByCategory,
+      spendOverTime,
+      byPayer,
+      rsvp,
+      headcount,
+      taskProgress,
+      photosByEvent,
+    ].filter((c) => can(permissions, CHART_PERMISSION[c.id] ?? "analytics.view")),
     events: allEvents.map((e) => ({ id: e.id, name: e.name })),
     notes,
   };

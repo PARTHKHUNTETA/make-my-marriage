@@ -5,7 +5,9 @@ import { ArrowLeft } from "lucide-react";
 import { CoverImageField } from "@/components/photos/cover-image-field";
 import { DeleteEventButton } from "@/components/events/delete-event-button";
 import { EventForm } from "@/components/events/event-form";
+import { hasPermission } from "@/lib/authz";
 import { requirePagePermission } from "@/lib/page-guard";
+import { ViewOnly } from "@/components/permissions/view-only";
 import { toIstYmd } from "@/lib/dates";
 import { getEvent } from "@/modules/events/service";
 import { coverUrl } from "@/modules/photos/covers";
@@ -21,6 +23,7 @@ export const metadata: Metadata = { title: "Event — Make My Marriage" };
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const ctx = await requirePagePermission("event.view");
+  const canEdit = hasPermission(ctx, "event.edit");
   const { id } = await params;
   const event = await getEvent(ctx.weddingId, id);
   if (!event) notFound();
@@ -44,28 +47,32 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       </Link>
       <h1 className="font-serif text-4xl leading-11 tracking-tight text-plum">{event.name}</h1>
       <div className="mt-6 flex flex-col gap-6">
-        <EventForm
-          eventId={event.id}
-          initial={{
-            type: event.type,
-            name: event.name,
-            date: toIstYmd(event.date),
-            startTime: event.startTime,
-            endTime: event.endTime ?? "",
-            venueName: event.venueName ?? "",
-            address: event.address ?? "",
-            description: event.description ?? "",
-            dressCode: event.dressCode ?? "",
-            showOnWebsite: event.showOnWebsite,
-          }}
-        />
+        <ViewOnly when={!canEdit}>
+          <EventForm
+            eventId={event.id}
+            initial={{
+              type: event.type,
+              name: event.name,
+              date: toIstYmd(event.date),
+              startTime: event.startTime,
+              endTime: event.endTime ?? "",
+              venueName: event.venueName ?? "",
+              address: event.address ?? "",
+              description: event.description ?? "",
+              dressCode: event.dressCode ?? "",
+              showOnWebsite: event.showOnWebsite,
+            }}
+          />
+        </ViewOnly>
 
-        <CoverImageField
-          target={{ kind: "event", eventId: event.id }}
-          currentUrl={await coverUrl(event.coverImageKey)}
-          title="Event picture"
-          hint="Shown on this event's card on your wedding website."
-        />
+        {canEdit ? (
+          <CoverImageField
+            target={{ kind: "event", eventId: event.id }}
+            currentUrl={await coverUrl(event.coverImageKey)}
+            title="Event picture"
+            hint="Shown on this event's card on your wedding website."
+          />
+        ) : null}
 
         <section className="rounded-xl bg-white shadow-[0_1px_3px_rgba(35,31,32,0.04)]">
           <div className="flex items-center justify-between px-5 pt-5">
@@ -186,7 +193,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
           </p>
         </section>
 
-        <DeleteEventButton eventId={event.id} name={event.name} />
+        {canEdit ? <DeleteEventButton eventId={event.id} name={event.name} /> : null}
       </div>
     </main>
   );

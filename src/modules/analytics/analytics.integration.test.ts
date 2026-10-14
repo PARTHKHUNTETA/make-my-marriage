@@ -1,3 +1,4 @@
+import { BUILT_IN_ROLES, mergeGrants } from "@/lib/permissions";
 import { ObjectId, type Db } from "mongodb";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -20,11 +21,12 @@ describe.skipIf(!enabled)("analytics against MongoDB", () => {
   const other = new ObjectId();
   const w = W.toHexString();
   const me = new ObjectId().toHexString();
+  const ALL = mergeGrants([BUILT_IN_ROLES.admin.grants]);
   let haldi = "";
   let wedding = "";
 
   const chart = async (id: string, filter = {}) =>
-    (await analytics.getAnalytics(w, filter, me)).charts.find((c) => c.id === id)!;
+    (await analytics.getAnalytics(w, filter, me, ALL)).charts.find((c) => c.id === id)!;
   const series = (c: { series: { name: string; values: number[] }[] }, name: string) =>
     c.series.find((s) => s.name === name)!.values;
   const clean = async () => {
@@ -48,7 +50,7 @@ describe.skipIf(!enabled)("analytics against MongoDB", () => {
     await money.getSummary(w);
     await guests.getStats(w);
     await tasks.listTasks(w, { view: "all" }, me);
-    await analytics.getAnalytics(w, {}, me);
+    await analytics.getAnalytics(w, {}, me, ALL);
     await clean();
     await db.collection("weddings").insertOne({
       _id: W,
@@ -171,7 +173,7 @@ describe.skipIf(!enabled)("analytics against MongoDB", () => {
   });
 
   it("builds all seven charts", async () => {
-    const { charts } = await analytics.getAnalytics(w, {}, me);
+    const { charts } = await analytics.getAnalytics(w, {}, me, ALL);
     expect(charts.map((c) => c.id)).toEqual([
       "spending-by-category",
       "spending-over-time",
@@ -234,7 +236,7 @@ describe.skipIf(!enabled)("analytics against MongoDB", () => {
     const photos = await chart("photos-by-event", { eventId: haldi });
     expect(photos.labels).toEqual(["Haldi"]); // its album exists, with nothing in it yet
     expect(photos.series.every((x) => x.values[0] === 0)).toBe(true);
-    expect((await analytics.getAnalytics(w, { eventId: haldi }, me)).notes.join(" ")).toMatch(
+    expect((await analytics.getAnalytics(w, { eventId: haldi }, me, ALL)).notes.join(" ")).toMatch(
       /Budgets/,
     );
   });
@@ -248,8 +250,16 @@ describe.skipIf(!enabled)("analytics against MongoDB", () => {
   });
 
   it("another wedding's data never appears", async () => {
-    const theirs = await analytics.getAnalytics(other.toHexString(), {}, me);
+    const theirs = await analytics.getAnalytics(other.toHexString(), {}, me, ALL);
     for (const c of theirs.charts)
       expect(c.series.every((s) => s.values.every((v) => v === 0))).toBe(true);
+  });
+
+  it("shows only the charts the member's roles allow", async () => {
+    const finance = mergeGrants([BUILT_IN_ROLES.finance.grants]);
+    const ids = (await analytics.getAnalytics(w, {}, me, finance)).charts.map((c) => c.id);
+    expect(ids).toEqual(["spending-by-category", "spending-over-time", "contribution-by-payer"]);
+    const viewer = mergeGrants([BUILT_IN_ROLES.viewer.grants]);
+    expect((await analytics.getAnalytics(w, {}, me, viewer)).charts).toHaveLength(7);
   });
 });

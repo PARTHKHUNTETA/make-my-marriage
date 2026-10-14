@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Download, Paperclip, Plus } from "lucide-react";
 import { ExpenseFilters } from "@/components/money/expense-filters";
 import { MoneyHeader } from "@/components/money/money-header";
+import { hasPermission } from "@/lib/authz";
 import { requirePagePermission } from "@/lib/page-guard";
 import { formatLongDate } from "@/lib/dates";
 import { formatRupees } from "@/lib/money";
@@ -74,12 +75,14 @@ export default async function MoneyPage({
             >
               <Download className="size-4" aria-hidden /> Export
             </a>
-            <Link
-              href="/money/new"
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
-            >
-              <Plus className="size-4" aria-hidden /> Add expense
-            </Link>
+            {hasPermission(ctx, "expense.edit") ? (
+              <Link
+                href="/money/new"
+                className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
+              >
+                <Plus className="size-4" aria-hidden /> Add expense
+              </Link>
+            ) : null}
           </div>
         }
       />

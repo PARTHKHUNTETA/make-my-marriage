@@ -5,7 +5,9 @@ import { ArrowLeft } from "lucide-react";
 import { EntryCodes } from "@/components/guests/entry-codes";
 import { DeleteGuestButton } from "@/components/guests/delete-guest-button";
 import { GuestForm } from "@/components/guests/guest-form";
+import { hasPermission } from "@/lib/authz";
 import { requirePagePermission } from "@/lib/page-guard";
+import { ViewOnly } from "@/components/permissions/view-only";
 import { listEvents } from "@/modules/events/service";
 import { getGuest } from "@/modules/guests/service";
 
@@ -13,6 +15,7 @@ export const metadata: Metadata = { title: "Guest — Make My Marriage" };
 
 export default async function GuestPage({ params }: { params: Promise<{ id: string }> }) {
   const ctx = await requirePagePermission("guest.view");
+  const canEdit = hasPermission(ctx, "guest.edit");
   const { id } = await params;
   const [guest, events] = await Promise.all([
     getGuest(ctx.weddingId, id),
@@ -30,21 +33,23 @@ export default async function GuestPage({ params }: { params: Promise<{ id: stri
       </Link>
       <h1 className="mb-6 font-serif text-4xl leading-11 tracking-tight text-plum">{guest.name}</h1>
       <div className="flex flex-col gap-6">
-        <GuestForm
-          guestId={guest.id}
-          initial={{
-            name: guest.name,
-            phone: guest.phone ?? "",
-            email: guest.email ?? "",
-            guestsAllowed: guest.guestsAllowed,
-            invitedEventIds: guest.invitations.map((i) => i.eventId).filter((e) => known.has(e)),
-            notes: guest.notes ?? "",
-          }}
-          events={events.map((e) => ({ id: e.id, name: e.name }))}
-          answeredEventIds={guest.invitations
-            .filter((i) => i.rsvpStatus !== "pending")
-            .map((i) => i.eventId)}
-        />
+        <ViewOnly when={!canEdit}>
+          <GuestForm
+            guestId={guest.id}
+            initial={{
+              name: guest.name,
+              phone: guest.phone ?? "",
+              email: guest.email ?? "",
+              guestsAllowed: guest.guestsAllowed,
+              invitedEventIds: guest.invitations.map((i) => i.eventId).filter((e) => known.has(e)),
+              notes: guest.notes ?? "",
+            }}
+            events={events.map((e) => ({ id: e.id, name: e.name }))}
+            answeredEventIds={guest.invitations
+              .filter((i) => i.rsvpStatus !== "pending")
+              .map((i) => i.eventId)}
+          />
+        </ViewOnly>
         <EntryCodes
           guestId={guest.id}
           codes={guest.invitations
@@ -55,7 +60,7 @@ export default async function GuestPage({ params }: { params: Promise<{ id: stri
               people: i.numberAttending ?? 1,
             }))}
         />
-        <DeleteGuestButton guestId={guest.id} name={guest.name} />
+        {canEdit ? <DeleteGuestButton guestId={guest.id} name={guest.name} /> : null}
       </div>
     </main>
   );

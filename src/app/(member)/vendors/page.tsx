@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Download, Mail, Phone, Plus } from "lucide-react";
 import { VendorFilters } from "@/components/vendors/vendor-filters";
 import { VendorsTabs } from "@/components/vendors/vendors-tabs";
+import { hasPermission } from "@/lib/authz";
 import { requirePagePermission } from "@/lib/page-guard";
 import { formatRupees } from "@/lib/money";
 import { listEvents } from "@/modules/events/service";
@@ -47,12 +48,14 @@ export default async function VendorsPage({
           >
             <Download className="size-4" aria-hidden /> Export
           </a>
-          <Link
-            href="/vendors/new"
-            className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
-          >
-            <Plus className="size-4" aria-hidden /> Add vendor
-          </Link>
+          {hasPermission(ctx, "vendor.edit") ? (
+            <Link
+              href="/vendors/new"
+              className="inline-flex h-11 items-center gap-2 rounded-lg bg-bronze px-5 text-sm font-semibold text-white hover:bg-bronze/90"
+            >
+              <Plus className="size-4" aria-hidden /> Add vendor
+            </Link>
+          ) : null}
         </div>
       </div>
 

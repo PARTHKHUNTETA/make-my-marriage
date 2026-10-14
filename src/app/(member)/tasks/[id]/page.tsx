@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { DeleteTaskButton } from "@/components/tasks/delete-task-button";
 import { TaskForm } from "@/components/tasks/task-form";
+import { hasPermission } from "@/lib/authz";
 import { requirePagePermission } from "@/lib/page-guard";
+import { ViewOnly } from "@/components/permissions/view-only";
 import { toIstYmd } from "@/lib/dates";
 import { listEvents } from "@/modules/events/service";
 import { listTeam } from "@/modules/members/service";
@@ -14,6 +16,7 @@ export const metadata: Metadata = { title: "Task — Make My Marriage" };
 
 export default async function TaskPage({ params }: { params: Promise<{ id: string }> }) {
   const ctx = await requirePagePermission("task.view");
+  const canEdit = hasPermission(ctx, "task.edit");
   const { id } = await params;
   const task = await getTask(ctx.weddingId, id, {
     onlyAssignedTo: ctx.scope === "assigned" ? ctx.memberId : undefined,
@@ -36,21 +39,23 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
       </Link>
       <h1 className="mb-6 font-serif text-4xl leading-11 tracking-tight text-plum">Edit task</h1>
       <div className="flex flex-col gap-6">
-        <TaskForm
-          taskId={task.id}
-          initial={{
-            title: task.title,
-            description: task.description ?? "",
-            dueDate: task.dueDate ? toIstYmd(task.dueDate) : "",
-            status: task.status,
-            priority: task.priority,
-            assignedMemberId: assignee ?? "",
-            eventId: event ?? "",
-          }}
-          members={team.members.map((m) => ({ id: m.memberId, name: m.name }))}
-          events={events.map((e) => ({ id: e.id, name: e.name }))}
-        />
-        <DeleteTaskButton taskId={task.id} />
+        <ViewOnly when={!canEdit}>
+          <TaskForm
+            taskId={task.id}
+            initial={{
+              title: task.title,
+              description: task.description ?? "",
+              dueDate: task.dueDate ? toIstYmd(task.dueDate) : "",
+              status: task.status,
+              priority: task.priority,
+              assignedMemberId: assignee ?? "",
+              eventId: event ?? "",
+            }}
+            members={team.members.map((m) => ({ id: m.memberId, name: m.name }))}
+            events={events.map((e) => ({ id: e.id, name: e.name }))}
+          />
+        </ViewOnly>
+        {canEdit ? <DeleteTaskButton taskId={task.id} /> : null}
       </div>
     </main>
   );
