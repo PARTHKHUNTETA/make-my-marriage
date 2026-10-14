@@ -15,11 +15,9 @@ import { Button } from "@/components/ui/button";
 import { acceptInviteAction } from "@/modules/members/actions";
 import { PASSWORD_MIN, signupSchema, type PublicUser } from "@/modules/members/schema";
 
-export type JoinMode =
-  | { kind: "new" } // not signed in: create an account
-  | { kind: "accept" } // signed in as the invited address
-  | { kind: "wrong-account"; signedInAs: string } // signed in as someone else
-  | { kind: "has-wedding" }; // already on this wedding
+import type { JoinMode } from "@/modules/members/join-mode";
+
+export type { JoinMode };
 
 type Props = {
   token: string;

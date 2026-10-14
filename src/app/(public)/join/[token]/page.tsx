@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthCard } from "@/components/auth/auth-card";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { JoinInvite, type JoinMode } from "@/components/members/join-invite";
+import { JoinInvite } from "@/components/members/join-invite";
+import { decideJoinMode } from "@/modules/members/join-mode";
 import { resolveContext } from "@/lib/context";
 import { belongsToWedding, getProfile, previewInvite } from "@/modules/members/service";
 import { getWedding } from "@/modules/wedding/service";
@@ -70,19 +71,17 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
     );
   }
 
-  let mode: JoinMode = { kind: "new" };
-  // Someone already signed in, with or without weddings of their own, can accept: an account can
-  // belong to several. The only refusals are another person's invitation, or a wedding they are
-  // already on.
+  // Who is looking at the link decides what they see: the invited person (new, or signed in), or
+  // someone else who happens to be signed in, such as the admin who sent it.
+  let signedIn: { email: string; onThisWedding: boolean } | null = null;
   if (ctx.kind === "user" || ctx.kind === "member") {
-    const me = await getProfile(ctx.userId);
-    if (await belongsToWedding(ctx.userId, preview.weddingId)) mode = { kind: "has-wedding" };
-    else
-      mode =
-        me && me.email === preview.email
-          ? { kind: "accept" }
-          : { kind: "wrong-account", signedInAs: me?.email ?? "another account" };
+    const [me, onThisWedding] = await Promise.all([
+      getProfile(ctx.userId),
+      belongsToWedding(ctx.userId, preview.weddingId),
+    ]);
+    if (me) signedIn = { email: me.email, onThisWedding };
   }
+  const mode = decideJoinMode({ inviteEmail: preview.email, signedIn });
 
   return (
     <AuthShell>
