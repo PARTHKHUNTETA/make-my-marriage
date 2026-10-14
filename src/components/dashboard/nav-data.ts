@@ -98,6 +98,7 @@ export const PAGES: PageEntry[] = [
     keywords: "invite admin manager roles",
     href: "/settings/members",
   },
+  { label: "Roles", keywords: "permissions access viewer finance", href: "/settings/roles" },
 ];
 
 // Only what this member can open (lib/route-permissions.ts decides which permission a page needs).

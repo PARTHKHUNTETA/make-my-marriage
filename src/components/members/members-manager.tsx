@@ -10,17 +10,14 @@ import { FormAlert } from "@/components/auth/form-alert";
 import { Button } from "@/components/ui/button";
 import {
   cancelInviteAction,
-  changeRoleAction,
   inviteMemberAction,
   removeMemberAction,
   resendInviteAction,
+  setMemberRolesAction,
 } from "@/modules/members/actions";
-import {
-  inviteMemberSchema,
-  type InviteView,
-  type MemberRole,
-  type MemberView,
-} from "@/modules/members/schema";
+import { inviteMemberSchema, type InviteView, type MemberView } from "@/modules/members/schema";
+
+export type RoleChoice = { id: string; name: string; description?: string };
 
 const card = "rounded-xl bg-white shadow-[0_1px_3px_rgba(35,31,32,0.04)]";
 const smallButton =
@@ -51,15 +48,80 @@ function initials(name: string) {
     .join("");
 }
 
+// Ticks for the roles a member holds; saving gives them exactly those roles.
+function RolePicker({
+  roles,
+  current,
+  busy,
+  onSave,
+  onCancel,
+}: {
+  roles: RoleChoice[];
+  current: string[];
+  busy: boolean;
+  onSave: (roleIds: string[]) => void;
+  onCancel: () => void;
+}) {
+  const [chosen, setChosen] = React.useState<string[]>(current);
+  const toggle = (id: string) =>
+    setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
+  return (
+    <fieldset className="mt-2 w-full rounded-lg bg-rose-50 p-3">
+      <legend className="sr-only">Roles</legend>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {roles.map((r) => (
+          <label key={r.id} className="flex items-start gap-2 text-[13px] text-ink">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 accent-plum"
+              checked={chosen.includes(r.id)}
+              onChange={() => toggle(r.id)}
+            />
+            <span>
+              <span className="font-semibold">{r.name}</span>
+              {r.description ? (
+                <span className="block text-xs text-ink-2">{r.description}</span>
+              ) : null}
+            </span>
+          </label>
+        ))}
+      </div>
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          disabled={busy || chosen.length === 0}
+          onClick={() => onSave(chosen)}
+          className={`${smallButton} bg-plum text-white hover:bg-plum/90`}
+        >
+          Save roles
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className={`${smallButton} text-ink-2 hover:bg-rose-100`}
+        >
+          Cancel
+        </button>
+      </div>
+    </fieldset>
+  );
+}
+
 export function MembersManager({
   members,
   invites,
   currentUserId,
+  roles,
 }: {
   members: MemberView[];
   invites: InviteView[];
   currentUserId: string;
+  // Every role in this wedding, built-in and custom, in display order.
+  roles: RoleChoice[];
 }) {
+  const roleName = (id: string) => roles.find((r) => r.id === id)?.name ?? "Removed role";
+  const [editing, setEditing] = React.useState<string | null>(null);
+  const [inviteRole, setInviteRole] = React.useState("manager");
   const router = useRouter();
   const [notice, setNotice] = React.useState<Notice>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -97,7 +159,7 @@ export function MembersManager({
 
   async function invite(values: { email: string }) {
     setNotice(null);
-    const result = await inviteMemberAction(values);
+    const result = await inviteMemberAction({ ...values, roleIds: [inviteRole] });
     if (result.ok) {
       setNotice({
         kind: "success",
@@ -137,7 +199,8 @@ export function MembersManager({
           Invite someone
         </h2>
         <p className="mt-1 mb-4 text-[13px] text-ink-2">
-          They&rsquo;ll get an email with a link that works for 7 days and joins them as a Manager.
+          They&rsquo;ll get an email with a link that works for 7 days, and join with the role you
+          choose.
         </p>
         <form
           onSubmit={handleSubmit(invite)}
@@ -155,6 +218,20 @@ export function MembersManager({
               {...register("email")}
             />
           </div>
+          <label className="flex flex-col gap-1 text-xs font-semibold tracking-wide text-ink">
+            Role
+            <select
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value)}
+              className="h-11 rounded-lg border border-line-soft/60 bg-white px-3 text-sm font-normal"
+            >
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <Button
             type="submit"
             disabled={isSubmitting}
@@ -192,39 +269,34 @@ export function MembersManager({
                   </p>
                   <p className="truncate text-[13px] text-ink-2">{m.email}</p>
                 </div>
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                    m.role === "admin" ? "bg-plum text-white" : "bg-rose-200 text-ink-2"
-                  }`}
-                >
-                  {m.role === "admin" ? "Admin" : "Manager"}
+                <span className="flex flex-wrap gap-1">
+                  {m.roleIds.map((id) => (
+                    <span
+                      key={id}
+                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                        id === "admin" ? "bg-plum text-white" : "bg-rose-200 text-ink-2"
+                      }`}
+                    >
+                      {roleName(id)}
+                    </span>
+                  ))}
                 </span>
                 <span className="hidden font-mono text-xs text-ink-2 md:block">
                   Joined {formatDate(m.joinedAt)}
                 </span>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={busy !== null}
-                    aria-label={`${m.role === "admin" ? "Make manager" : "Make admin"}: ${m.name}`}
-                    onClick={() =>
-                      run(
-                        key,
-                        () =>
-                          changeRoleAction({
-                            memberId: m.memberId,
-                            role: (m.role === "admin" ? "manager" : "admin") satisfies MemberRole,
-                          }),
-                        () =>
-                          m.role === "admin"
-                            ? `${m.name} is now a Manager.`
-                            : `${m.name} is now an Admin.`,
-                      )
-                    }
-                    className={`${smallButton} bg-rose-100 text-ink hover:bg-rose-200`}
-                  >
-                    {m.role === "admin" ? "Make manager" : "Make admin"}
-                  </button>
+                  {isYou ? null : (
+                    <button
+                      type="button"
+                      disabled={busy !== null}
+                      aria-label={`Change roles: ${m.name}`}
+                      aria-expanded={editing === m.memberId}
+                      onClick={() => setEditing(editing === m.memberId ? null : m.memberId)}
+                      className={`${smallButton} bg-rose-100 text-ink hover:bg-rose-200`}
+                    >
+                      Change roles
+                    </button>
+                  )}
                   {confirmRemove === m.memberId ? (
                     <>
                       <button
@@ -262,6 +334,22 @@ export function MembersManager({
                     </button>
                   )}
                 </div>
+                {editing === m.memberId ? (
+                  <RolePicker
+                    roles={roles}
+                    current={m.roleIds}
+                    busy={busy !== null}
+                    onCancel={() => setEditing(null)}
+                    onSave={async (roleIds) => {
+                      const done = await run(
+                        key,
+                        () => setMemberRolesAction({ memberId: m.memberId, roleIds }),
+                        () => `${m.name}'s roles were updated.`,
+                      );
+                      if (done) setEditing(null);
+                    }}
+                  />
+                ) : null}
               </li>
             );
           })}

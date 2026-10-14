@@ -13,7 +13,6 @@ const svc = vi.hoisted(() => ({
   acceptInvite: vi.fn(),
   belongsToWedding: vi.fn(),
   cancelPendingInvite: vi.fn(),
-  changeMemberRole: vi.fn(),
   getProfile: vi.fn(),
   inviteMember: vi.fn(),
   listTeam: vi.fn(),
@@ -46,11 +45,18 @@ const notify = vi.hoisted(() => ({ notifyMembers: vi.fn(), announceMemberJoined:
 vi.mock("@/modules/notifications/service", () => notify);
 vi.mock("next/cache", () => ({ revalidatePath }));
 vi.mock("./service", () => svc);
+const roles = vi.hoisted(() => ({
+  checkGivableRoles: vi.fn(async (_w: string, _p: unknown, ids: string[]) => ids),
+  createRole: vi.fn(),
+  updateRole: vi.fn(),
+  deleteRole: vi.fn(),
+  setMemberRoles: vi.fn(),
+}));
+vi.mock("./roles", () => roles);
 
 import {
   acceptInviteAction,
   cancelInviteAction,
-  changeRoleAction,
   inviteMemberAction,
   removeMemberAction,
   resendInviteAction,
@@ -66,6 +72,7 @@ const admin = {
   weddingId: W,
   memberId: "m-admin",
   role: "admin",
+  permissions: { "member.invite": "wedding" },
 };
 
 beforeEach(() => {
@@ -88,7 +95,6 @@ const adminOnly: Array<[string, (input: unknown) => Promise<unknown>, unknown, k
     ["inviteMemberAction", inviteMemberAction, { email: "rahul@example.com" }, "inviteMember"],
     ["resendInviteAction", resendInviteAction, { inviteId: ID }, "resendInvite"],
     ["cancelInviteAction", cancelInviteAction, { inviteId: ID }, "cancelPendingInvite"],
-    ["changeRoleAction", changeRoleAction, { memberId: ID, role: "admin" }, "changeMemberRole"],
     ["removeMemberAction", removeMemberAction, { memberId: ID }, "removeMember"],
   ];
 
@@ -128,9 +134,26 @@ describe("inviteMemberAction", () => {
       weddingId: W,
       invitedByUserId: "u-admin",
       email: "rahul@example.com",
+      roleIds: ["manager"], // the default when no role is chosen
       weddingTitle: "Priya weds Aarav",
       inviterName: "Priya Sharma",
     });
+  });
+
+  it("offers the chosen roles, but only ones the inviter may give", async () => {
+    await inviteMemberAction({ email: "rahul@example.com", roleIds: ["viewer", "viewer"] });
+    expect(roles.checkGivableRoles).toHaveBeenCalledWith(W, admin.permissions, [
+      "viewer",
+      "viewer",
+    ]);
+    roles.checkGivableRoles.mockRejectedValueOnce(
+      new AppError("FORBIDDEN", "You can only give permissions that you have yourself."),
+    );
+    svc.inviteMember.mockClear();
+    expect(
+      await inviteMemberAction({ email: "rahul@example.com", roleIds: ["admin"] }),
+    ).toMatchObject({ ok: false, error: { code: "FORBIDDEN" } });
+    expect(svc.inviteMember).not.toHaveBeenCalled();
   });
 
   it("caps invitations at 20 per wedding per day, hashing the wedding id", async () => {
@@ -193,15 +216,6 @@ describe("other team actions use the admin's own wedding", () => {
     expect(svc.cancelPendingInvite).toHaveBeenCalledWith(W, ID);
   });
 
-  it("changeRoleAction", async () => {
-    await changeRoleAction({ memberId: ID, role: "manager", weddingId: "f".repeat(24) });
-    expect(svc.changeMemberRole).toHaveBeenCalledWith({
-      weddingId: W,
-      memberId: ID,
-      role: "manager",
-    });
-  });
-
   it("an admin who has not confirmed their email cannot invite or re-send, and nothing is sent", async () => {
     svc.getProfile.mockResolvedValue({ name: "Priya Sharma", emailVerified: false });
     expect(await inviteMemberAction({ email: "rahul@example.com" })).toMatchObject({
@@ -248,10 +262,9 @@ describe("other team actions use the admin's own wedding", () => {
   });
 
   it.each([
-    ["a bad role", changeRoleAction, { memberId: ID, role: "owner" }],
     ["a malformed member id", removeMemberAction, { memberId: "../etc" }],
     ["a malformed invite id", cancelInviteAction, { inviteId: "x" }],
-    ["a missing member id", changeRoleAction, { role: "admin" }],
+    ["a missing member id", removeMemberAction, {}],
   ])("rejects %s", async (_label, action, input) => {
     expect(await (action as (i: unknown) => Promise<unknown>)(input)).toMatchObject({
       ok: false,

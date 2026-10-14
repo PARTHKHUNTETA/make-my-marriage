@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidGrant } from "@/lib/permissions";
 import { PALETTE_IDS } from "@/lib/palettes";
 
 // Zod schemas and TypeScript types for the members module. Shared by the browser forms and the
@@ -60,14 +61,17 @@ export const verifyEmailSchema = z.object({ token });
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, "Not a valid id");
 
-export const inviteMemberSchema = z.object({ email });
+// A role id: a built-in role's key ("admin", "viewer") or a custom role's id.
+const roleId = z
+  .string()
+  .regex(/^(admin|manager|finance|viewer|[a-f0-9]{24})$/, "Not a valid role");
+const roleIds = z.array(roleId).min(1, "Choose at least one role").max(10);
+
+export const inviteMemberSchema = z.object({ email, roleIds: roleIds.default(["manager"]) });
+export const setMemberRolesSchema = z.object({ memberId: objectId, roleIds });
 export const inviteIdSchema = z.object({ inviteId: objectId });
 export const memberIdSchema = z.object({ memberId: objectId });
 export const paletteSchema = z.object({ palette: z.enum(PALETTE_IDS) });
-export const changeRoleSchema = z.object({
-  memberId: objectId,
-  role: z.enum(["admin", "manager"]),
-});
 export const acceptInviteSchema = z.object({ token });
 // Sign-up from an invitation: the email comes from the invitation, not from the form.
 export const inviteSignupSchema = z.object({
@@ -85,6 +89,7 @@ export type MemberView = {
   name: string;
   email: string;
   role: MemberRole;
+  roleIds: string[];
   joinedAt: Date;
 };
 
@@ -98,3 +103,21 @@ export type InviteView = {
 };
 
 export const switchWeddingSchema = z.object({ weddingId: z.string().regex(/^[a-f0-9]{24}$/) });
+
+// A custom role as an admin defines it. Grants are checked against the catalog (lib/permissions.ts).
+export const roleInputSchema = z.object({
+  name: z.string().trim().min(1, "Give the role a name").max(60, "That name is too long"),
+  description: z
+    .string()
+    .trim()
+    .max(200, "That is too long")
+    .optional()
+    .transform((v) => v || undefined),
+  grants: z
+    .array(z.string().refine(isValidGrant, "Unknown permission"))
+    .min(1, "Choose at least one permission")
+    .max(100)
+    .transform((g) => [...new Set(g)]),
+});
+export type RoleInput = { name: string; description?: string; grants: string[] };
+export const roleIdSchema = z.object({ roleId: z.string().regex(/^[a-f0-9]{24}$/) });

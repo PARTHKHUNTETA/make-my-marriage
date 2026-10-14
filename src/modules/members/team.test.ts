@@ -22,7 +22,6 @@ const repo = vi.hoisted(() => ({
   lockAdmins: vi.fn(),
   markEmailVerified: vi.fn(),
   renewInvite: vi.fn(),
-  setMemberRole: vi.fn(),
   findAuthState: vi.fn(),
   setResetToken: vi.fn(),
   setVerifyToken: vi.fn(),
@@ -40,7 +39,6 @@ vi.mock("@/lib/db", () => ({ inTransaction: (work: (s: unknown) => unknown) => w
 import {
   acceptInvite,
   cancelPendingInvite,
-  changeMemberRole,
   inviteMember,
   listTeam,
   previewInvite,
@@ -101,6 +99,7 @@ const base = {
   inviterName: "Priya Sharma",
   weddingTitle: "Priya weds Aarav",
   email: "rahul@example.com",
+  roleIds: ["manager"],
 };
 
 describe("inviteMember", () => {
@@ -209,53 +208,6 @@ describe("resendInvite and cancelPendingInvite", () => {
   });
 });
 
-describe("changeMemberRole", () => {
-  const run = (target: ReturnType<typeof member> | null, role: "admin" | "manager", admins = 2) => {
-    repo.lockAdmins.mockResolvedValue(admins);
-    repo.findMembership.mockResolvedValue(target);
-    return changeMemberRole({
-      weddingId: W,
-      memberId: target?._id.toHexString() ?? new ObjectId().toHexString(),
-      role,
-    });
-  };
-
-  it("promotes a manager to admin inside the transaction", async () => {
-    const target = member("manager");
-    await run(target, "admin");
-    expect(repo.setMemberRole).toHaveBeenCalledWith(W, target._id.toHexString(), "admin", {
-      session,
-    });
-  });
-
-  it("demotes an admin when another admin remains", async () => {
-    const target = member("admin");
-    await run(target, "manager", 2);
-    expect(repo.setMemberRole).toHaveBeenCalledWith(W, target._id.toHexString(), "manager", {
-      session,
-    });
-  });
-
-  it("refuses to demote the last admin (LAST_ADMIN) and writes nothing", async () => {
-    await expect(run(member("admin"), "manager", 1)).rejects.toMatchObject({ code: "LAST_ADMIN" });
-    expect(repo.setMemberRole).not.toHaveBeenCalled();
-  });
-
-  it("counts the admins under a lock before deciding", async () => {
-    await run(member("manager"), "admin");
-    expect(repo.lockAdmins).toHaveBeenCalledWith(W, { session });
-  });
-
-  it("does nothing when the role is already what was asked", async () => {
-    await run(member("admin"), "admin", 1);
-    expect(repo.setMemberRole).not.toHaveBeenCalled();
-  });
-
-  it("reports an unknown member (or one in another wedding) as NOT_FOUND", async () => {
-    await expect(run(null, "admin")).rejects.toMatchObject({ code: "NOT_FOUND" });
-  });
-});
-
 describe("removeMember", () => {
   const run = (target: ReturnType<typeof member> | null, admins = 2) => {
     repo.lockAdmins.mockResolvedValue(admins);
@@ -319,6 +271,7 @@ describe("listTeam", () => {
         name: "Priya",
         email: "priya@example.com",
         role: "admin",
+        roleIds: ["admin"], // read from the old field
         joinedAt: ma.joinedAt,
       },
     ]);
@@ -402,7 +355,7 @@ describe("signUpWithInvite", () => {
     expect(repo.consumeInvite.mock.calls[0]![0]).toBe(hashToken("tok-1234567890"));
     expect(repo.consumeInvite.mock.calls[0]![2]).toEqual({ session });
     expect(repo.insertMembership).toHaveBeenCalledWith(
-      { weddingId: W, userId: user.id, role: "manager" },
+      { weddingId: W, userId: user.id, role: "manager", roleIds: ["manager"] },
       { session },
     );
     expect(user).toMatchObject({ email: "rahul@example.com", emailVerified: true });
@@ -458,7 +411,7 @@ describe("acceptInvite", () => {
     const result = await acceptInvite(me._id.toHexString(), token);
     expect(result).toEqual({ weddingId: W });
     expect(repo.insertMembership).toHaveBeenCalledWith(
-      { weddingId: W, userId: me._id.toHexString(), role: "manager" },
+      { weddingId: W, userId: me._id.toHexString(), role: "manager", roleIds: ["manager"] },
       { session },
     );
     expect(repo.markEmailVerified).toHaveBeenCalledWith(me._id.toHexString(), { session });

@@ -22,6 +22,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
     onlyAssignedTo: ctx.scope === "assigned" ? ctx.memberId : undefined,
   });
   if (!task) notFound();
+  const editScope = ctx.permissions["task.edit"];
   const [events, team] = await Promise.all([listEvents(ctx.weddingId), listTeam(ctx.weddingId)]);
   // A task may still point at someone who has since been removed; show it as unassigned.
   const assignee = team.members.some((m) => m.memberId === task.assignedMemberId)
@@ -51,7 +52,10 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
               assignedMemberId: assignee ?? "",
               eventId: event ?? "",
             }}
-            members={team.members.map((m) => ({ id: m.memberId, name: m.name }))}
+            members={team.members
+              // Someone who works only on their own tasks can only give a task to themselves.
+              .filter((m) => editScope === "wedding" || m.memberId === ctx.memberId)
+              .map((m) => ({ id: m.memberId, name: m.name }))}
             events={events.map((e) => ({ id: e.id, name: e.name }))}
           />
         </ViewOnly>

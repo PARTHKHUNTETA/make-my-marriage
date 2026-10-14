@@ -79,6 +79,7 @@ describe.skipIf(!enabled)("one account on several weddings against MongoDB", () 
       inviterName: "Owner B",
       weddingTitle: "Bina weds Dev",
       email: `${tag}@example.com`,
+      roleIds: ["manager"],
     });
     const mail = await db
       .collection("emailQueue")
@@ -112,6 +113,7 @@ describe.skipIf(!enabled)("one account on several weddings against MongoDB", () 
         inviterName: "Owner B",
         weddingTitle: "Bina weds Dev",
         email: `${tag}@example.com`,
+        roleIds: ["manager"],
       }),
     ).rejects.toMatchObject({ code: "EMAIL_IN_USE" });
     await expect(svc.addAdminMember({ userId, weddingId: wB.toHexString() })).rejects.toMatchObject(

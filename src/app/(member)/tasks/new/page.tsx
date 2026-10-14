@@ -15,6 +15,7 @@ export default async function NewTaskPage({
 }) {
   const ctx = await requirePagePermission("task.edit");
   const { eventId } = await searchParams;
+  const editScope = ctx.permissions["task.edit"];
   const [events, team] = await Promise.all([listEvents(ctx.weddingId), listTeam(ctx.weddingId)]);
   // Arriving from an event's page pre-selects that event, if it is a real one in this wedding.
   const preset = typeof eventId === "string" && events.some((e) => e.id === eventId) ? eventId : "";
@@ -38,7 +39,10 @@ export default async function NewTaskPage({
           assignedMemberId: "",
           eventId: preset,
         }}
-        members={team.members.map((m) => ({ id: m.memberId, name: m.name }))}
+        members={team.members
+          // Someone who works only on their own tasks can only give a task to themselves.
+          .filter((m) => editScope === "wedding" || m.memberId === ctx.memberId)
+          .map((m) => ({ id: m.memberId, name: m.name }))}
         events={events.map((e) => ({ id: e.id, name: e.name }))}
       />
     </main>

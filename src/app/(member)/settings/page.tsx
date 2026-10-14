@@ -1,6 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Bell, ChevronRight, Heart, Palette, Settings2, Trash2, Users } from "lucide-react";
+import {
+  Bell,
+  ChevronRight,
+  Heart,
+  Palette,
+  ShieldCheck,
+  Settings2,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { hasPermission, requireMember } from "@/lib/authz";
 
 export const metadata: Metadata = { title: "Settings — Make My Marriage" };
@@ -32,6 +41,20 @@ export default async function SettingsPage() {
           </span>
           <ChevronRight className="size-4 text-ink-2" aria-hidden />
         </Link>
+        {hasPermission(ctx, "role.manage") ? (
+          <Link href="/settings/roles" className={`${card} transition-colors hover:bg-rose-50`}>
+            <span className="flex size-10 items-center justify-center rounded-lg bg-rose-100">
+              <ShieldCheck className="size-5 text-plum" aria-hidden />
+            </span>
+            <span className="flex-1">
+              <span className="block text-sm font-semibold text-ink">Roles</span>
+              <span className="block text-[13px] text-ink-2">
+                Decide what each kind of helper can see and change, like a Viewer for parents.
+              </span>
+            </span>
+            <ChevronRight className="size-4 text-ink-2" aria-hidden />
+          </Link>
+        ) : null}
         {hasPermission(ctx, "member.manage") ? (
           <Link href="/settings/members" className={`${card} transition-colors hover:bg-rose-50`}>
             <span className="flex size-10 items-center justify-center rounded-lg bg-rose-100">

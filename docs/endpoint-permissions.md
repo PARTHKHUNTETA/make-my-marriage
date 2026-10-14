@@ -46,12 +46,15 @@ route and member page, and the guard that protects it. The test fails if any is 
 | `action marketplace.writeReviewAction` | marketplace.review |
 | `action members.acceptInviteAction` | signed in |
 | `action members.cancelInviteAction` | member.invite |
-| `action members.changeRoleAction` | member.manage |
+| `action members.createRoleAction` | role.manage |
+| `action members.deleteRoleAction` | role.manage |
 | `action members.inviteMemberAction` | member.invite |
 | `action members.removeMemberAction` | member.manage |
 | `action members.resendInviteAction` | member.invite |
+| `action members.setMemberRolesAction` | member.manage |
 | `action members.setPaletteAction` | member (self) |
 | `action members.switchWeddingAction` | signed in |
+| `action members.updateRoleAction` | role.manage |
 | `action money.confirmReceiptAction` | expense.edit |
 | `action money.createExpenseAction` | expense.edit |
 | `action money.deleteExpenseAction` | expense.edit |
@@ -95,6 +98,7 @@ route and member page, and the guard that protects it. The test fails if any is 
 | `action seating.setShowTableAction` | seating.edit |
 | `action seating.unassignPartyAction` | seating.edit |
 | `action seating.updateTableAction` | seating.edit |
+| `action staff.setStaffRolesAction` | staff: staff.manage |
 | `action tasks.changeTaskStatusAction` | task.edit |
 | `action tasks.createTaskAction` | task.edit |
 | `action tasks.deleteTaskAction` | task.edit |
@@ -153,6 +157,9 @@ route and member page, and the guard that protects it. The test fails if any is 
 | `page /settings/delete-wedding` | wedding.delete |
 | `page /settings/members` | member.manage |
 | `page /settings/notifications` | member (self) |
+| `page /settings/roles` | role.manage |
+| `page /settings/roles/[id]` | role.manage |
+| `page /settings/roles/new` | role.manage |
 | `page /settings/wedding` | wedding.update |
 | `page /tasks` | task.view |
 | `page /tasks/[id]` | task.view |

@@ -237,7 +237,7 @@ export async function listMembershipsByUserId(userId: string): Promise<Membershi
 
 // Throws the driver's duplicate-key error (code 11000) if the user is already in this wedding.
 export async function insertMembership(
-  input: { weddingId: string; userId: string; role: MemberRole },
+  input: { weddingId: string; userId: string; role: MemberRole; roleIds?: string[] },
   options?: { session?: ClientSession },
 ): Promise<void> {
   const now = new Date();
@@ -246,7 +246,7 @@ export async function insertMembership(
       _id: new ObjectId(),
       userId: new ObjectId(input.userId),
       role: input.role,
-      roleIds: [input.role],
+      roleIds: input.roleIds ?? [input.role],
       joinedAt: now,
       createdAt: now,
       updatedAt: now,
@@ -369,6 +369,8 @@ export type InviteDoc = {
   tokenHash: string; // SHA-256 of the token in the join link
   status: "pending" | "cancelled";
   invitedByUserId: ObjectId;
+  // The roles the person gets on joining. Absent on invitations from before roles: Manager.
+  roleIds?: string[];
   expiresAt: Date; // 7 days from creation or last resend
   createdAt: Date;
   updatedAt: Date;
@@ -391,7 +393,13 @@ function invites(): Promise<Collection<InviteDoc>> {
 
 export async function insertInvite(
   weddingId: string,
-  input: { email: string; tokenHash: string; invitedByUserId: string; expiresAt: Date },
+  input: {
+    email: string;
+    tokenHash: string;
+    invitedByUserId: string;
+    expiresAt: Date;
+    roleIds: string[];
+  },
 ): Promise<InviteDoc> {
   const now = new Date();
   const doc = {
@@ -400,6 +408,7 @@ export async function insertInvite(
     tokenHash: input.tokenHash,
     status: "pending" as const,
     invitedByUserId: new ObjectId(input.invitedByUserId),
+    roleIds: input.roleIds,
     expiresAt: input.expiresAt,
     createdAt: now,
     updatedAt: now,
@@ -427,10 +436,11 @@ export async function renewInvite(
   inviteId: string,
   tokenHash: string,
   expiresAt: Date,
+  roleIds?: string[],
 ): Promise<InviteDoc | null> {
   return scoped(await invites(), { weddingId }).findOneAndUpdate(
     { _id: new ObjectId(inviteId), status: "pending" },
-    { $set: { tokenHash, expiresAt, updatedAt: new Date() } },
+    { $set: { tokenHash, expiresAt, ...(roleIds ? { roleIds } : {}), updatedAt: new Date() } },
     { returnDocument: "after" },
   );
 }
@@ -594,4 +604,37 @@ export async function listStaffUsers(): Promise<UserDoc[]> {
     .find({ platformRoles: { $exists: true, $ne: [] } })
     .limit(200)
     .toArray();
+}
+
+// Pending invitations that would grant this role (a role cannot be deleted while any do).
+export async function countInvitesWithRole(weddingId: string, roleId: string): Promise<number> {
+  return scoped(await invites(), { weddingId }).countDocuments({
+    status: "pending",
+    roleIds: roleId,
+  });
+}
+
+// Every member's roles, for working out who could still manage the team after a change.
+export async function listMemberRoleIds(
+  weddingId: string,
+  options?: { session?: ClientSession },
+): Promise<{ _id: ObjectId; role: MemberRole; roleIds?: string[] }[]> {
+  return scoped(await memberships(), { weddingId })
+    .find({}, { projection: { role: 1, roleIds: 1 }, ...options })
+    .toArray();
+}
+
+// Keeps the legacy role field of these members in step with their roles (see MembershipDoc).
+export async function setLegacyRoles(
+  weddingId: string,
+  updates: { memberId: string; role: MemberRole }[],
+  options?: { session?: ClientSession },
+): Promise<void> {
+  const col = scoped(await memberships(), { weddingId });
+  for (const u of updates)
+    await col.updateOne(
+      { _id: new ObjectId(u.memberId) },
+      { $set: { role: u.role, updatedAt: new Date() } },
+      options,
+    );
 }

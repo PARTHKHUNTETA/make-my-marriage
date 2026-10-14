@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RemoveReviewButton } from "@/components/marketplace/remove-review-button";
 import { Stars } from "@/components/marketplace/stars";
@@ -16,12 +17,19 @@ export const dynamic = "force-dynamic";
 // The internal admin screen for the Make My Marriage team. To everyone else this page does not
 // exist, so it does not reveal that it is there.
 export default async function StaffPage() {
+  let staff;
   try {
-    await requireStaff();
+    staff = await requireStaff();
   } catch {
     notFound();
   }
-  const [listings, reviews] = await Promise.all([listForStaff(), listReviewsForStaff()]);
+  // Each part shows only to staff whose role covers it.
+  const canReview = staff.permissions.has("listing.review");
+  const canModerate = staff.permissions.has("review.moderate");
+  const [listings, reviews] = await Promise.all([
+    canReview ? listForStaff() : [],
+    canModerate ? listReviewsForStaff() : [],
+  ]);
   // The team looks at a listing's photos before approving it.
   const photoUrls = new Map(
     await Promise.all(
@@ -35,100 +43,124 @@ export default async function StaffPage() {
       <p className="text-xs font-semibold tracking-[0.6px] text-bronze uppercase">
         Make My Marriage team
       </p>
-      <h1 className="mt-1 font-serif text-4xl leading-11 tracking-tight text-plum">
-        Marketplace listings
-      </h1>
-      <p className="mt-1 mb-6 text-sm text-ink-2">
-        {pending === 0 ? "Nothing is waiting for approval." : `${pending} waiting for approval.`}
-      </p>
-      {listings.length === 0 ? (
-        <p className="rounded-xl bg-white p-6 text-sm text-ink-2">
-          No vendors have created a listing yet.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {listings.map((l) => (
-            <li
-              key={l.id}
-              className="rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)]"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0 flex-1 basis-72">
-                  <p className="text-xs text-ink-2">
-                    {VENDOR_CATEGORY_LABELS[l.category]} · {l.cities.join(", ")} · {l.vendorEmail}
-                  </p>
-                  <h2 className="mt-1 font-serif text-xl text-ink">{l.businessName}</h2>
-                  <p className="mt-1 text-[13px] whitespace-pre-line text-ink-2">{l.description}</p>
-                  {(photoUrls.get(l.id) ?? []).length > 0 ? (
-                    <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Listing photos">
-                      {(photoUrls.get(l.id) ?? []).map((p, i) => (
-                        <li key={p.id}>
-                          <a href={p.url} target="_blank" rel="noopener noreferrer">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={p.url}
-                              alt={`${l.businessName} photo ${i + 1}`}
-                              loading="lazy"
-                              className="size-16 rounded object-cover"
-                            />
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
+      <nav aria-label="Team pages" className="mt-3 flex flex-wrap gap-3 text-[13px] font-semibold">
+        {staff.permissions.has("staff.manage") ? (
+          <Link href="/staff/team" className="text-bronze hover:underline">
+            Staff and their roles
+          </Link>
+        ) : null}
+        {staff.permissions.has("audit.view") ? (
+          <Link href="/staff/activity" className="text-bronze hover:underline">
+            Activity log
+          </Link>
+        ) : null}
+      </nav>
+      {canReview ? (
+        <>
+          <h1 className="mt-1 font-serif text-4xl leading-11 tracking-tight text-plum">
+            Marketplace listings
+          </h1>
+          <p className="mt-1 mb-6 text-sm text-ink-2">
+            {pending === 0
+              ? "Nothing is waiting for approval."
+              : `${pending} waiting for approval.`}
+          </p>
+          {listings.length === 0 ? (
+            <p className="rounded-xl bg-white p-6 text-sm text-ink-2">
+              No vendors have created a listing yet.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {listings.map((l) => (
+                <li
+                  key={l.id}
+                  className="rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)]"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1 basis-72">
+                      <p className="text-xs text-ink-2">
+                        {VENDOR_CATEGORY_LABELS[l.category]} · {l.cities.join(", ")} ·{" "}
+                        {l.vendorEmail}
+                      </p>
+                      <h2 className="mt-1 font-serif text-xl text-ink">{l.businessName}</h2>
+                      <p className="mt-1 text-[13px] whitespace-pre-line text-ink-2">
+                        {l.description}
+                      </p>
+                      {(photoUrls.get(l.id) ?? []).length > 0 ? (
+                        <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Listing photos">
+                          {(photoUrls.get(l.id) ?? []).map((p, i) => (
+                            <li key={p.id}>
+                              <a href={p.url} target="_blank" rel="noopener noreferrer">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={p.url}
+                                  alt={`${l.businessName} photo ${i + 1}`}
+                                  loading="lazy"
+                                  className="size-16 rounded object-cover"
+                                />
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      <p className="mt-2 text-[13px] text-ink-2">
+                        {l.startingPrice !== undefined
+                          ? `From ${formatRupees(l.startingPrice)}`
+                          : "No price listed"}
+                        {l.website ? ` · ${l.website}` : ""}
+                        {l.instagram ? ` · ${l.instagram}` : ""}
+                      </p>
+                      {l.reviewNote ? (
+                        <p className="mt-1 text-[13px] text-ink">Note: {l.reviewNote}</p>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="rounded-full bg-rose-200 px-2.5 py-0.5 text-[11px] font-semibold text-ink-2">
+                        {LISTING_STATUS_LABELS[l.status]}
+                      </span>
+                      <StaffListingActions listingId={l.id} status={l.status} />
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      ) : null}
+      {canModerate ? (
+        <>
+          <h2 className="mt-12 mb-1 font-serif text-3xl text-plum">Recent reviews</h2>
+          <p className="mb-4 text-sm text-ink-2">
+            Remove a review only if it is abusive or breaks the rules.
+          </p>
+          {reviews.length === 0 ? (
+            <p className="rounded-xl bg-white p-6 text-sm text-ink-2">No reviews yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {reviews.map((r) => (
+                <li
+                  key={r.id}
+                  className="rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)]"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <Stars rating={r.rating} />
+                      <span className="text-sm font-semibold text-ink">{r.businessName}</span>
+                    </div>
+                    <RemoveReviewButton reviewId={r.id} />
+                  </div>
+                  {r.text ? (
+                    <p className="mt-2 text-[13px] whitespace-pre-line text-ink">{r.text}</p>
                   ) : null}
-                  <p className="mt-2 text-[13px] text-ink-2">
-                    {l.startingPrice !== undefined
-                      ? `From ${formatRupees(l.startingPrice)}`
-                      : "No price listed"}
-                    {l.website ? ` · ${l.website}` : ""}
-                    {l.instagram ? ` · ${l.instagram}` : ""}
-                  </p>
-                  {l.reviewNote ? (
-                    <p className="mt-1 text-[13px] text-ink">Note: {l.reviewNote}</p>
+                  {r.vendorReply ? (
+                    <p className="mt-2 text-[13px] text-ink-2">Vendor reply: {r.vendorReply}</p>
                   ) : null}
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span className="rounded-full bg-rose-200 px-2.5 py-0.5 text-[11px] font-semibold text-ink-2">
-                    {LISTING_STATUS_LABELS[l.status]}
-                  </span>
-                  <StaffListingActions listingId={l.id} status={l.status} />
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <h2 className="mt-12 mb-1 font-serif text-3xl text-plum">Recent reviews</h2>
-      <p className="mb-4 text-sm text-ink-2">
-        Remove a review only if it is abusive or breaks the rules.
-      </p>
-      {reviews.length === 0 ? (
-        <p className="rounded-xl bg-white p-6 text-sm text-ink-2">No reviews yet.</p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {reviews.map((r) => (
-            <li
-              key={r.id}
-              className="rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)]"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <Stars rating={r.rating} />
-                  <span className="text-sm font-semibold text-ink">{r.businessName}</span>
-                </div>
-                <RemoveReviewButton reviewId={r.id} />
-              </div>
-              {r.text ? (
-                <p className="mt-2 text-[13px] whitespace-pre-line text-ink">{r.text}</p>
-              ) : null}
-              {r.vendorReply ? (
-                <p className="mt-2 text-[13px] text-ink-2">Vendor reply: {r.vendorReply}</p>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      ) : null}
     </main>
   );
 }

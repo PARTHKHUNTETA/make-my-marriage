@@ -26,6 +26,7 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   "/photos/share": "gallery.share",
   "/settings/delete-wedding": "wedding.delete",
   "/settings/members": "member.manage",
+  "/settings/roles": "role.manage",
   "/settings/wedding": "wedding.update",
   "/tasks": "task.view",
   "/tasks/new": "task.edit",

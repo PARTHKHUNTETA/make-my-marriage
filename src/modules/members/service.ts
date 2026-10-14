@@ -15,6 +15,7 @@ import { AppError } from "@/lib/errors";
 import { burnPasswordCheck, hashPassword, verifyPassword } from "@/lib/passwords";
 import { generateToken, hashToken } from "@/lib/tokens";
 import { unassignMember } from "@/modules/tasks/service";
+import { rolesForJoining } from "./roles";
 import {
   cancelInvite,
   consumeInvite,
@@ -25,6 +26,8 @@ import {
   findInviteByTokenHash,
   findMembership,
   findWeddingRoles,
+  listStaffUsers,
+  setPlatformRoles,
   listMembershipsByUserId,
   findPendingInviteByEmail,
   findUsersByIds,
@@ -40,7 +43,6 @@ import {
   lockAdmins,
   markEmailVerified,
   renewInvite,
-  setMemberRole,
   setResetToken,
   setVerifyToken,
   type UserDoc,
@@ -290,6 +292,7 @@ export async function listTeam(
               name: user.name,
               email: user.email,
               role: m.role,
+              roleIds: m.roleIds?.length ? m.roleIds : [m.role],
               joinedAt: m.joinedAt,
             },
           ]
@@ -334,6 +337,8 @@ export async function inviteMember(input: {
   inviterName: string;
   weddingTitle: string;
   email: string;
+  // Already checked by the caller (roles.checkGivableRoles).
+  roleIds: string[];
 }): Promise<{ inviteId: string; renewed: boolean }> {
   const existing = await findUserByEmail(input.email);
   if (existing && (await belongsToWedding(existing._id.toHexString(), input.weddingId))) {
@@ -344,12 +349,19 @@ export async function inviteMember(input: {
   const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
   const pending = await findPendingInviteByEmail(input.weddingId, input.email);
   const invite = pending
-    ? await renewInvite(input.weddingId, pending._id.toHexString(), hashToken(token), expiresAt)
+    ? await renewInvite(
+        input.weddingId,
+        pending._id.toHexString(),
+        hashToken(token),
+        expiresAt,
+        input.roleIds,
+      )
     : await insertInvite(input.weddingId, {
         email: input.email,
         tokenHash: hashToken(token),
         invitedByUserId: input.invitedByUserId,
         expiresAt,
+        roleIds: input.roleIds,
       });
   if (!invite) throw new AppError("NOT_FOUND", "That invitation no longer exists.");
 
@@ -381,23 +393,6 @@ export async function cancelPendingInvite(weddingId: string, inviteId: string): 
 }
 
 const LAST_ADMIN_MESSAGE = "A wedding needs at least one Admin.";
-
-// Promote a Manager or demote an Admin. Demoting the last Admin is refused.
-export async function changeMemberRole(input: {
-  weddingId: string;
-  memberId: string;
-  role: MemberRole;
-}): Promise<void> {
-  await inTransaction(async (session) => {
-    const admins = await lockAdmins(input.weddingId, { session });
-    const target = await findMembership(input.weddingId, input.memberId);
-    if (!target) throw new AppError("NOT_FOUND", "That member is not part of this wedding.");
-    if (target.role === input.role) return;
-    if (target.role === "admin" && admins <= 1)
-      throw new AppError("LAST_ADMIN", LAST_ADMIN_MESSAGE);
-    await setMemberRole(input.weddingId, input.memberId, input.role, { session });
-  });
-}
 
 // Removes someone from this wedding only: their account stays, and they are free to join or
 // create another wedding. Removing the last Admin is refused. Their open sessions lose access
@@ -466,12 +461,10 @@ export async function signUpWithInvite(input: InviteSignupInput): Promise<Public
       );
     const consumed = await consumeInvite(tokenHash, new Date(), { session });
     if (!consumed) throw new AppError("LINK_INVALID", INVITE_LINK_INVALID);
+    const weddingId = consumed.weddingId.toHexString();
+    const joining = await rolesForJoining(weddingId, consumed.roleIds);
     await insertMembership(
-      {
-        weddingId: consumed.weddingId.toHexString(),
-        userId: created._id.toHexString(),
-        role: "manager",
-      },
+      { weddingId, userId: created._id.toHexString(), ...joining },
       { session },
     );
     return created;
@@ -499,7 +492,8 @@ export async function acceptInvite(userId: string, token: string): Promise<{ wed
     if (!consumed) throw new AppError("LINK_INVALID", INVITE_LINK_INVALID);
     const weddingId = consumed.weddingId.toHexString();
     try {
-      await insertMembership({ weddingId, userId, role: "manager" }, { session });
+      const joining = await rolesForJoining(weddingId, consumed.roleIds);
+      await insertMembership({ weddingId, userId, ...joining }, { session });
     } catch (err) {
       if (err instanceof MongoServerError && err.code === 11000) {
         throw new AppError("FORBIDDEN", "You are already on this wedding.");
@@ -551,4 +545,33 @@ export async function updatePalette(
 // The Make My Marriage staff roles an account holds (empty for almost everyone).
 export async function getPlatformRoles(userId: string): Promise<string[]> {
   return (await findUserById(userId))?.platformRoles ?? [];
+}
+
+export type StaffMember = { userId: string; name: string; email: string; roles: string[] };
+
+export async function listStaff(): Promise<StaffMember[]> {
+  return (await listStaffUsers()).map((u) => ({
+    userId: u._id.toHexString(),
+    name: u.name,
+    email: u.email,
+    roles: u.platformRoles ?? [],
+  }));
+}
+
+// Gives a Make My Marriage account exactly these staff roles (empty takes them all away). Returns
+// the roles they had, for the audit log. Nobody changes their own, so the team cannot lock itself
+// out by accident; the STAFF_EMAILS list remains as the way back in.
+export async function setStaffRoles(input: {
+  actorUserId: string;
+  email: string;
+  roles: string[];
+}): Promise<{ userId: string; before: string[] }> {
+  const user = await findUserByEmail(input.email);
+  if (!user) throw new AppError("NOT_FOUND", "There is no account with that email.");
+  if (user._id.toHexString() === input.actorUserId)
+    throw new AppError("FORBIDDEN", "You can't change your own staff roles.");
+  if (input.roles.length > 0 && !user.emailVerified)
+    throw new AppError("VALIDATION_FAILED", "That account hasn't confirmed its email yet.");
+  const before = await setPlatformRoles(user._id.toHexString(), input.roles);
+  return { userId: user._id.toHexString(), before: before?.platformRoles ?? [] };
 }

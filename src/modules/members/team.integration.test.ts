@@ -8,6 +8,16 @@ vi.mock("@/lib/email", () => ({ queueEmail: vi.fn().mockResolvedValue(undefined)
 
 describe.skipIf(!enabled)("team management against MongoDB", () => {
   let svc: typeof import("./service");
+  let roles: typeof import("./roles");
+  let ADMIN: import("@/lib/permissions").PermissionSet;
+  // One member changing another's roles, with an admin's permissions.
+  const setRoles = (weddingId: ObjectId, actor: string, memberId: string, role: string) =>
+    roles.setMemberRoles({
+      weddingId: weddingId.toHexString(),
+      actor: { memberId: actor, permissions: ADMIN },
+      memberId,
+      roleIds: [role],
+    });
   let db: Db;
   const tag = `zz-team-${Date.now()}`;
   const weddingId = new ObjectId();
@@ -47,6 +57,9 @@ describe.skipIf(!enabled)("team management against MongoDB", () => {
 
   beforeAll(async () => {
     svc = await import("./service");
+    roles = await import("./roles");
+    const p = await import("@/lib/permissions");
+    ADMIN = p.mergeGrants([p.BUILT_IN_ROLES.admin.grants]);
     const { getDb } = await import("@/lib/db");
     db = await getDb();
     // Make sure the indexes (including unique userId) exist before the tests rely on them.
@@ -73,8 +86,8 @@ describe.skipIf(!enabled)("team management against MongoDB", () => {
       ];
 
       const results = await Promise.allSettled([
-        svc.changeMemberRole({ weddingId: weddingId.toHexString(), memberId: a, role: "manager" }),
-        svc.changeMemberRole({ weddingId: weddingId.toHexString(), memberId: b, role: "manager" }),
+        setRoles(weddingId, b, a, "manager"), // b demotes a ...
+        setRoles(weddingId, a, b, "manager"), // ... while a demotes b
       ]);
 
       expect(await adminCount()).toBe(1);
@@ -108,14 +121,14 @@ describe.skipIf(!enabled)("team management against MongoDB", () => {
     const manager = await addMember(await addUser("helper"), "manager");
     const w = weddingId.toHexString();
 
-    await expect(
-      svc.changeMemberRole({ weddingId: w, memberId: admin, role: "manager" }),
-    ).rejects.toMatchObject({ code: "LAST_ADMIN" });
+    await expect(setRoles(weddingId, manager, admin, "manager")).rejects.toMatchObject({
+      code: "LAST_ADMIN",
+    });
     await expect(svc.removeMember({ weddingId: w, memberId: admin })).rejects.toMatchObject({
       code: "LAST_ADMIN",
     });
 
-    await svc.changeMemberRole({ weddingId: w, memberId: manager, role: "admin" });
+    await setRoles(weddingId, admin, manager, "admin");
     expect(await roleOf(manager)).toBe("admin");
     await svc.removeMember({ weddingId: w, memberId: admin }); // fine now: another admin remains
     expect(await adminCount()).toBe(1);
@@ -141,7 +154,7 @@ describe.skipIf(!enabled)("team management against MongoDB", () => {
         svc.removeMember({ weddingId: w, memberId: outsiderId.toHexString() }),
       ).rejects.toMatchObject({ code: "NOT_FOUND" });
       await expect(
-        svc.changeMemberRole({ weddingId: w, memberId: outsiderId.toHexString(), role: "admin" }),
+        setRoles(weddingId, mine, outsiderId.toHexString(), "admin"),
       ).rejects.toMatchObject({ code: "NOT_FOUND" });
       expect(await db.collection("weddingMembers").findOne({ _id: outsiderId })).toMatchObject({
         role: "manager",
@@ -161,6 +174,7 @@ describe.skipIf(!enabled)("team management against MongoDB", () => {
       invitedByUserId: new ObjectId().toHexString(),
       inviterName: "Priya",
       weddingTitle: "Test",
+      roleIds: ["manager"],
       email: `${tag}-invitee@example.com`,
     });
     expect(result.renewed).toBe(false);
@@ -198,6 +212,7 @@ describe.skipIf(!enabled)("team management against MongoDB", () => {
       invitedByUserId: new ObjectId().toHexString(),
       inviterName: "Priya",
       weddingTitle: "Test",
+      roleIds: ["manager"],
       email,
     });
     const { generateToken, hashToken } = await import("@/lib/tokens");
@@ -234,6 +249,7 @@ describe.skipIf(!enabled)("team management against MongoDB", () => {
       invitedByUserId: new ObjectId().toHexString(),
       inviterName: "Priya",
       weddingTitle: "Test",
+      roleIds: ["manager"],
       email,
     };
     const first = await svc.inviteMember(base);

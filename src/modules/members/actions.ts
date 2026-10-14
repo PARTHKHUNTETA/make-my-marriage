@@ -10,10 +10,12 @@ import { announceMemberJoined, notifyMembers } from "@/modules/notifications/ser
 import { getWedding } from "@/modules/wedding/service";
 import {
   acceptInviteSchema,
-  changeRoleSchema,
   inviteIdSchema,
   inviteMemberSchema,
   paletteSchema,
+  roleIdSchema,
+  roleInputSchema,
+  setMemberRolesSchema,
   switchWeddingSchema,
   memberIdSchema,
 } from "./schema";
@@ -21,7 +23,6 @@ import {
   acceptInvite,
   belongsToWedding,
   cancelPendingInvite,
-  changeMemberRole,
   getProfile,
   inviteMember,
   listTeam,
@@ -29,6 +30,7 @@ import {
   updatePalette,
   resendInvite,
 } from "./service";
+import { checkGivableRoles, createRole, deleteRole, setMemberRoles, updateRole } from "./roles";
 
 // Server Actions for team management. Each one validates its input, resolves who is calling,
 // checks permission (admin-only unless noted), then calls the service. Failures come back as
@@ -61,13 +63,16 @@ const limitInvites = (weddingId: string) =>
 export async function inviteMemberAction(input: unknown) {
   return safeAction(async () => {
     const ctx = await requirePermission("member.invite");
-    const { email } = inviteMemberSchema.parse(input);
+    const parsed = inviteMemberSchema.parse(input);
+    // The roles offered must exist and be within what the inviter holds.
+    const roleIds = await checkGivableRoles(ctx.weddingId, ctx.permissions, parsed.roleIds);
     await limitInvites(ctx.weddingId);
     const names = await inviteContext(ctx);
     const result = await inviteMember({
       weddingId: ctx.weddingId,
       invitedByUserId: ctx.userId,
-      email,
+      email: parsed.email,
+      roleIds,
       ...names,
     });
     revalidatePath(TEAM_PAGE);
@@ -97,12 +102,47 @@ export async function cancelInviteAction(input: unknown) {
   });
 }
 
-export async function changeRoleAction(input: unknown) {
+// Gives a member exactly these roles (see roles.ts for the rules that keep this safe).
+export async function setMemberRolesAction(input: unknown) {
   return safeAction(async () => {
     const ctx = await requirePermission("member.manage");
-    const { memberId, role } = changeRoleSchema.parse(input);
-    await changeMemberRole({ weddingId: ctx.weddingId, memberId, role });
+    const { memberId, roleIds } = setMemberRolesSchema.parse(input);
+    await setMemberRoles({ weddingId: ctx.weddingId, actor: ctx, memberId, roleIds });
     revalidatePath(TEAM_PAGE);
+    return {};
+  });
+}
+
+// ---- custom roles ----
+
+const ROLES_PAGE = "/settings/roles";
+
+export async function createRoleAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requirePermission("role.manage");
+    const role = await createRole(ctx.weddingId, ctx.permissions, roleInputSchema.parse(input));
+    revalidatePath(ROLES_PAGE);
+    return { id: role.id };
+  });
+}
+
+export async function updateRoleAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requirePermission("role.manage");
+    const { roleId, ...fields } = (input ?? {}) as { roleId?: unknown };
+    const id = roleIdSchema.parse({ roleId }).roleId;
+    await updateRole(ctx.weddingId, ctx.permissions, id, roleInputSchema.parse(fields));
+    // Everyone holding the role is affected at once; their next page load shows it.
+    revalidatePath("/", "layout");
+    return {};
+  });
+}
+
+export async function deleteRoleAction(input: unknown) {
+  return safeAction(async () => {
+    const ctx = await requirePermission("role.manage");
+    await deleteRole(ctx.weddingId, roleIdSchema.parse(input).roleId);
+    revalidatePath(ROLES_PAGE);
     return {};
   });
 }
