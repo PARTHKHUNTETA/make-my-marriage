@@ -64,7 +64,8 @@ export function VendorForm({
       : await createVendorAction(raw);
     if (result.ok) {
       if (!vendorId) {
-        router.push(`/vendors/${(result.data as { id: string }).id}`);
+        // Back to the list, like every other "Add" form. Payments are added by opening the vendor.
+        router.push("/vendors");
         return;
       }
       reset(raw);
