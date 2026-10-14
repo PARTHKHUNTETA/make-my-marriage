@@ -394,3 +394,23 @@ guest data is processed in India, not only stored there. In the Vercel project:
 ## One account, several weddings
 
 An account can belong to up to 5 weddings: its own, and any it is invited to. `weddingMembers` is unique on (user, wedding) (the old unique index on user alone is dropped automatically the first time the collection is used). The wedding being worked in is a preference cookie (`mmm_wedding`) that is checked against the account's real memberships on every request, so a forged value changes nothing; without it, the oldest membership is used. The sidebar shows a switcher when there is more than one wedding. Roles, themes and notification settings are per wedding.
+
+## Roles and permissions (RBAC)
+
+Code checks **permissions** (`expense.edit`), never role names. Roles are bundles of permissions.
+
+- **Catalog:** `src/lib/permissions.ts` (32 wedding permissions, 4 platform ones). A new permission is a code change; a new role is data.
+- **Built-in roles:** Admin, Manager, Finance, Viewer, the same in every wedding and read-only. Each wedding's admins can create **custom roles** in Settings → Roles, including "tasks assigned to them only" (`task.edit@assigned`). A member can hold several roles; permissions are their union, and the wider scope wins.
+- **Enforcement:** every Server Action uses `requirePermission(...)`, every member page `requirePagePermission(...)`, every member API route one of them; platform staff use `requirePlatform(...)`. Deny by default.
+  - `src/lib/endpoint-guards.test.ts` fails the build if any action, route or page is unguarded.
+  - It writes the full table to [docs/endpoint-permissions.md](docs/endpoint-permissions.md) (regenerate with `UPDATE_ENDPOINT_TABLE=1 npx vitest run src/lib/endpoint-guards.test.ts`).
+- **Record scope:** `@assigned` is enforced in the tasks queries, not the UI.
+- **Interface:** `PermissionsProvider`, `useCan`, `<Can>`; one route→permission map (`src/lib/route-permissions.ts`) drives the sidebar, search, Quick Action and is tested to agree with the page guards. Pages a role can view but not edit render read-only (`ViewOnly`).
+- **Safety rules** (`src/modules/members/roles.ts`):
+  - Nobody grants or assigns more than they hold, changes their own roles, or changes someone who can do more than they can.
+  - The wedding always keeps someone who can manage the team.
+  - A role in use (or offered in an invitation) cannot be deleted.
+- **No stale permissions:** resolved on the server per request from the membership and role documents, never put in the session token. Role edits apply on the next click.
+- **Migration:** members from before roles got `roleIds` from their old `role` automatically. The legacy `role` field is still written (admin = can manage the team), so rolling back the code is safe.
+- **Staff:** platform roles Super admin, Moderator, Support on the account (`/staff/team`). Anyone in `STAFF_EMAILS` is always a super admin.
+- **Audit log:** role and team changes, invitations, removals, wedding deletion, gallery link resets and staff decisions, with before/after. Shown in Settings → Activity and `/staff/activity`; kept two years.

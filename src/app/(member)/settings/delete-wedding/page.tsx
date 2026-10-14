@@ -9,7 +9,7 @@ import { getWedding } from "@/modules/wedding/service";
 export const metadata: Metadata = { title: "Delete wedding — Make My Marriage" };
 export const dynamic = "force-dynamic";
 
-// Admins only: requireAdmin turns anyone else away.
+// Only for people who may delete the wedding (wedding.delete); anyone else gets "not found".
 export default async function DeleteWeddingPage() {
   const ctx = await requirePagePermission("wedding.delete");
   const wedding = await getWedding(ctx.weddingId);

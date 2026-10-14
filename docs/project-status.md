@@ -37,11 +37,13 @@ A running log of what has been built in Make My Marriage, newest at the bottom o
 | 2026-10-13 | Events: two-part form, day-by-day list | Add/edit event is split into Event details and Time details; the events page groups by date with Today/In N days labels and an "Already happened" section. |
 | 2026-10-13 | Photo of the bill on an expense | Optional photo when adding or editing an expense; shrunk in the browser, checked on the server, shown on the expense and marked with a paperclip in the list; deleted with the expense and with the wedding. |
 | 2026-10-13 | One account, several weddings | The same email can belong to several weddings (up to 5): invitations to people already on other weddings work, a switcher appears in the sidebar, and Settings → Start another wedding creates a new one. The last wedding chosen is remembered. |
+| 2026-10-14 | Roles and permissions (RBAC) | Permission catalog, built-in Admin/Manager/Finance/Viewer, custom roles per wedding with an assigned-tasks scope, multi-role members, roles on invitations, platform staff roles, audit log; every endpoint guarded and listed in docs/endpoint-permissions.md. |
 
 ## Not done yet
 
 - Monitoring and deployment: Vercel, Atlas Mumbai, domain, CI workflow, Playwright, product analytics.
 - Small items: dashboard Vendors "Coming soon" card, budget alert when an installment is paid, notify members when a quote is accepted.
+- RBAC follow-ups: family-side scoping (needs a `side` field on guests and expenses); per-field read-only states inside a few client widgets (seating, check-in) rely on the server refusing.
 - Review findings still open: marketplace review integrity (a fake couple account plus a cooperating vendor can post a review, so add a vendor-confirmed "completed" step); deleting photos can leave files behind in storage if the storage call fails after the database rows are gone; staff review notes travel with listing data to couples' pages (not displayed).
 - Bill photos are not on expenses created by marking a vendor payment paid (those are locked to the payment); photos do not count towards the photo storage quota yet.
 - Testing on real phones and tablets; mobile check of the vendor portal and staff screens.

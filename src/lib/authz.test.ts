@@ -12,9 +12,7 @@ vi.mock("@/lib/env", () => ({ getStaffEmails }));
 
 import { BUILT_IN_ROLES, mergeGrants } from "./permissions";
 import {
-  canManageMembers,
   hasPermission,
-  requireAdmin,
   requirePermission,
   requirePlatform,
   requireMember,
@@ -98,17 +96,6 @@ describe("requirePermission", () => {
   });
 });
 
-describe("canManageMembers", () => {
-  it("is true only for an admin member", () => {
-    expect(canManageMembers(admin)).toBe(true);
-    expect(canManageMembers(manager)).toBe(false);
-    expect(canManageMembers(vendor)).toBe(false);
-    expect(canManageMembers(user)).toBe(false);
-    expect(canManageMembers(guest)).toBe(false);
-    expect(canManageMembers(anonymous)).toBe(false);
-  });
-});
-
 describe("requireMember", () => {
   it("returns the context for admins and managers", async () => {
     resolveContext.mockResolvedValue(admin);
@@ -139,28 +126,6 @@ describe("requireUser", () => {
   it.each([vendor, guest, anonymous])("rejects a %o caller as UNAUTHENTICATED", async (ctx) => {
     resolveContext.mockResolvedValue(ctx);
     await expect(requireUser()).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
-  });
-});
-
-describe("requireAdmin", () => {
-  it("allows an admin", async () => {
-    resolveContext.mockResolvedValue(admin);
-    await expect(requireAdmin()).resolves.toMatchObject(admin);
-  });
-
-  it("forbids a manager (authenticated but not allowed)", async () => {
-    resolveContext.mockResolvedValue(manager);
-    await expect(requireAdmin()).rejects.toMatchObject({ code: "FORBIDDEN" });
-  });
-
-  it("rejects non-members as UNAUTHENTICATED", async () => {
-    resolveContext.mockResolvedValue(anonymous);
-    await expect(requireAdmin()).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
-  });
-
-  it("does not let an account without a wedding act as admin", async () => {
-    resolveContext.mockResolvedValue(user);
-    await expect(requireAdmin()).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
 

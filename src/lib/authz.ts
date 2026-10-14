@@ -24,9 +24,6 @@ import {
 export const hasPermission = (ctx: Context, permission: Permission): boolean =>
   ctx.kind === "member" && can(ctx.permissions, permission);
 
-// Kept while pages move over to hasPermission (RBAC rollout): managing the team.
-export const canManageMembers = (ctx: Context): boolean => hasPermission(ctx, "member.manage");
-
 // Every Server Action begins with one of these.
 
 // Any signed-in account, with or without a wedding (account settings, first-time setup).
@@ -59,11 +56,6 @@ export async function requirePermission(
       `You don't have permission to ${PERMISSIONS[permission].label.toLowerCase()}.`,
     );
   return { ...ctx, scope };
-}
-
-// Kept while actions move over to requirePermission (RBAC rollout): managing the team.
-export async function requireAdmin(): Promise<MemberContext> {
-  return requirePermission("member.manage");
 }
 
 // The vendor portal. Vendors have their own session; a wedding member's session never opens it.
