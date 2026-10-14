@@ -99,6 +99,7 @@ export const PAGES: PageEntry[] = [
     href: "/settings/members",
   },
   { label: "Roles", keywords: "permissions access viewer finance", href: "/settings/roles" },
+  { label: "Activity", keywords: "audit log history changes who", href: "/settings/activity" },
 ];
 
 // Only what this member can open (lib/route-permissions.ts decides which permission a page needs).

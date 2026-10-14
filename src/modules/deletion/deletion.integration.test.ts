@@ -34,6 +34,8 @@ describe.skipIf(!enabled)("deleting a wedding against MongoDB", () => {
     "bookingRequests",
     "reviews",
     "emailQueue",
+    "auditLogs",
+    "weddingRoles",
   ];
   const keyA = (name: string) => `weddings/${A}/photos/${photoA.toHexString()}/${name}`;
   const keyB = (name: string) => `weddings/${B}/photos/${photoB.toHexString()}/${name}`;

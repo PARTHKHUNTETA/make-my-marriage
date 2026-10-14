@@ -30,7 +30,10 @@ export default async function MembersPage() {
           <Link href="/settings/roles" className="font-semibold text-bronze hover:underline">
             Manage roles
           </Link>
-        ) : null}
+        ) : null}{" "}
+        <Link href="/settings/activity" className="font-semibold text-bronze hover:underline">
+          See activity
+        </Link>
       </p>
       <MembersManager
         members={team.members}

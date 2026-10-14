@@ -8,6 +8,8 @@ const consumeRateLimit = vi.hoisted(() => vi.fn());
 const getWedding = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
 const setActiveWeddingId = vi.hoisted(() => vi.fn());
+const recordAudit = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/audit", () => ({ recordAudit }));
 vi.mock("@/lib/active-wedding", () => ({ setActiveWeddingId }));
 const svc = vi.hoisted(() => ({
   acceptInvite: vi.fn(),
@@ -377,5 +379,31 @@ describe("switchWeddingAction", () => {
       error: { code: "UNAUTHENTICATED" },
     });
     expect(setActiveWeddingId).not.toHaveBeenCalled();
+  });
+});
+
+describe("audit log", () => {
+  it("records invitations and removals in the wedding's log, with who did it", async () => {
+    recordAudit.mockClear();
+    await inviteMemberAction({ email: "rahul@example.com", roleIds: ["viewer"] });
+    expect(recordAudit).toHaveBeenCalledWith({
+      weddingId: W,
+      actorUserId: "u-admin",
+      action: "member.invite",
+      target: "rahul@example.com",
+      after: { roleIds: ["viewer"] },
+    });
+    await removeMemberAction({ memberId: ID });
+    expect(recordAudit).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: "member.remove", target: "Rahul Verma", weddingId: W }),
+    );
+  });
+
+  it("records nothing when the action was refused", async () => {
+    recordAudit.mockClear();
+    requireAdmin.mockRejectedValue(new AppError("FORBIDDEN", "Only an admin can do this"));
+    await inviteMemberAction({ email: "rahul@example.com" });
+    await removeMemberAction({ memberId: ID });
+    expect(recordAudit).not.toHaveBeenCalled();
   });
 });

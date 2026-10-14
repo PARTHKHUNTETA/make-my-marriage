@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
+import { recordAudit } from "@/lib/audit";
 import { setActiveWeddingId } from "@/lib/active-wedding";
 import { requireMember, requirePermission, requireUser } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
@@ -75,6 +76,13 @@ export async function inviteMemberAction(input: unknown) {
       roleIds,
       ...names,
     });
+    await recordAudit({
+      weddingId: ctx.weddingId,
+      actorUserId: ctx.userId,
+      action: "member.invite",
+      target: parsed.email,
+      after: { roleIds },
+    });
     revalidatePath(TEAM_PAGE);
     return result;
   });
@@ -96,7 +104,16 @@ export async function cancelInviteAction(input: unknown) {
   return safeAction(async () => {
     const ctx = await requirePermission("member.invite");
     const { inviteId } = inviteIdSchema.parse(input);
+    const email = (await listTeam(ctx.weddingId)).invites.find(
+      (i) => i.inviteId === inviteId,
+    )?.email;
     await cancelPendingInvite(ctx.weddingId, inviteId);
+    await recordAudit({
+      weddingId: ctx.weddingId,
+      actorUserId: ctx.userId,
+      action: "member.invite_cancel",
+      target: email ?? "an invitation",
+    });
     revalidatePath(TEAM_PAGE);
     return {};
   });
@@ -107,7 +124,21 @@ export async function setMemberRolesAction(input: unknown) {
   return safeAction(async () => {
     const ctx = await requirePermission("member.manage");
     const { memberId, roleIds } = setMemberRolesSchema.parse(input);
-    await setMemberRoles({ weddingId: ctx.weddingId, actor: ctx, memberId, roleIds });
+    const who = (await listTeam(ctx.weddingId)).members.find((m) => m.memberId === memberId);
+    const change = await setMemberRoles({
+      weddingId: ctx.weddingId,
+      actor: ctx,
+      memberId,
+      roleIds,
+    });
+    await recordAudit({
+      weddingId: ctx.weddingId,
+      actorUserId: ctx.userId,
+      action: "member.roles",
+      target: who?.name ?? "a member",
+      before: { roleIds: change.before },
+      after: { roleIds: change.after },
+    });
     revalidatePath(TEAM_PAGE);
     return {};
   });
@@ -120,7 +151,15 @@ const ROLES_PAGE = "/settings/roles";
 export async function createRoleAction(input: unknown) {
   return safeAction(async () => {
     const ctx = await requirePermission("role.manage");
-    const role = await createRole(ctx.weddingId, ctx.permissions, roleInputSchema.parse(input));
+    const parsed = roleInputSchema.parse(input);
+    const role = await createRole(ctx.weddingId, ctx.permissions, parsed);
+    await recordAudit({
+      weddingId: ctx.weddingId,
+      actorUserId: ctx.userId,
+      action: "role.create",
+      target: role.name,
+      after: { grants: parsed.grants },
+    });
     revalidatePath(ROLES_PAGE);
     return { id: role.id };
   });
@@ -131,7 +170,16 @@ export async function updateRoleAction(input: unknown) {
     const ctx = await requirePermission("role.manage");
     const { roleId, ...fields } = (input ?? {}) as { roleId?: unknown };
     const id = roleIdSchema.parse({ roleId }).roleId;
-    await updateRole(ctx.weddingId, ctx.permissions, id, roleInputSchema.parse(fields));
+    const parsed = roleInputSchema.parse(fields);
+    const { before } = await updateRole(ctx.weddingId, ctx.permissions, id, parsed);
+    await recordAudit({
+      weddingId: ctx.weddingId,
+      actorUserId: ctx.userId,
+      action: "role.update",
+      target: parsed.name,
+      before: { name: before.name, grants: before.grants },
+      after: { name: parsed.name, grants: parsed.grants },
+    });
     // Everyone holding the role is affected at once; their next page load shows it.
     revalidatePath("/", "layout");
     return {};
@@ -141,7 +189,14 @@ export async function updateRoleAction(input: unknown) {
 export async function deleteRoleAction(input: unknown) {
   return safeAction(async () => {
     const ctx = await requirePermission("role.manage");
-    await deleteRole(ctx.weddingId, roleIdSchema.parse(input).roleId);
+    const { before } = await deleteRole(ctx.weddingId, roleIdSchema.parse(input).roleId);
+    await recordAudit({
+      weddingId: ctx.weddingId,
+      actorUserId: ctx.userId,
+      action: "role.delete",
+      target: before.name,
+      before: { grants: before.grants },
+    });
     revalidatePath(ROLES_PAGE);
     return {};
   });
@@ -153,6 +208,13 @@ export async function removeMemberAction(input: unknown) {
     const { memberId } = memberIdSchema.parse(input);
     const who = (await listTeam(ctx.weddingId)).members.find((m) => m.memberId === memberId);
     await removeMember({ weddingId: ctx.weddingId, memberId });
+    await recordAudit({
+      weddingId: ctx.weddingId,
+      actorUserId: ctx.userId,
+      action: "member.remove",
+      target: who?.name ?? "a member",
+      before: { roleIds: who?.roleIds },
+    });
     if (who)
       await notifyMembers(ctx.weddingId, {
         type: "member_change",

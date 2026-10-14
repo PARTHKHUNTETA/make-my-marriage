@@ -20,6 +20,8 @@ const service = vi.hoisted(() => ({
   replyToReview: vi.fn(),
   removeReview: vi.fn(),
 }));
+const recordAudit = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/audit", () => ({ recordAudit }));
 vi.mock("@/lib/authz", () => ({
   requireVendor,
   requireStaff,

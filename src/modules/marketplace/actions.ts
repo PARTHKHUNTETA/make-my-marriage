@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
+import { recordAudit } from "@/lib/audit";
 import { requirePermission, requirePlatform, requireVendor } from "@/lib/authz";
 import { AppError } from "@/lib/errors";
 import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
@@ -114,9 +115,15 @@ export async function makeListingPhotoFirstAction(input: unknown) {
 
 export async function decideListingAction(input: unknown) {
   return safeAction(async () => {
-    await requirePlatform("listing.review");
+    const staff = await requirePlatform("listing.review");
     const { listingId, decision, note } = staffDecisionSchema.parse(input);
     const listing = await decideListing(listingId, decision, note);
+    await recordAudit({
+      actorUserId: staff.userId,
+      action: "listing.decide",
+      target: listing.businessName,
+      after: { decision, ...(note ? { note } : {}) },
+    });
     refresh();
     return { status: listing.status };
   });
@@ -241,8 +248,14 @@ export async function replyToReviewAction(input: unknown) {
 // The team removes an abusive review.
 export async function removeReviewAction(input: unknown) {
   return safeAction(async () => {
-    await requirePlatform("review.moderate");
-    await removeReview(reviewIdSchema.parse(input).reviewId);
+    const staff = await requirePlatform("review.moderate");
+    const { reviewId } = reviewIdSchema.parse(input);
+    await removeReview(reviewId);
+    await recordAudit({
+      actorUserId: staff.userId,
+      action: "review.remove",
+      target: `review ${reviewId}`,
+    });
     refresh();
     return {};
   });

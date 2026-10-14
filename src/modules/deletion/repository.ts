@@ -24,6 +24,8 @@ const WEDDING_COLLECTIONS = [
   "bookingRequests", // requests this wedding sent to marketplace vendors
   "reviews", // reviews this wedding wrote
   "emailQueue", // emails still waiting for this wedding
+  "auditLogs", // this wedding's own activity log (the deletion itself is logged at platform level)
+  "weddingRoles", // its custom roles
 ] as const;
 
 const oid = (id: string) => (ObjectId.isValid(id) ? new ObjectId(id) : null);

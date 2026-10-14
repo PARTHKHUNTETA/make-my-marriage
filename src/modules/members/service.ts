@@ -1,5 +1,10 @@
 import "server-only";
-import { MongoServerError, type ClientSession, type ObjectId } from "mongodb";
+import {
+  MongoServerError,
+  ObjectId as ObjectIdClass,
+  type ClientSession,
+  type ObjectId,
+} from "mongodb";
 import { inTransaction } from "@/lib/db";
 import { absoluteUrl } from "@/lib/app-url";
 import { queueEmail } from "@/lib/email";
@@ -574,4 +579,11 @@ export async function setStaffRoles(input: {
     throw new AppError("VALIDATION_FAILED", "That account hasn't confirmed its email yet.");
   const before = await setPlatformRoles(user._id.toHexString(), input.roles);
   return { userId: user._id.toHexString(), before: before?.platformRoles ?? [] };
+}
+
+// Names for a list of account ids (for the activity log). Unknown ids are left out.
+export async function namesByUserId(ids: string[]): Promise<Map<string, string>> {
+  const valid = [...new Set(ids)].filter((id) => ObjectIdClass.isValid(id));
+  const users = await findUsersByIds(valid.map((id) => new ObjectIdClass(id)));
+  return new Map(users.map((u) => [u._id.toHexString(), u.name]));
 }

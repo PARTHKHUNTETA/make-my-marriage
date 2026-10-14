@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { safeAction } from "@/lib/action";
+import { recordAudit } from "@/lib/audit";
 import { requirePermission } from "@/lib/authz";
 import { consumeRateLimit, subjectKey } from "@/lib/ratelimit";
 import { listEvents } from "@/modules/events/service";
@@ -168,6 +169,12 @@ export async function resetGalleryLinkAction() {
   return safeAction(async () => {
     const ctx = await requirePermission("gallery.reset_link");
     await resetGalleryToken(ctx.weddingId);
+    await recordAudit({
+      weddingId: ctx.weddingId,
+      actorUserId: ctx.userId,
+      action: "gallery.reset_link",
+      target: "the photo gallery link",
+    });
     // The public website may show the old link; refresh it right away.
     const wedding = await getWedding(ctx.weddingId);
     if (wedding) revalidatePath(`/${wedding.website.slug}`);

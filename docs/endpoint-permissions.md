@@ -153,6 +153,7 @@ route and member page, and the guard that protects it. The test fails if any is 
 | `page /photos/share` | gallery.share |
 | `page /photos/share/poster` | gallery.share |
 | `page /settings` | member (self) |
+| `page /settings/activity` | member.manage |
 | `page /settings/appearance` | member (self) |
 | `page /settings/delete-wedding` | wedding.delete |
 | `page /settings/members` | member.manage |

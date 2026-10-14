@@ -5,6 +5,8 @@ const requireAdmin = vi.hoisted(() => vi.fn());
 const deleteWedding = vi.hoisted(() => vi.fn());
 const getWedding = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
+const recordAudit = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/audit", () => ({ recordAudit }));
 vi.mock("@/lib/authz", () => ({
   requireAdmin,
   requirePermission: async () => ({ ...(await requireAdmin()), scope: "wedding" }),
