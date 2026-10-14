@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import * as React from "react";
 import { useCan } from "@/components/permissions/permissions-provider";
 import Link from "next/link";
@@ -26,8 +27,7 @@ import {
 } from "@/modules/photos/actions";
 import type { AlbumSummary, PhotoItem, Usage } from "@/modules/photos/schema";
 import type { ZipPart } from "@/modules/photos/service";
-
-const ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
+import { UploadDialog } from "./upload-dialog";
 
 type Props = {
   albums: AlbumSummary[];
@@ -69,12 +69,17 @@ export function PhotoGallery({
   const router = useRouter();
   const general = albums.find((a) => a.isGeneral);
   const inAlbum = albums.find((a) => a.id === albumId);
-  const [target, setTarget] = React.useState(albumId ?? general?.id ?? "");
+  // "Add photos" opens a dialog that asks which event they're from; files dropped on the page open
+  // it with those files already in.
+  const [uploadOpen, setUploadOpen] = React.useState(false);
+  const [dropped, setDropped] = React.useState<File[]>([]);
+  const [pageDrag, setPageDrag] = React.useState(false);
+  // The album the last upload went to, for "Added 5 photos to Sangeet".
+  const [uploadedTo, setUploadedTo] = React.useState<string | null>(null);
   const [progress, setProgress] = React.useState<Progress | null>(null);
   const [outcomes, setOutcomes] = React.useState<FileOutcome[] | null>(null);
   const [selecting, setSelecting] = React.useState(false);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
-  const [confirmDelete, setConfirmDelete] = React.useState(false);
   // Buttons this member's roles do not allow are left out (the server refuses them anyway).
   const canUpload = useCan("photo.upload");
   const canManage = useCan("photo.manage");
@@ -84,14 +89,20 @@ export function PhotoGallery({
   const [open, setOpen] = React.useState<number | null>(null);
   const [parts, setParts] = React.useState<ZipPart[] | null>(null);
   const [zip, setZip] = React.useState<{ done: number; total: number } | null>(null);
-  const fileInput = React.useRef<HTMLInputElement>(null);
   const uploading = progress !== null && progress.done + progress.failed < progress.total;
   const used = usage.quotaBytes > 0 ? Math.min(100, (usage.usedBytes / usage.quotaBytes) * 100) : 0;
 
-  async function onChoose(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    e.target.value = "";
+  // Bumped on every open, so the dialog starts fresh each time.
+  const [uploadKey, setUploadKey] = React.useState(0);
+  function openUpload(files: File[] = []) {
+    setDropped(files);
+    setUploadKey((k) => k + 1);
+    setUploadOpen(true);
+  }
+
+  async function startUpload(files: File[], target: string) {
     if (files.length === 0 || !target) return;
+    setUploadedTo(target);
     setOutcomes(null);
     setMessage(null);
     setProgress({ total: files.length, done: 0, failed: 0, sentBytes: 0, totalBytes: 0 });
@@ -127,7 +138,6 @@ export function PhotoGallery({
   const stopSelecting = () => {
     setSelecting(false);
     setSelected(new Set());
-    setConfirmDelete(false);
     setMoveTo("");
   };
 
@@ -210,43 +220,63 @@ export function PhotoGallery({
   const failed = outcomes?.filter((o) => !o.ok) ?? [];
   const saved = outcomes ? outcomes.length - failed.length : 0;
 
+  const acceptsDrop = canUpload && !uploading && albums.length > 0;
+  const hasFiles = (e: React.DragEvent) => e.dataTransfer.types.includes("Files");
   return (
-    <div className="mt-5 flex flex-col gap-5">
+    <div
+      className="relative mt-5 flex flex-col gap-5"
+      onDragEnter={(e) => {
+        if (!acceptsDrop || !hasFiles(e) || uploadOpen) return;
+        e.preventDefault();
+        setPageDrag(true);
+      }}
+      onDragOver={(e) => {
+        if (!acceptsDrop || !hasFiles(e) || uploadOpen) return;
+        e.preventDefault();
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPageDrag(false);
+      }}
+      onDrop={(e) => {
+        if (!acceptsDrop || uploadOpen) return;
+        e.preventDefault();
+        setPageDrag(false);
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length) openUpload(files);
+      }}
+    >
+      {pageDrag ? (
+        <div className="pointer-events-none absolute -inset-2 z-40 flex items-center justify-center rounded-2xl border-2 border-dashed border-plum bg-plum/10 backdrop-blur-[1px]">
+          <p className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-plum shadow">
+            Drop to add these photos
+          </p>
+        </div>
+      ) : null}
+      {canUpload ? (
+        <UploadDialog
+          key={uploadKey}
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          albums={albums}
+          initialAlbumId={albumId ?? general?.id ?? albums[0]?.id ?? ""}
+          initialFiles={dropped}
+          onUpload={startUpload}
+        />
+      ) : null}
       <section className="rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)]">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-xs font-semibold text-ink-2">
-            Add to album
-            <select
-              value={target}
-              onChange={(e) => setTarget(e.target.value)}
-              disabled={uploading}
-              className="rounded-lg border border-line bg-white px-3 py-2 text-sm font-normal text-ink"
-            >
-              {albums.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </label>
           <button
             type="button"
             hidden={!canUpload}
-            disabled={uploading || !target}
-            onClick={() => fileInput.current?.click()}
+            disabled={uploading || albums.length === 0}
+            onClick={() => openUpload()}
             className={`${button} bg-plum text-white hover:bg-plum/90`}
           >
             <ImagePlus className="size-4" aria-hidden /> Add photos
           </button>
-          <input
-            ref={fileInput}
-            type="file"
-            accept={ACCEPT}
-            multiple
-            className="sr-only"
-            aria-label="Choose photos"
-            onChange={onChoose}
-          />
+          {canUpload ? (
+            <p className="text-xs text-ink-2">or drop photos anywhere on this page</p>
+          ) : null}
           <p className="ml-auto text-xs text-ink-2">JPEG, PNG, HEIC or WebP · up to 25 MB each</p>
         </div>
         {progress && uploading ? (
@@ -266,7 +296,17 @@ export function PhotoGallery({
           <div className="mt-4 text-[13px]" role="status">
             {saved > 0 ? (
               <p className="font-medium text-forest">
-                Added {saved} {saved === 1 ? "photo" : "photos"}.
+                Added {saved} {saved === 1 ? "photo" : "photos"}
+                {uploadedTo && uploadedTo !== albumId ? (
+                  <>
+                    {" "}
+                    to{" "}
+                    <Link href={href(uploadedTo)} className="underline underline-offset-2">
+                      {albums.find((a) => a.id === uploadedTo)?.name ?? "the album"}
+                    </Link>
+                  </>
+                ) : null}
+                .
               </p>
             ) : null}
             {failed.length > 0 ? (
@@ -417,34 +457,25 @@ export function PhotoGallery({
                   >
                     Move
                   </button>
-                  {confirmDelete ? (
-                    <>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => remove([...selected])}
-                        className={`${button} bg-destructive text-white`}
-                      >
-                        Yes, delete {selected.size}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmDelete(false)}
-                        className={`${button} bg-white text-ink`}
-                      >
-                        Keep them
-                      </button>
-                    </>
-                  ) : (
+                  <ConfirmDialog
+                    title={`Delete ${selected.size} ${selected.size === 1 ? "photo" : "photos"}?`}
+                    description="They are deleted for good, for everyone in the wedding and in the guest gallery. This can't be undone."
+                    confirmLabel={`Delete ${selected.size === 1 ? "photo" : "photos"}`}
+                    imageUrl={
+                      selected.size === 1
+                        ? items.find((p) => selected.has(p.id) && p.viewable)?.thumbUrl
+                        : undefined
+                    }
+                    onConfirm={() => remove([...selected])}
+                  >
                     <button
                       type="button"
-                      disabled={selected.size === 0}
-                      onClick={() => setConfirmDelete(true)}
+                      disabled={selected.size === 0 || busy}
                       className={`${button} bg-white text-destructive hover:bg-rose-200`}
                     >
                       <Trash2 className="size-4" aria-hidden /> Delete
                     </button>
-                  )}
+                  </ConfirmDialog>
                 </>
               ) : null}
               <button
@@ -489,12 +520,6 @@ export function PhotoGallery({
             </button>
           </div>
         </div>
-      ) : null}
-      {confirmDelete ? (
-        <p role="alert" className="-mt-3 text-[13px] text-destructive">
-          This permanently deletes {selected.size} {selected.size === 1 ? "photo" : "photos"} for
-          everyone. It cannot be undone.
-        </p>
       ) : null}
 
       {items.length === 0 ? (
@@ -609,21 +634,20 @@ function Lightbox({
   onClose: () => void;
   onDownload: (id: string) => void;
   // Left out for someone who may not delete photos.
-  onDelete?: (id: string) => void;
+  onDelete?: (id: string) => Promise<unknown> | void;
   busy: boolean;
 }) {
   const photo = items[index]!;
-  const [sure, setSure] = React.useState(false);
   const prev = () => {
-    setSure(false);
     onIndex((index + items.length - 1) % items.length);
   };
   const next = () => {
-    setSure(false);
     onIndex((index + 1) % items.length);
   };
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // While "Delete this photo?" is open, its own keys apply (Escape cancels just the question).
+      if (document.querySelector('[role="alertdialog"]')) return;
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowLeft") prev();
       else if (e.key === "ArrowRight") next();
@@ -664,25 +688,24 @@ function Lightbox({
           >
             <Download className="size-5" />
           </button>
-          {!onDelete ? null : sure ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => onDelete(photo.id)}
-              className="rounded-lg bg-destructive px-3 py-2 text-[13px] font-semibold"
+          {onDelete ? (
+            <ConfirmDialog
+              title="Delete this photo?"
+              description="It is deleted for good, for everyone in the wedding and in the guest gallery. This can't be undone."
+              confirmLabel="Delete photo"
+              imageUrl={photo.viewable ? photo.thumbUrl : undefined}
+              onConfirm={() => onDelete(photo.id)}
             >
-              Delete for good
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setSure(true)}
-              aria-label="Delete photo"
-              className="rounded-lg p-2 hover:bg-white/10"
-            >
-              <Trash2 className="size-5" />
-            </button>
-          )}
+              <button
+                type="button"
+                disabled={busy}
+                aria-label="Delete photo"
+                className="rounded-lg p-2 hover:bg-white/10"
+              >
+                <Trash2 className="size-5" />
+              </button>
+            </ConfirmDialog>
+          ) : null}
           <button
             type="button"
             onClick={onClose}

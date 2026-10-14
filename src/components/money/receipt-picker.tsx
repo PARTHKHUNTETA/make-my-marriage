@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Camera, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { makeCoverBlob, putBlob } from "@/lib/photo-upload";
 import { confirmReceiptAction, requestReceiptUploadAction } from "@/modules/money/actions";
 
@@ -34,7 +35,7 @@ export function ReceiptPicker({
   file: File | null;
   onFile: (file: File | null) => void;
   currentUrl?: string;
-  onRemoveCurrent?: () => void;
+  onRemoveCurrent?: () => Promise<unknown> | void;
   removing?: boolean;
 }) {
   const input = React.useRef<HTMLInputElement>(null);
@@ -79,14 +80,23 @@ export function ReceiptPicker({
             <Trash2 className="size-4" aria-hidden /> Don&apos;t add it
           </button>
         ) : currentUrl && onRemoveCurrent ? (
-          <button
-            type="button"
-            disabled={removing}
-            onClick={onRemoveCurrent}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold text-destructive hover:bg-rose-100 disabled:opacity-50"
+          <ConfirmDialog
+            title="Remove the bill photo?"
+            description="The photo is deleted for good. The expense itself stays as it is."
+            confirmLabel="Remove photo"
+            busyLabel="Removing…"
+            imageUrl={currentUrl}
+            onConfirm={onRemoveCurrent}
           >
-            <Trash2 className="size-4" aria-hidden /> {removing ? "Removing…" : "Remove the photo"}
-          </button>
+            <button
+              type="button"
+              disabled={removing}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold text-destructive hover:bg-rose-100 disabled:opacity-50"
+            >
+              <Trash2 className="size-4" aria-hidden />{" "}
+              {removing ? "Removing…" : "Remove the photo"}
+            </button>
+          </ConfirmDialog>
         ) : null}
         <input
           ref={input}

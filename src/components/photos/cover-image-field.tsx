@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ImagePlus, Trash2 } from "lucide-react";
@@ -97,14 +98,22 @@ export function CoverImageField({
           {currentUrl ? "Replace picture" : "Choose a picture"}
         </button>
         {currentUrl ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={remove}
-            className={`${button} bg-white text-destructive ring-1 ring-line hover:bg-rose-200`}
+          <ConfirmDialog
+            title="Remove this picture?"
+            description="It is deleted for good. You can choose a new picture any time."
+            confirmLabel="Remove picture"
+            busyLabel="Removing…"
+            imageUrl={currentUrl}
+            onConfirm={remove}
           >
-            <Trash2 className="size-4" aria-hidden /> Remove
-          </button>
+            <button
+              type="button"
+              disabled={busy}
+              className={`${button} bg-white text-destructive ring-1 ring-line hover:bg-rose-200`}
+            >
+              <Trash2 className="size-4" aria-hidden /> Remove
+            </button>
+          </ConfirmDialog>
         ) : null}
         <input
           ref={input}

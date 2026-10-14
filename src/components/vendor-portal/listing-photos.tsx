@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ImagePlus, Star, Trash2 } from "lucide-react";
@@ -137,17 +138,29 @@ export function ListingPhotos({ photos }: { photos: { id: string; url: string }[
                     <Star className="size-3.5" aria-hidden /> Make cover
                   </button>
                 )}
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() =>
+                <ConfirmDialog
+                  title="Remove this photo?"
+                  description={
+                    i === 0 && photos.length > 1
+                      ? "It is deleted for good, and the next photo becomes the one couples see first."
+                      : "It is deleted for good and no longer shown on your listing."
+                  }
+                  confirmLabel="Remove photo"
+                  busyLabel="Removing…"
+                  imageUrl={p.url}
+                  onConfirm={() =>
                     run(() => removeListingPhotoAction({ photoId: p.id }), "Photo removed.")
                   }
-                  aria-label={`Remove photo ${i + 1}`}
-                  className="rounded p-1.5 text-destructive hover:bg-white"
                 >
-                  <Trash2 className="size-4" />
-                </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    aria-label={`Remove photo ${i + 1}`}
+                    className="rounded p-1.5 text-destructive hover:bg-white"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </ConfirmDialog>
               </div>
             </li>
           ))}
