@@ -14,9 +14,14 @@ export default async function PreviewPage() {
   const site = await getSitePreview(ctx.weddingId);
   if (!site) notFound();
   return (
-    <div className="-mx-4 -mt-6 sm:-mx-6 lg:-mx-8">
-      <div className="bg-white px-4 py-2 text-[13px]">
-        <Link href="/website" className="font-semibold text-bronze hover:underline">
+    // Edge to edge inside the member layout (which pads its content by px-6), but never under the
+    // fixed top bar: the way back stays pinned just below it while the preview scrolls.
+    <div className="-mx-6">
+      <div className="sticky top-16 z-30 border-b border-line bg-white px-6 py-2.5 text-[13px] shadow-sm">
+        <Link
+          href="/website"
+          className="inline-flex items-center gap-1 font-semibold text-bronze hover:underline"
+        >
           ← Back to website settings
         </Link>
       </div>
