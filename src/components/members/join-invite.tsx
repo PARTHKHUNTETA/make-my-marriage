@@ -88,10 +88,18 @@ export function JoinInvite({ token, weddingTitle, inviterName, email, mode }: Pr
     setProblem({ title: "Couldn't join", message: result.error.message });
   }
 
+  // Signs the other account out and stays on this invitation, which then shows the invited
+  // person their choices: create an account, or sign in to one they already have. Sending them to
+  // the sign-in page instead stranded anyone who had no account yet.
   async function switchAccount() {
     setWorking(true);
-    await postJson("/api/auth/logout", {});
-    router.replace(loginHref);
+    setProblem(null);
+    const result = await postJson("/api/auth/logout", {});
+    if (!result.ok) {
+      setWorking(false);
+      setProblem({ title: "Couldn't sign out", message: result.error.message });
+      return;
+    }
     router.refresh();
   }
 
@@ -114,6 +122,11 @@ export function JoinInvite({ token, weddingTitle, inviterName, email, mode }: Pr
   if (mode.kind === "wrong-account") {
     return (
       <AuthCard title="Different account" subtitle={intro(inviterName, weddingTitle)}>
+        {problem ? (
+          <div className="mb-4">
+            <FormAlert title={problem.title}>{problem.message}</FormAlert>
+          </div>
+        ) : null}
         <p className="text-[13px] leading-5 text-ink-2">
           This invitation was sent to <strong className="text-ink">{email}</strong>, but
           you&rsquo;re signed in as <strong className="text-ink">{mode.signedInAs}</strong>.
@@ -123,8 +136,11 @@ export function JoinInvite({ token, weddingTitle, inviterName, email, mode }: Pr
           disabled={working}
           className="mt-5 h-11 w-full rounded-lg bg-bronze text-sm font-semibold text-white hover:bg-bronze/90"
         >
-          Sign out and continue
+          {working ? "Signing out..." : "Sign out and continue"}
         </Button>
+        <p className="mt-3 text-center text-xs text-ink-2">
+          You&rsquo;ll stay on this invitation to join as {email}.
+        </p>
       </AuthCard>
     );
   }
