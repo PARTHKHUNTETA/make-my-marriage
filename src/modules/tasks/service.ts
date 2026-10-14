@@ -87,13 +87,18 @@ export async function createTask(weddingId: string, input: TaskInput): Promise<T
   return toItem(await insertTask(weddingId, set));
 }
 
+// `onlyAssignedTo` (a member id) limits these to that member's own tasks: the "tasks assigned to
+// me" scope of a role. A task outside it looks the same as one that does not exist.
+export type TaskScope = { onlyAssignedTo?: string };
+
 export async function updateTask(
   weddingId: string,
   taskId: string,
   input: TaskInput,
+  scope: TaskScope = {},
 ): Promise<TaskItem> {
   const { set, unset } = toFields(input);
-  const doc = await replaceTaskFields(weddingId, taskId, set, unset);
+  const doc = await replaceTaskFields(weddingId, taskId, set, unset, scope.onlyAssignedTo);
   if (!doc) throw NOT_FOUND;
   return toItem(doc);
 }
@@ -102,18 +107,27 @@ export async function changeTaskStatus(
   weddingId: string,
   taskId: string,
   status: TaskStatus,
+  scope: TaskScope = {},
 ): Promise<TaskItem> {
-  const doc = await setStatus(weddingId, taskId, status);
+  const doc = await setStatus(weddingId, taskId, status, scope.onlyAssignedTo);
   if (!doc) throw NOT_FOUND;
   return toItem(doc);
 }
 
-export async function deleteTask(weddingId: string, taskId: string): Promise<void> {
-  if (!(await removeTask(weddingId, taskId))) throw NOT_FOUND;
+export async function deleteTask(
+  weddingId: string,
+  taskId: string,
+  scope: TaskScope = {},
+): Promise<void> {
+  if (!(await removeTask(weddingId, taskId, scope.onlyAssignedTo))) throw NOT_FOUND;
 }
 
-export async function getTask(weddingId: string, taskId: string): Promise<TaskItem | null> {
-  const doc = await findTask(weddingId, taskId);
+export async function getTask(
+  weddingId: string,
+  taskId: string,
+  scope: TaskScope = {},
+): Promise<TaskItem | null> {
+  const doc = await findTask(weddingId, taskId, scope.onlyAssignedTo);
   return doc ? toItem(doc) : null;
 }
 
@@ -122,12 +136,15 @@ export async function listTasks(
   weddingId: string,
   query: TaskQuery,
   currentMemberId: string,
+  scope: TaskScope = {},
 ): Promise<TaskItem[]> {
   const filter: TaskFilter = {
     status: query.status,
     priority: query.priority,
+    // Someone who may see only their own tasks sees only those, whatever the filters ask for.
     assignedMemberId:
-      query.view === "mine" ? currentMemberId : query.assignee === "none" ? null : query.assignee,
+      scope.onlyAssignedTo ??
+      (query.view === "mine" ? currentMemberId : query.assignee === "none" ? null : query.assignee),
     eventId: query.eventId === "none" ? null : query.eventId,
   };
   if (query.view === "completed") filter.status = "completed";

@@ -17,6 +17,6 @@ export async function searchAction(input: unknown) {
       windowSeconds: 15 * 60,
     });
     const { q } = searchSchema.parse(input);
-    return searchWedding(ctx.weddingId, ctx.memberId, q);
+    return searchWedding(ctx.weddingId, ctx.memberId, q, ctx.permissions);
   });
 }

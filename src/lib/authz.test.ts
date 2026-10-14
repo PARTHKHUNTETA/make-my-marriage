@@ -5,13 +5,18 @@ const resolveContext = vi.hoisted(() => vi.fn<() => Promise<Context>>());
 const resolveVendorContext = vi.hoisted(() => vi.fn());
 const getProfile = vi.hoisted(() => vi.fn());
 const getStaffEmails = vi.hoisted(() => vi.fn());
+const getPlatformRoles = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/context", () => ({ resolveContext, resolveVendorContext }));
-vi.mock("@/modules/members/service", () => ({ getProfile }));
+vi.mock("@/modules/members/service", () => ({ getProfile, getPlatformRoles }));
 vi.mock("@/lib/env", () => ({ getStaffEmails }));
 
+import { BUILT_IN_ROLES, mergeGrants } from "./permissions";
 import {
   canManageMembers,
+  hasPermission,
   requireAdmin,
+  requirePermission,
+  requirePlatform,
   requireMember,
   requireStaff,
   requireUser,
@@ -24,6 +29,8 @@ const admin: Context = {
   weddingId: "w1",
   memberId: "m1",
   role: "admin",
+  roleIds: ["admin"],
+  permissions: mergeGrants([BUILT_IN_ROLES.admin.grants]),
   palette: "aubergine",
   weddingIds: ["w1"],
 };
@@ -33,8 +40,16 @@ const manager: Context = {
   weddingId: "w1",
   memberId: "m1",
   role: "manager",
+  roleIds: ["manager"],
+  permissions: mergeGrants([BUILT_IN_ROLES.manager.grants]),
   palette: "aubergine",
   weddingIds: ["w1"],
+};
+const helper: Context = {
+  ...manager,
+  role: "manager",
+  roleIds: ["custom"],
+  permissions: mergeGrants([["task.edit@assigned", "event.view"]]),
 };
 const vendor: Context = { kind: "vendor", vendorAccountId: "v1" };
 const guest: Context = { kind: "guest", weddingId: "w1", guestId: "g1" };
@@ -43,6 +58,44 @@ const anonymous: Context = { kind: "anonymous" };
 
 beforeEach(() => {
   resolveContext.mockReset();
+  getPlatformRoles.mockReset().mockResolvedValue([]);
+  getStaffEmails.mockReset().mockReturnValue([]);
+});
+
+describe("requirePermission", () => {
+  it("allows a member holding the permission, and says how widely it is held", async () => {
+    resolveContext.mockResolvedValue(helper);
+    await expect(requirePermission("event.view")).resolves.toMatchObject({ scope: "wedding" });
+    await expect(requirePermission("task.edit")).resolves.toMatchObject({
+      scope: "assigned",
+      memberId: "m1",
+    });
+  });
+
+  it("refuses, as FORBIDDEN with a plain reason, anything the member was not given", async () => {
+    resolveContext.mockResolvedValue(helper);
+    await expect(requirePermission("expense.edit")).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "You don't have permission to add, change and delete expenses.",
+    });
+  });
+
+  it("refuses non-members: vendors, guests, signed-out visitors and accounts with no wedding", async () => {
+    for (const ctx of [vendor, guest, anonymous]) {
+      resolveContext.mockResolvedValue(ctx);
+      await expect(requirePermission("event.view")).rejects.toMatchObject({
+        code: "UNAUTHENTICATED",
+      });
+    }
+    resolveContext.mockResolvedValue(user);
+    await expect(requirePermission("event.view")).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("hasPermission mirrors it for showing and hiding things", () => {
+    expect(hasPermission(helper, "event.view")).toBe(true);
+    expect(hasPermission(helper, "guest.view")).toBe(false);
+    expect(hasPermission(vendor, "event.view")).toBe(false);
+  });
 });
 
 describe("canManageMembers", () => {
@@ -92,7 +145,7 @@ describe("requireUser", () => {
 describe("requireAdmin", () => {
   it("allows an admin", async () => {
     resolveContext.mockResolvedValue(admin);
-    await expect(requireAdmin()).resolves.toBe(admin);
+    await expect(requireAdmin()).resolves.toMatchObject(admin);
   });
 
   it("forbids a manager (authenticated but not allowed)", async () => {
@@ -137,7 +190,9 @@ describe("requireStaff", () => {
     resolveContext.mockResolvedValue(admin);
     getProfile.mockResolvedValue(profile());
     getStaffEmails.mockReturnValue(["team@example.com"]);
-    await expect(requireStaff()).resolves.toEqual({ userId: "u1", email: "Team@Example.com" });
+    const staff = await requireStaff();
+    expect(staff).toMatchObject({ userId: "u1", email: "Team@Example.com" });
+    expect(staff.permissions.has("staff.manage")).toBe(true); // the list makes a super admin
   });
 
   it("refuses an account that is not on the list, an unverified one, and an empty list", async () => {
@@ -149,6 +204,21 @@ describe("requireStaff", () => {
     await expect(requireStaff()).rejects.toMatchObject({ code: "FORBIDDEN" });
     getProfile.mockResolvedValue(profile());
     getStaffEmails.mockReturnValue([]);
+    await expect(requireStaff()).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("allows an account with a platform role, limited to that role's permissions", async () => {
+    resolveContext.mockResolvedValue(admin);
+    getProfile.mockResolvedValue(profile({ email: "mod@example.com" }));
+    getPlatformRoles.mockResolvedValue(["moderator"]);
+    await expect(requirePlatform("listing.review")).resolves.toMatchObject({ userId: "u1" });
+    await expect(requirePlatform("staff.manage")).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("ignores a platform role it does not know", async () => {
+    resolveContext.mockResolvedValue(admin);
+    getProfile.mockResolvedValue(profile({ email: "x@example.com" }));
+    getPlatformRoles.mockResolvedValue(["wizard"]);
     await expect(requireStaff()).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 

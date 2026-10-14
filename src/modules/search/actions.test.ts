@@ -14,7 +14,14 @@ vi.mock("./service", () => ({ searchWedding }));
 import { searchAction } from "./actions";
 
 beforeEach(() => {
-  requireMember.mockReset().mockResolvedValue({ kind: "member", weddingId: "w1", memberId: "m1" });
+  requireMember
+    .mockReset()
+    .mockResolvedValue({
+      kind: "member",
+      weddingId: "w1",
+      memberId: "m1",
+      permissions: { "event.view": "wedding" },
+    });
   consumeRateLimit.mockReset().mockResolvedValue(undefined);
   searchWedding
     .mockReset()
@@ -25,12 +32,14 @@ describe("searchAction", () => {
   it("searches the signed-in member's own wedding, whatever the input says", async () => {
     const r = await searchAction({ q: "meera", weddingId: "evil", memberId: "evil" });
     expect(r).toMatchObject({ ok: true, data: [{ title: "Meera" }] });
-    expect(searchWedding).toHaveBeenCalledWith("w1", "m1", "meera");
+    expect(searchWedding).toHaveBeenCalledWith("w1", "m1", "meera", { "event.view": "wedding" });
   });
 
   it("tidies the words typed, and refuses too short, too long or missing", async () => {
     await searchAction({ q: "  meera    shah  " });
-    expect(searchWedding).toHaveBeenLastCalledWith("w1", "m1", "meera shah");
+    expect(searchWedding).toHaveBeenLastCalledWith("w1", "m1", "meera shah", {
+      "event.view": "wedding",
+    });
     for (const bad of [{ q: "m" }, { q: "   " }, { q: "x".repeat(81) }, {}, { q: 5 }, null]) {
       expect(await searchAction(bad)).toMatchObject({
         ok: false,

@@ -12,7 +12,10 @@ vi.mock("@/modules/tasks/service", () => ({ listTasks }));
 vi.mock("@/modules/vendors/service", () => ({ listVendors }));
 vi.mock("@/modules/money/service", () => ({ listEveryExpense }));
 
+import { BUILT_IN_ROLES, mergeGrants } from "@/lib/permissions";
 import { searchWedding } from "./service";
+
+const ALL = mergeGrants([BUILT_IN_ROLES.manager.grants]);
 
 const day = new Date("2027-02-12T00:00:00+05:30");
 const guest = (id: string, name: string, over = {}) => ({
@@ -69,16 +72,18 @@ beforeEach(() => {
 
 describe("searchWedding", () => {
   it("asks each module for this wedding only", async () => {
-    await searchWedding("w1", "m1", "meera");
+    await searchWedding("w1", "m1", "meera", ALL);
     expect(listGuests).toHaveBeenCalledWith("w1", { search: "meera", page: 1 });
     expect(listEvents).toHaveBeenCalledWith("w1");
-    expect(listTasks).toHaveBeenCalledWith("w1", { view: "all" }, "m1");
+    expect(listTasks).toHaveBeenCalledWith("w1", { view: "all" }, "m1", {
+      onlyAssignedTo: undefined,
+    });
     expect(listVendors).toHaveBeenCalledWith("w1");
     expect(listEveryExpense).toHaveBeenCalledWith("w1");
   });
 
   it("finds a word in names, venues, titles and notes, whatever the capital letters", async () => {
-    const hits = await searchWedding("w1", "m1", "MEERA");
+    const hits = await searchWedding("w1", "m1", "MEERA", ALL);
     expect(hits.map((h) => `${h.kind}:${h.title}`)).toEqual([
       "guest:Meera Shah",
       "guest:Meera Iyer",
@@ -90,14 +95,14 @@ describe("searchWedding", () => {
 
   it("leaves out what does not match, and returns nothing when nothing does", async () => {
     listGuests.mockResolvedValue({ items: [] });
-    expect(await searchWedding("w1", "m1", "zzzz")).toEqual([]);
-    const band = await searchWedding("w1", "m1", "band");
+    expect(await searchWedding("w1", "m1", "zzzz", ALL)).toEqual([]);
+    const band = await searchWedding("w1", "m1", "band", ALL);
     expect(band.map((h) => h.title)).toEqual(["Book the band", "Band Baaja", "Band advance"]);
   });
 
   it("matches a vendor by its category as well as its name", async () => {
     listGuests.mockResolvedValue({ items: [] }); // the real guest search filters in the database
-    const hits = await searchWedding("w1", "m1", "photographer");
+    const hits = await searchWedding("w1", "m1", "photographer", ALL);
     expect(hits).toEqual([
       expect.objectContaining({
         kind: "vendor",
@@ -114,14 +119,14 @@ describe("searchWedding", () => {
     listEveryExpense.mockResolvedValue(
       Array.from({ length: 12 }, (_, i) => expense(`x${i}`, `Meera gift ${i}`)),
     );
-    const hits = await searchWedding("w1", "m1", "meera");
+    const hits = await searchWedding("w1", "m1", "meera", ALL);
     expect(hits.filter((h) => h.kind === "guest")).toHaveLength(5);
     expect(hits.filter((h) => h.kind === "expense")).toHaveLength(5);
     expect(hits.some((h) => h.kind === "event")).toBe(true);
   });
 
   it("gives each hit the address of its own page and a line to tell similar ones apart", async () => {
-    const hits = await searchWedding("w1", "m1", "meera");
+    const hits = await searchWedding("w1", "m1", "meera", ALL);
     expect(hits[0]).toMatchObject({
       href: "/guests/g1",
       subtitle: "+919876543210 · g1@example.com",
@@ -138,5 +143,21 @@ describe("searchWedding", () => {
       href: "/money/x2",
       subtitle: "₹50,000 · Venue",
     });
+  });
+});
+
+describe("searchWedding and permissions", () => {
+  it("does not even look in places the member may not see", async () => {
+    const finance = mergeGrants([BUILT_IN_ROLES.finance.grants]);
+    const hits = await searchWedding("w1", "m1", "meera", finance);
+    expect(listGuests).not.toHaveBeenCalled();
+    expect(listTasks).not.toHaveBeenCalled();
+    expect(listVendors).toHaveBeenCalled();
+    expect(hits.map((h) => h.kind)).not.toContain("guest");
+  });
+
+  it("someone who may see only their own tasks searches only those", async () => {
+    await searchWedding("w1", "m1", "band", mergeGrants([["task.view@assigned"]]));
+    expect(listTasks).toHaveBeenCalledWith("w1", { view: "all" }, "m1", { onlyAssignedTo: "m1" });
   });
 });

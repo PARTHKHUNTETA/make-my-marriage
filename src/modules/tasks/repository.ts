@@ -65,9 +65,21 @@ export async function insertTask(weddingId: string, fields: TaskFields): Promise
   return { ...doc, weddingId: new ObjectId(weddingId) };
 }
 
-export async function findTask(weddingId: string, id: string): Promise<TaskDoc | null> {
+// A member whose role covers only "tasks assigned to me" passes their member id as `onlyAssignedTo`:
+// every read and write below then matches nothing else, so the rule is enforced in the query.
+// (A malformed id becomes a fresh id that matches nothing, never "no filter".)
+const assignedTo = (only?: string): Filter<TaskDoc> =>
+  only ? { assignedMemberId: ObjectId.isValid(only) ? new ObjectId(only) : new ObjectId() } : {};
+
+export async function findTask(
+  weddingId: string,
+  id: string,
+  onlyAssignedTo?: string,
+): Promise<TaskDoc | null> {
   const _id = oid(id);
-  return _id ? scoped(await tasks(), { weddingId }).findOne({ _id }) : null;
+  return _id
+    ? scoped(await tasks(), { weddingId }).findOne({ _id, ...assignedTo(onlyAssignedTo) })
+    : null;
 }
 
 // Replaces the editable fields. Optional fields left out are removed, not stored empty.
@@ -76,6 +88,7 @@ export async function replaceTaskFields(
   id: string,
   set: Partial<TaskFields>,
   unset: OptionalTaskField[],
+  onlyAssignedTo?: string,
 ): Promise<TaskDoc | null> {
   const _id = oid(id);
   if (!_id) return null;
@@ -100,7 +113,7 @@ export async function replaceTaskFields(
     ...(unset.length > 0 ? [{ $unset: unset }] : []),
   ];
   return scoped(await tasks(), { weddingId }).findOneAndUpdate(
-    { _id },
+    { _id, ...assignedTo(onlyAssignedTo) },
     stages as unknown as UpdateFilter<TaskDoc>,
     { returnDocument: "after" },
   );
@@ -110,11 +123,12 @@ export async function setStatus(
   weddingId: string,
   id: string,
   status: TaskStatus,
+  onlyAssignedTo?: string,
 ): Promise<TaskDoc | null> {
   const _id = oid(id);
   if (!_id) return null;
   return scoped(await tasks(), { weddingId }).findOneAndUpdate(
-    { _id },
+    { _id, ...assignedTo(onlyAssignedTo) },
     [
       {
         $set: {
@@ -131,10 +145,17 @@ export async function setStatus(
   );
 }
 
-export async function deleteTask(weddingId: string, id: string): Promise<boolean> {
+export async function deleteTask(
+  weddingId: string,
+  id: string,
+  onlyAssignedTo?: string,
+): Promise<boolean> {
   const _id = oid(id);
   if (!_id) return false;
-  const result = await scoped(await tasks(), { weddingId }).deleteOne({ _id });
+  const result = await scoped(await tasks(), { weddingId }).deleteOne({
+    _id,
+    ...assignedTo(onlyAssignedTo),
+  });
   return result.deletedCount === 1;
 }
 

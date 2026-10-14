@@ -547,3 +547,8 @@ export async function updatePalette(
   if (!(await setMemberPalette(weddingId, memberId, palette)))
     throw new AppError("NOT_FOUND", "We couldn't find that member.");
 }
+
+// The Make My Marriage staff roles an account holds (empty for almost everyone).
+export async function getPlatformRoles(userId: string): Promise<string[]> {
+  return (await findUserById(userId))?.platformRoles ?? [];
+}

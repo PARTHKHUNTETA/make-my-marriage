@@ -1,6 +1,7 @@
 import "server-only";
 import { toIstYmd } from "@/lib/dates";
 import { formatRupees } from "@/lib/money";
+import { can, type PermissionSet } from "@/lib/permissions";
 import { listEvents } from "@/modules/events/service";
 import { listGuests } from "@/modules/guests/service";
 import { CATEGORY_LABELS } from "@/modules/money/schema";
@@ -20,18 +21,29 @@ const norm = (s: string | undefined) => (s ?? "").toLowerCase();
 const has = (q: string, ...fields: Array<string | undefined>) =>
   fields.some((f) => norm(f).includes(q));
 
+// Only kinds the member may see are searched at all, and someone who may see only their own tasks
+// finds only those.
 export async function searchWedding(
   weddingId: string,
   memberId: string,
   query: string,
+  permissions: PermissionSet,
 ): Promise<SearchHit[]> {
   const q = norm(query);
+  const may = (p: Parameters<typeof can>[1]) => can(permissions, p);
+  const none = Promise.resolve([] as never[]);
   const [guests, events, tasks, vendors, expenses] = await Promise.all([
-    listGuests(weddingId, { search: query, page: 1 }),
-    listEvents(weddingId),
-    listTasks(weddingId, { view: "all" }, memberId),
-    listVendors(weddingId),
-    listEveryExpense(weddingId),
+    may("guest.view")
+      ? listGuests(weddingId, { search: query, page: 1 })
+      : Promise.resolve({ items: [] as never[] }),
+    may("event.view") ? listEvents(weddingId) : none,
+    may("task.view")
+      ? listTasks(weddingId, { view: "all" }, memberId, {
+          onlyAssignedTo: permissions["task.view"] === "assigned" ? memberId : undefined,
+        })
+      : none,
+    may("vendor.view") ? listVendors(weddingId) : none,
+    may("expense.view") ? listEveryExpense(weddingId) : none,
   ]);
 
   const hits: SearchHit[] = [];

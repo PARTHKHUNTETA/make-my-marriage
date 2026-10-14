@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import type { PaletteId } from "@/lib/palettes";
+import type { PermissionSet } from "@/lib/permissions";
 import { readActiveWeddingId } from "@/lib/active-wedding";
 import { isSessionRevoked } from "@/lib/revoked-sessions";
 import { readSession, readVendorSession } from "@/lib/session";
@@ -19,7 +20,11 @@ export type Context =
       userId: string;
       weddingId: string;
       memberId: string;
+      // Legacy "admin" / "manager", derived from the roles. New code checks `permissions`.
       role: "admin" | "manager";
+      roleIds: string[];
+      // What this member may do in this wedding, and how widely (lib/permissions.ts).
+      permissions: PermissionSet;
       // This member's own colour theme.
       palette: PaletteId;
       // Every wedding this account belongs to; more than one means a switcher is shown.
