@@ -17,6 +17,7 @@ import {
   saveGalleryToken,
   saveUploadsOn,
   listWeddingsWithReminders,
+  saveWebsiteContent,
   saveWebsiteSettings,
   type WebsiteChanges,
   saveOverallBudget,
@@ -31,6 +32,7 @@ import {
   type CreateWeddingInput,
   type ReminderSettings,
   type UpdateWeddingInput,
+  type WebsiteContent,
   type WeddingSummary,
 } from "./schema";
 
@@ -126,6 +128,18 @@ function toSummary(doc: WeddingDoc): WeddingSummary {
       showGallery: doc.website.showGallery,
       showLive: doc.website.showLive,
       youtubeUrl: doc.liveStream?.youtubeUrl,
+      content: doc.website.content
+        ? {
+            design: doc.website.content.design,
+            tagline: doc.website.content.tagline,
+            welcome: doc.website.content.welcome,
+            story: doc.website.content.story,
+            eventsTitle: doc.website.content.eventsTitle,
+            venuesTitle: doc.website.content.venuesTitle,
+            faqs: doc.website.content.faqs,
+            closingNote: doc.website.content.closingNote,
+          }
+        : undefined,
     },
     overallBudget: doc.overallBudget,
     splitDefaults: doc.expenseSplitDefaults ?? {},
@@ -219,6 +233,15 @@ export async function updateWebsite(weddingId: string, changes: WebsiteChanges):
       slug: ["That web address is already taken. Try another."],
     });
   if (result === "not_found") throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
+}
+
+// Saves the website's AI-written design and words; null goes back to the plain theme.
+export async function updateWebsiteContent(
+  weddingId: string,
+  content: WebsiteContent | null,
+): Promise<void> {
+  if (!(await saveWebsiteContent(weddingId, content)))
+    throw new AppError("NOT_FOUND", "We couldn't find your wedding.");
 }
 
 // ---- the private photo gallery link ----------------------------------------------------------

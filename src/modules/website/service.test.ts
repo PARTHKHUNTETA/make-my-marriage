@@ -5,13 +5,24 @@ const wedding = vi.hoisted(() => ({
   getWeddingBySlug: vi.fn(),
   getGallerySettings: vi.fn(),
   updateWebsite: vi.fn(),
+  updateWebsiteContent: vi.fn(),
 }));
+const ai = vi.hoisted(() => ({ generateStructured: vi.fn() }));
+vi.mock("@/lib/ai", () => ai);
 const events = vi.hoisted(() => ({ listEvents: vi.fn() }));
 vi.mock("@/modules/wedding/service", () => wedding);
 vi.mock("@/modules/events/service", () => events);
 vi.mock("@/lib/app-url", () => ({ absoluteUrl: (path: string) => `https://example.test${path}` }));
 
-import { getPublicSite, getSitePreview, saveWebsiteSettings } from "./service";
+import {
+  generateSiteDraft,
+  getPublicSite,
+  getSitePreview,
+  saveSiteContent,
+  saveWebsiteSettings,
+} from "./service";
+import { THEME_PRESETS } from "@/themes/kit";
+import { siteBriefSchema, type SiteDraft } from "./schema";
 
 const ID = "dQw4w9WgXcQ";
 const summary = (over: Record<string, unknown> = {}, website: Record<string, unknown> = {}) => ({
@@ -178,5 +189,111 @@ describe("saveWebsiteSettings", () => {
       showGallery: true,
       youtubeUrl: null,
     });
+  });
+});
+
+const draft: SiteDraft = {
+  design: { palette: "emerald-gold", fonts: "editorial", hero: "monogram", motif: "lotus" },
+  tagline: "Two hearts, one celebration",
+  welcome: "Welcome to our wedding!",
+  story: null,
+  eventsTitle: "Celebrations",
+  venuesTitle: "Venues",
+  faqs: [],
+  closingNote: null,
+};
+const brief = siteBriefSchema.parse({
+  vibes: ["royal"],
+  colours: "maroon and gold",
+  howWeMet: "College in Pune",
+});
+
+describe("generateSiteDraft", () => {
+  beforeEach(() => {
+    ai.generateStructured.mockReset().mockResolvedValue({
+      value: draft,
+      provider: "anthropic",
+      model: "claude-opus-5-5",
+      inputTokens: 100,
+      outputTokens: 50,
+    });
+  });
+  it("sends the wedding's facts, only events shown on the website, and the brief", async () => {
+    wedding.getWedding.mockResolvedValue(summary({ coverImageKey: "covers/w1.jpg" }));
+    events.listEvents.mockResolvedValue([
+      event("a", { name: "Sangeet", type: "sangeet", venueName: "Royal Garden" }),
+      event("p", { name: "Family puja", showOnWebsite: false }),
+    ]);
+    const result = await generateSiteDraft("w1", brief);
+    expect(result).toEqual({ draft, provider: "anthropic", tokens: 150 });
+    const { user, system } = ai.generateStructured.mock.calls[0]![1];
+    expect(user).toContain("Couple: Priya (bride) and Aarav (groom)");
+    expect(user).toContain("Cover photo: yes");
+    expect(user).toContain("Sangeet (sangeet)");
+    expect(user).toContain("Royal Garden");
+    expect(user).not.toContain("Family puja");
+    expect(user).toContain("Vibe: Royal");
+    expect(user).toContain("Colours: maroon and gold");
+    expect(user).toMatch(/<how_we_met>\nCollege in Pune\n<\/how_we_met>/);
+    expect(system).toContain("Never invent");
+    expect(system).toContain("royal-maroon");
+  });
+  it("is not found for a missing wedding, without calling the AI", async () => {
+    wedding.getWedding.mockResolvedValue(null);
+    await expect(generateSiteDraft("w1", brief)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(ai.generateStructured).not.toHaveBeenCalled();
+  });
+});
+
+describe("saveSiteContent", () => {
+  it("keeps the draft's design and words, dropping empty parts", async () => {
+    await saveSiteContent("w1", draft);
+    expect(wedding.updateWebsiteContent).toHaveBeenCalledWith("w1", {
+      design: draft.design,
+      tagline: draft.tagline,
+      welcome: draft.welcome,
+      eventsTitle: "Celebrations",
+      venuesTitle: "Venues",
+      faqs: [],
+    });
+  });
+  it("goes back to the plain theme", async () => {
+    await saveSiteContent("w1", null);
+    expect(wedding.updateWebsiteContent).toHaveBeenCalledWith("w1", null);
+  });
+});
+
+describe("the AI design and words on the site", () => {
+  it("use the AI's design and welcome", async () => {
+    const content = { ...draft, story: undefined, closingNote: undefined };
+    wedding.getWeddingBySlug.mockResolvedValue(summary({}, { content }));
+    const site = await getPublicSite("priya-weds-aarav");
+    expect(site?.welcome).toBe("Welcome to our wedding!");
+    expect(site?.design).toEqual(draft.design);
+    expect(site?.content?.tagline).toBe("Two hearts, one celebration");
+  });
+  it("use the theme's preset when there is no AI design", async () => {
+    wedding.getWeddingBySlug.mockResolvedValue(summary());
+    expect((await getPublicSite("priya-weds-aarav"))?.design).toEqual(THEME_PRESETS.classical);
+  });
+});
+
+describe("picking a theme by hand", () => {
+  const input = {
+    slug: "priya-weds-aarav",
+    isOn: true,
+    showLive: false,
+    showGallery: false,
+    youtubeUrl: null,
+  };
+  it("replaces an AI design when the theme changes", async () => {
+    wedding.getWedding.mockResolvedValue(summary({}, { content: { ...draft } }));
+    await saveWebsiteSettings("w1", { ...input, theme: "minimal" });
+    expect(wedding.updateWebsite.mock.calls[0]![1]).toMatchObject({ clearDesign: true });
+  });
+  it("keeps the AI design when the theme stays the same", async () => {
+    wedding.getWedding.mockResolvedValue(summary({}, { content: { ...draft } }));
+    await saveWebsiteSettings("w1", { ...input, theme: "classical" });
+    expect(wedding.updateWebsite.mock.calls[0]![1]).not.toHaveProperty("clearDesign");
   });
 });

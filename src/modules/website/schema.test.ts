@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { liveSettingsSchema, websiteSettingsSchema } from "./schema";
+import {
+  liveSettingsSchema,
+  siteDraftJsonSchema,
+  siteBriefSchema,
+  siteDraftSchema,
+  websiteSettingsSchema,
+} from "./schema";
 
 const ID = "dQw4w9WgXcQ";
 const valid = {
@@ -90,5 +96,81 @@ describe("liveSettingsSchema", () => {
       const r = live({ youtubeUrl: bad });
       expect(r.success, bad).toBe(false);
     }
+  });
+});
+
+describe("siteDraftSchema", () => {
+  const good = {
+    design: { palette: "royal-maroon", fonts: "royal", hero: "arch", motif: "mandala" },
+    tagline: "Forever starts here",
+    welcome: "Welcome!",
+    story: { title: "How we met", body: "In college, in Pune." },
+    eventsTitle: "The celebrations",
+    venuesTitle: "Where to find us",
+    faqs: [{ q: "What should I wear?", a: "Festive Indian wear." }],
+    closingNote: null,
+  };
+  it("accepts a well-formed draft", () => {
+    expect(siteDraftSchema.safeParse(good).success).toBe(true);
+  });
+  it("only accepts designs from the kit", () => {
+    for (const design of [
+      { ...good.design, palette: "neon" },
+      { ...good.design, fonts: "comic-sans" },
+      { ...good.design, hero: "video" },
+      { ...good.design, motif: "skulls" },
+    ])
+      expect(siteDraftSchema.safeParse({ ...good, design }).success).toBe(false);
+  });
+  it("rejects text that is too long", () => {
+    expect(siteDraftSchema.safeParse({ ...good, tagline: "x".repeat(121) }).success).toBe(false);
+    expect(siteDraftSchema.safeParse({ ...good, faqs: Array(9).fill(good.faqs[0]) }).success).toBe(
+      false,
+    );
+  });
+  it("lists every field as required in the JSON schema given to the AI", () => {
+    const props = Object.keys((siteDraftJsonSchema as { properties: object }).properties);
+    expect((siteDraftJsonSchema as { required: string[] }).required).toEqual(props);
+    expect(props.sort()).toEqual(Object.keys(siteDraftSchema.shape).sort());
+  });
+});
+
+describe("siteBriefSchema", () => {
+  it("needs at least a vibe, a colour or a few words", () => {
+    expect(siteBriefSchema.safeParse({}).success).toBe(false);
+    expect(siteBriefSchema.safeParse({ extra: "nice" }).success).toBe(false);
+    expect(siteBriefSchema.safeParse({ vibes: ["royal"] }).success).toBe(true);
+    expect(siteBriefSchema.safeParse({ colours: "peach and mint" }).success).toBe(true);
+  });
+  it("fills in defaults and trims", () => {
+    expect(siteBriefSchema.parse({ vibes: ["fun"], howWeMet: "  At a wedding  " })).toEqual({
+      vibes: ["fun"],
+      colours: "",
+      tone: null,
+      language: "english",
+      howWeMet: "At a wedding",
+      extra: "",
+      previous: null,
+    });
+  });
+  it("accepts the previous draft only with a design from the kit", () => {
+    const design = { palette: "royal-maroon", fonts: "royal", hero: "arch", motif: "mandala" };
+    expect(
+      siteBriefSchema.safeParse({ vibes: ["royal"], previous: { design, tagline: "Hi" } }).success,
+    ).toBe(true);
+    expect(
+      siteBriefSchema.safeParse({
+        vibes: ["royal"],
+        previous: { design: { ...design, palette: "neon" }, tagline: "Hi" },
+      }).success,
+    ).toBe(false);
+  });
+  it("rejects unknown choices, more than 3 vibes and long text", () => {
+    expect(siteBriefSchema.safeParse({ vibes: ["spooky"] }).success).toBe(false);
+    expect(siteBriefSchema.safeParse({ vibes: ["royal", "fun", "boho", "beach"] }).success).toBe(
+      false,
+    );
+    expect(siteBriefSchema.safeParse({ vibes: ["royal"], tone: "angry" }).success).toBe(false);
+    expect(siteBriefSchema.safeParse({ howWeMet: "x".repeat(601) }).success).toBe(false);
   });
 });

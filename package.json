@@ -17,6 +17,7 @@
     "test:integration": "INTEGRATION=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run integration --no-file-parallelism"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.133.0",
     "@aws-sdk/client-s3": "3.1146.0",
     "@aws-sdk/s3-request-presigner": "3.1146.0",
     "@hookform/resolvers": "5.9.1",
@@ -30,6 +31,7 @@
     "lucide-react": "1.52.0",
     "mongodb": "7.7.0",
     "next": "16.3.8",
+    "openai": "7.33.0",
     "qrcode": "1.5.4",
     "radix-ui": "1.6.7",
     "react": "19.3.0",

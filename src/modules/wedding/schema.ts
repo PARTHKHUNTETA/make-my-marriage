@@ -1,3 +1,4 @@
+import type { Design } from "@/themes/kit";
 import { z } from "zod";
 import { istDate } from "@/lib/dates";
 
@@ -72,6 +73,20 @@ export function parseDays(text: string): number[] {
 export const THEMES = ["classical", "minimal", "modern"] as const;
 export type Theme = (typeof THEMES)[number];
 
+// The website written with AI: its look (chosen from the design kit) and its words. Each part shows
+// on the site only when present.
+export type WebsiteContent = {
+  // Absent when the couple has since picked one of the plain themes by hand.
+  design?: Design;
+  tagline: string;
+  welcome: string;
+  story?: { title: string; body: string };
+  eventsTitle: string;
+  venuesTitle: string;
+  faqs: { q: string; a: string }[];
+  closingNote?: string;
+};
+
 // The website's settings as the app uses them. The live link is stored as a clean watch address.
 export type WebsiteSettings = {
   slug: string;
@@ -80,6 +95,7 @@ export type WebsiteSettings = {
   showGallery: boolean;
   showLive: boolean;
   youtubeUrl?: string;
+  content?: WebsiteContent;
 };
 
 // What the app shows about the current wedding. Deliberately omits tokens and settings.

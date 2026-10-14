@@ -111,7 +111,9 @@ route and member page, and the guard that protects it. The test fails if any is 
 | `action vendors.markInstallmentUnpaidAction` | vendor.edit |
 | `action vendors.updateInstallmentAction` | vendor.edit |
 | `action vendors.updateVendorAction` | vendor.edit |
+| `action website.generateSiteDraftAction` | wedding.update |
 | `action website.saveLiveSettingsAction` | wedding.update |
+| `action website.saveSiteContentAction` | wedding.update |
 | `action website.saveWebsiteSettingsAction` | wedding.update |
 | `action wedding.createWeddingAction` | signed in |
 | `action wedding.updateWeddingAction` | wedding.update |

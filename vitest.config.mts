@@ -9,6 +9,8 @@ export default defineConfig({
       "@": fromRoot("./src"),
       // `server-only` throws when imported outside a React server build; tests run in plain Node.
       "server-only": fromRoot("./test/stubs/server-only.ts"),
+      // next/font is compiled by Next; tests get plain stubs.
+      "next/font/google": fromRoot("./test/stubs/next-font-google.ts"),
     },
   },
   test: {

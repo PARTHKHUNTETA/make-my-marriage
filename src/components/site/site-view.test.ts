@@ -3,11 +3,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { SiteData } from "@/modules/website/schema";
 import { THEMES } from "@/modules/wedding/schema";
+import { HERO_IDS, MOTIF_IDS, THEME_PRESETS, type Design } from "@/themes/kit";
 import { SiteView } from "./site-view";
 
 const full = (theme: SiteData["theme"], over: Partial<SiteData> = {}): SiteData => ({
   slug: "priya-weds-aarav",
   theme,
+  design: THEME_PRESETS[theme],
   brideName: "Priya",
   groomName: "Aarav",
   date: new Date("2099-02-14T00:00:00+05:30"),
@@ -116,5 +118,66 @@ describe("themes", () => {
   it("really look different from one another", () => {
     const [a, b, c] = THEMES.map((t) => render(full(t)));
     expect(new Set([a, b, c]).size).toBe(3);
+  });
+});
+
+describe("the design kit", () => {
+  const designed = (design: Partial<Design>, over: Partial<SiteData> = {}) =>
+    full("classical", { design: { ...THEME_PRESETS.classical, ...design }, ...over });
+
+  it.each(HERO_IDS)("renders the %s hero with and without a cover photo", (hero) => {
+    for (const coverUrl of [undefined, "https://example.test/cover.jpg"]) {
+      const html = render(designed({ hero }, { coverUrl }));
+      expect(html).toContain("Priya");
+      expect(html).toContain("14 February 2099");
+      expect(html).not.toContain("undefined");
+    }
+  });
+
+  it("falls back to the classic hero when the photo hero has no photo", () => {
+    const html = render(designed({ hero: "photo" }));
+    expect(html).not.toContain("<img");
+  });
+
+  it.each(MOTIF_IDS)("draws the %s motif without breaking", (motif) => {
+    const html = render(designed({ motif }));
+    expect(html).toContain("Sangeet");
+    expect(html).not.toContain("NaN");
+  });
+
+  it("shows the words written with AI", () => {
+    const html = render(
+      designed(
+        {},
+        {
+          content: {
+            tagline: "From Pune canteen chai to a Jaipur mandap",
+            welcome: "Welcome!",
+            story: { title: "How it began", body: "A borrowed notebook." },
+            eventsTitle: "Three days of celebration",
+            venuesTitle: "Getting there",
+            faqs: [{ q: "What should I wear?", a: "Indo-western for the sangeet." }],
+            closingNote: "With love from both our families.",
+          },
+        },
+      ),
+    );
+    for (const text of [
+      "From Pune canteen chai to a Jaipur mandap",
+      "How it began",
+      "A borrowed notebook.",
+      "Three days of celebration",
+      "Getting there",
+      "What should I wear?",
+      "With love from both our families.",
+    ])
+      expect(html).toContain(text);
+  });
+
+  it("lists each venue once, with the events held there", () => {
+    const event = full("classical").events[0]!;
+    const html = render(designed({}, { events: [event, { ...event, id: "e2", name: "Wedding" }] }));
+    expect(html).toContain("Sangeet · Wedding");
+    expect(html.match(/Open in Google Maps/g)).toHaveLength(1);
   });
 });

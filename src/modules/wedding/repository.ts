@@ -1,6 +1,7 @@
 import "server-only";
 import { MongoServerError, ObjectId, type ClientSession, type Collection } from "mongodb";
 import { getDb } from "@/lib/db";
+import type { WebsiteContent } from "./schema";
 
 // All MongoDB access for the wedding module. `weddings` is the root collection: every other
 // wedding-owned collection points at its _id, so it is looked up by _id (taken from the
@@ -21,6 +22,8 @@ export type WeddingDoc = {
     isOn: boolean;
     showGallery: boolean;
     showLive: boolean;
+    // Words written with AI. Kept when the theme changes; removed by "Go back to the default".
+    content?: WebsiteContent & { generatedAt: Date };
   };
   galleryToken: string; // unguessable and unique
   uploadsOn: boolean;
@@ -184,6 +187,8 @@ export type WebsiteChanges = {
   showLive?: boolean;
   showGallery?: boolean;
   youtubeUrl?: string | null; // null removes it
+  // Drops the AI-chosen design (keeping its words), so a theme picked by hand shows.
+  clearDesign?: boolean;
 };
 
 // Changes the website settings. Returns "slug_taken" if another wedding already has the address
@@ -203,6 +208,7 @@ export async function saveWebsiteSettings(
     set["website.showLive"] = changes.showLive;
     set["liveStream.isOn"] = changes.showLive;
   }
+  if (changes.clearDesign) unset["website.content.design"] = "";
   if (changes.youtubeUrl === null) unset["liveStream.youtubeUrl"] = "";
   else if (changes.youtubeUrl !== undefined) set["liveStream.youtubeUrl"] = changes.youtubeUrl;
   try {
@@ -217,6 +223,27 @@ export async function saveWebsiteSettings(
     if (err instanceof MongoServerError && err.code === 11000) return "slug_taken";
     throw err;
   }
+}
+
+// Saves (or, with null, removes) the website's AI-written design and words.
+export async function saveWebsiteContent(
+  id: string,
+  content: WebsiteContent | null,
+): Promise<boolean> {
+  if (!ObjectId.isValid(id)) return false;
+  const now = new Date();
+  const update = content
+    ? {
+        $set: {
+          "website.content": { ...content, generatedAt: now },
+          updatedAt: now,
+        },
+      }
+    : { $set: { updatedAt: now }, $unset: { "website.content": "" as const } };
+  const result = await (
+    await weddings()
+  ).updateOne({ _id: new ObjectId(id), deletedAt: { $exists: false } }, update);
+  return result.matchedCount === 1;
 }
 
 // The wedding a gallery link belongs to. Null for a link that never existed or was reset.

@@ -136,3 +136,17 @@ export function getPlacesApiKey(): string | undefined {
   const key = process.env.GOOGLE_PLACES_API_KEY?.trim();
   return key || undefined;
 }
+
+// AI writing for the wedding website. Optional: without a key for the chosen provider the "Write
+// with AI" panel is hidden and nothing else changes. AI_MODEL overrides the provider's default.
+const aiEnvSchema = z.object({
+  AI_PROVIDER: z.preprocess(blankIsUnset, z.enum(["anthropic", "openai"]).default("anthropic")),
+  AI_MODEL: z.preprocess(blankIsUnset, z.string().min(1).optional()),
+  ANTHROPIC_API_KEY: z.preprocess(blankIsUnset, z.string().min(1).optional()),
+  OPENAI_API_KEY: z.preprocess(blankIsUnset, z.string().min(1).optional()),
+});
+export type AiEnv = z.infer<typeof aiEnvSchema>;
+
+export function getAiEnv(): AiEnv {
+  return parseEnv(aiEnvSchema);
+}

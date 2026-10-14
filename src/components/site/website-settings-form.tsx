@@ -23,8 +23,11 @@ const FIELDS = ["slug", "youtubeUrl", "theme"] as const;
 export function WebsiteSettingsForm({
   initial,
   siteBase,
+  aiDesign = false,
 }: {
   initial: WebsiteSettingsFormValues;
+  // The site uses a design made with AI, which a theme picked here replaces.
+  aiDesign?: boolean;
   // The address people type, up to the slug: "https://makemymarriage.com/".
   siteBase: string;
 }) {
@@ -138,7 +141,9 @@ export function WebsiteSettingsForm({
         <section className="rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)] sm:p-6">
           <h2 className="font-serif text-xl text-ink">Theme</h2>
           <p className="mt-1 mb-3 text-[13px] text-ink-2">
-            Switch any time. Your content comes with you.
+            {aiDesign
+              ? "Your website uses the design made with AI. Pick a different theme here and save to use it instead; the words written with AI stay."
+              : "Switch any time. Your content comes with you."}
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
             {THEMES.map((value) => (

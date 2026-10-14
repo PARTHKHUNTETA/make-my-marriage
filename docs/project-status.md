@@ -38,6 +38,7 @@ A running log of what has been built in Make My Marriage, newest at the bottom o
 | 2026-10-13 | Photo of the bill on an expense | Optional photo when adding or editing an expense; shrunk in the browser, checked on the server, shown on the expense and marked with a paperclip in the list; deleted with the expense and with the wedding. |
 | 2026-10-13 | One account, several weddings | The same email can belong to several weddings (up to 5): invitations to people already on other weddings work, a switcher appears in the sidebar, and Settings → Start another wedding creates a new one. The last wedding chosen is remembered. |
 | 2026-10-14 | Roles and permissions (RBAC) | Permission catalog, built-in Admin/Manager/Finance/Viewer, custom roles per wedding with an assigned-tasks scope, multi-role members, roles on invitations, platform staff roles, audit log; every endpoint guarded and listed in docs/endpoint-permissions.md. |
+| 2026-10-14 | Website design kit and AI design | Wedding sites are now built from a design kit (10 contrast-checked palettes, 6 font pairings, 4 hero layouts, mandala/marigold/toran/lotus motifs, day-by-day timeline, venues, FAQs); the three themes are presets of it. On `/website` the couple fills a short brief (vibe, colours, tone, language, how we met) and Claude or OpenAI (`AI_PROVIDER`) picks a design and writes the words as checked JSON; facts always come from the wedding's records. Draft preview, then Apply, Try another or back to the plain theme; 10 drafts per wedding a day. Hidden without an API key. |
 
 ## Not done yet
 
@@ -52,7 +53,7 @@ A running log of what has been built in Make My Marriage, newest at the bottom o
 ## Before launch
 
 - Email queue needs a scheduler: on Vercel Hobby, a cron-job.org job calling `/api/cron/send-email` every minute with `Authorization: Bearer <CRON_SECRET>` (or Pro with a per-minute cron). Without it a failed first send is retried only by the daily job.
-- Set `STAFF_EMAILS`, secrets of at least 32 characters, the four `R2_*` variables with a CORS rule, `SUPPORT_EMAIL`, `GOOGLE_PLACES_API_KEY`.
+- Set `STAFF_EMAILS`, secrets of at least 32 characters, the four `R2_*` variables with a CORS rule, `SUPPORT_EMAIL`, `GOOGLE_PLACES_API_KEY`, and `AI_PROVIDER` with its key (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`) for website writing.
 - Verify an email domain with Resend and set `EMAIL_FROM` (until then email reaches only the account owner).
 - Have a lawyer review the Privacy and Terms text.
 - Rotate the Stitch key.
