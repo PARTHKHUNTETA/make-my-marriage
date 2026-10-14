@@ -115,6 +115,8 @@ route and member page, and the guard that protects it. The test fails if any is 
 | `action website.saveWebsiteSettingsAction` | wedding.update |
 | `action wedding.createWeddingAction` | signed in |
 | `action wedding.updateWeddingAction` | wedding.update |
+| `GET /api/cron/send-email` | cron secret |
+| `GET /api/cron/send-reminders` | cron secret |
 | `GET /api/dev-storage/[...key]` | signed address, development only |
 | `GET /api/g/[token]/download/[photoId]` | guest gallery link token |
 | `GET /api/guests/[id]/entry/[eventId]` | guest.view |
@@ -162,6 +164,9 @@ route and member page, and the guard that protects it. The test fails if any is 
 | `page /settings/roles/[id]` | role.manage |
 | `page /settings/roles/new` | role.manage |
 | `page /settings/wedding` | wedding.update |
+| `page /staff` | staff |
+| `page /staff/activity` | staff: audit.view |
+| `page /staff/team` | staff: staff.manage |
 | `page /tasks` | task.view |
 | `page /tasks/[id]` | task.view |
 | `page /tasks/new` | task.edit |
@@ -181,6 +186,8 @@ route and member page, and the guard that protects it. The test fails if any is 
 | `POST /api/auth/reset-request` | public (sign-in, sign-up, password reset), rate-limited |
 | `POST /api/auth/signup` | public (sign-in, sign-up, password reset), rate-limited |
 | `POST /api/auth/verify` | public (sign-in, sign-up, password reset), rate-limited |
+| `POST /api/cron/send-email` | cron secret |
+| `POST /api/cron/send-reminders` | cron secret |
 | `POST /api/g/[token]/confirm` | guest gallery link token |
 | `POST /api/g/[token]/sign` | guest gallery link token |
 | `POST /api/i/[token]/rsvp` | guest invitation token |

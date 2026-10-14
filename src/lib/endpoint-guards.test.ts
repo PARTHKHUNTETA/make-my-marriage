@@ -28,6 +28,17 @@ function exportedFunctions(source: string): { name: string; body: string }[] {
   }));
 }
 
+// Route handlers, however they are exported: `export async function GET` or `export const GET =
+// handler`. For the second form the guard is looked for in the whole file, where the handler is.
+const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+function routeHandlers(source: string): { name: string; body: string }[] {
+  const fns = exportedFunctions(source).filter((f) => METHODS.includes(f.name));
+  const consts = [...source.matchAll(/^export const (GET|POST|PUT|PATCH|DELETE)\s*=/gm)].map(
+    (m) => ({ name: m[1]!, body: source }),
+  );
+  return [...fns, ...consts];
+}
+
 const WEDDING = new Set(Object.keys(PERMISSIONS));
 const PLATFORM = new Set<string>(PLATFORM_PERMISSIONS);
 
@@ -89,7 +100,11 @@ function collect(): Row[] {
   for (const file of walk(api, (n) => n === "route.ts")) {
     const route = path.relative(api, path.dirname(file));
     const other = Object.entries(OTHER_ROUTES).find(([prefix]) => route.startsWith(prefix));
-    for (const fn of exportedFunctions(readFileSync(file, "utf8"))) {
+    const handlers = routeHandlers(readFileSync(file, "utf8"));
+    // A route file whose handlers this test cannot find is itself a failure, not a pass.
+    if (handlers.length === 0)
+      rows.push({ endpoint: `/api/${route} (no handler found)`, guard: null });
+    for (const fn of handlers) {
       const guard = other ? other[1] : guardOf(fn.body);
       rows.push({ endpoint: `${fn.name} /api/${route}`, guard });
     }
@@ -100,6 +115,12 @@ function collect(): Row[] {
     let guard = guardOf(readFileSync(file, "utf8"));
     if (guard === "member (self)" && !SELF_PAGES.has(page)) guard = null;
     rows.push({ endpoint: `page /${page}`, guard });
+  }
+  // The Make My Marriage team's own pages.
+  const staff = path.join(ROOT, "src/app/(staff)");
+  for (const file of walk(staff, (n) => n === "page.tsx")) {
+    const page = path.relative(staff, path.dirname(file));
+    rows.push({ endpoint: `page /${page}`, guard: guardOf(readFileSync(file, "utf8")) });
   }
   return rows.sort((a, b) => a.endpoint.localeCompare(b.endpoint));
 }
@@ -128,7 +149,12 @@ describe("every endpoint is protected (deny by default)", () => {
 
   it("each page asks for the same permission the navigation uses to show its link", () => {
     const mismatched = rows
-      .filter((r) => r.endpoint.startsWith("page ") && r.guard !== "member (self)")
+      .filter(
+        (r) =>
+          r.endpoint.startsWith("page ") &&
+          !r.endpoint.startsWith("page /staff") &&
+          r.guard !== "member (self)",
+      )
       .map((r) => {
         const page = r.endpoint.slice("page ".length).replace(/\[[^\]]+\]/g, "x");
         return { page, guard: r.guard, nav: permissionForPath(page) };
