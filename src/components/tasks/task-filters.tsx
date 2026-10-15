@@ -11,6 +11,8 @@ import {
   type TaskView,
 } from "@/modules/tasks/schema";
 
+const FILTER_KEYS = ["status", "priority", "assignee", "eventId"] as const;
+
 const VIEW_LABELS: Record<TaskView, string> = {
   all: "All tasks",
   mine: "My tasks",
@@ -30,15 +32,41 @@ export function TaskFilters({
   const pathname = usePathname();
   const params = useSearchParams();
 
-  function set(key: string, value: string) {
-    const next = new URLSearchParams(params.toString());
-    if (value) next.set(key, value);
-    else next.delete(key);
+  function go(next: URLSearchParams) {
     const query = next.toString();
     router.replace(query ? `${pathname}?${query}` : pathname);
   }
 
+  function set(key: string, value: string) {
+    const next = new URLSearchParams(params.toString());
+    if (value) next.set(key, value);
+    else next.delete(key);
+    go(next);
+  }
+
+  // A tab can fix one filter: "My tasks" is always yours, "Completed" is always done. Switching to
+  // it drops the clashing filter, so nothing hidden narrows the list.
+  function setView(value: TaskView) {
+    const next = new URLSearchParams(params.toString());
+    if (value === "all") next.delete("view");
+    else next.set("view", value);
+    if (value === "mine") next.delete("assignee");
+    if (value === "completed") next.delete("status");
+    go(next);
+  }
+
+  function clearFilters() {
+    const next = new URLSearchParams(params.toString());
+    for (const key of FILTER_KEYS) next.delete(key);
+    go(next);
+  }
+
   const view = (params.get("view") as TaskView | null) ?? "all";
+  const mine = view === "mine";
+  const completed = view === "completed";
+  const filtering = FILTER_KEYS.some(
+    (key) => params.get(key) && !(key === "assignee" && mine) && !(key === "status" && completed),
+  );
   return (
     <div className="flex flex-col gap-3">
       <div role="tablist" aria-label="Task views" className="flex flex-wrap gap-2">
@@ -48,7 +76,7 @@ export function TaskFilters({
             type="button"
             role="tab"
             aria-selected={view === value}
-            onClick={() => set("view", value === "all" ? "" : value)}
+            onClick={() => setView(value)}
             className={`rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors ${
               view === value ? "bg-plum text-white" : "bg-white text-ink-2 hover:bg-rose-200"
             }`}
@@ -60,8 +88,10 @@ export function TaskFilters({
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Select
           aria-label="Filter by status"
-          value={params.get("status") ?? ""}
+          value={completed ? "completed" : (params.get("status") ?? "")}
           onChange={(e) => set("status", e.target.value)}
+          disabled={completed}
+          title={completed ? "The Completed tab shows completed tasks" : undefined}
           className="h-9 text-[13px]"
         >
           <option value="">Any status</option>
@@ -86,10 +116,13 @@ export function TaskFilters({
         </Select>
         <Select
           aria-label="Filter by assigned member"
-          value={params.get("assignee") ?? ""}
+          value={mine ? "me" : (params.get("assignee") ?? "")}
           onChange={(e) => set("assignee", e.target.value)}
+          disabled={mine}
+          title={mine ? "My tasks shows tasks assigned to you" : undefined}
           className="h-9 text-[13px]"
         >
+          {mine ? <option value="me">You</option> : null}
           <option value="">Anyone</option>
           <option value="none">Unassigned</option>
           {members.map((m) => (
@@ -113,6 +146,15 @@ export function TaskFilters({
           ))}
         </Select>
       </div>
+      {filtering ? (
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="self-start text-[13px] font-semibold text-bronze hover:underline"
+        >
+          Clear filters
+        </button>
+      ) : null}
     </div>
   );
 }

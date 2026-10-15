@@ -6,8 +6,23 @@ import { getEnv } from "@/lib/env";
 // module, so the promise is parked on globalThis to avoid leaking connections.
 const globalForMongo = globalThis as unknown as { _mmmMongoClient?: Promise<MongoClient> };
 
+// Production sharing a database with development mixes real guests with test data, and photo
+// records with files in another environment's bucket (which then show as empty tiles). It still
+// runs, so a running site never goes down over a name, but the server log says so loudly.
+function warnIfDevelopmentDatabase(name: string) {
+  if (
+    process.env.NODE_ENV === "production" &&
+    /(^|[_-])(dev|development|test|local)($|[_-])/i.test(name)
+  )
+    console.error(
+      `MONGODB_DB is "${name}" in production. Give production its own database ` +
+        "(for example makemymarriage_prod) and its own R2 bucket, then redeploy.",
+    );
+}
+
 function getClient(): Promise<MongoClient> {
   if (!globalForMongo._mmmMongoClient) {
+    warnIfDevelopmentDatabase(getEnv().MONGODB_DB);
     const client = new MongoClient(getEnv().MONGODB_URI, {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,

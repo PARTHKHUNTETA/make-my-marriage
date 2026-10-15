@@ -1,5 +1,6 @@
 "use client";
 
+import { amountInputGuards } from "@/lib/input-guards";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -70,6 +71,7 @@ export function BudgetEditor({
           setMessage(null);
         }}
         inputMode="decimal"
+        {...amountInputGuards}
         placeholder="No budget"
         autoComplete="off"
         aria-invalid={message?.ok === false ? true : undefined}

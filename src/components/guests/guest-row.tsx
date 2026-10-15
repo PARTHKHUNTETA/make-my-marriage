@@ -4,7 +4,12 @@ import * as React from "react";
 import Link from "next/link";
 import { Check, Copy, Mail, MessageCircle } from "lucide-react";
 import { recordWhatsappShareAction } from "@/modules/guests/actions";
-import { RSVP_LABELS, type GuestItem, type RsvpStatus } from "@/modules/guests/schema";
+import {
+  RSVP_LABELS,
+  type GuestItem,
+  type RsvpStatus,
+  VEHICLE_LABELS,
+} from "@/modules/guests/schema";
 
 const chip: Record<RsvpStatus, string> = {
   pending: "bg-rose-200 text-ink-2",
@@ -75,6 +80,7 @@ export function GuestRow({
               Up to {guest.guestsAllowed} {guest.guestsAllowed === 1 ? "guest" : "guests"}
               {guest.phone ? ` · ${guest.phone}` : ""}
               {guest.email ? ` · ${guest.email}` : ""}
+              {guest.transport ? ` · Transport: ${VEHICLE_LABELS[guest.transport.vehicle]}` : ""}
             </p>
           </div>
         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { amountInputGuards } from "@/lib/input-guards";
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Select } from "@/components/ui/select";
@@ -80,6 +81,7 @@ export function MarketplaceFilters({ defaultCity }: { defaultCity: string }) {
         value={min}
         onChange={(e) => setMin(e.target.value)}
         inputMode="decimal"
+        {...amountInputGuards}
         placeholder="Min price ₹"
         className={input}
       />
@@ -88,6 +90,7 @@ export function MarketplaceFilters({ defaultCity }: { defaultCity: string }) {
         value={max}
         onChange={(e) => setMax(e.target.value)}
         inputMode="decimal"
+        {...amountInputGuards}
         placeholder="Max price ₹"
         className={input}
       />

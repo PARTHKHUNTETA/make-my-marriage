@@ -1,5 +1,6 @@
 "use client";
 
+import { wholeNumberInputGuards } from "@/lib/input-guards";
 import * as React from "react";
 import { Camera, CameraOff, CheckCircle2, CloudOff, Search, UserPlus } from "lucide-react";
 import { FormAlert } from "@/components/auth/form-alert";
@@ -480,6 +481,7 @@ export function CheckInConsole({ eventId, initial }: { eventId: string; initial:
                       value={count}
                       onChange={(e) => setCount(e.target.value)}
                       inputMode="numeric"
+                      {...wholeNumberInputGuards}
                       className={`${input} w-28`}
                     />
                   </label>
@@ -637,6 +639,7 @@ function WalkInForm({
           value={count}
           onChange={(e) => setCount(e.target.value)}
           inputMode="numeric"
+          {...wholeNumberInputGuards}
           className={`${input} w-24`}
         />
       </label>

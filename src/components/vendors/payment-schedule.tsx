@@ -1,5 +1,6 @@
 "use client";
 
+import { amountInputGuards } from "@/lib/input-guards";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { FormAlert } from "@/components/auth/form-alert";
@@ -158,6 +159,7 @@ function InstallmentRow({ vendorId, item }: { vendorId: string; item: Installmen
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               inputMode="decimal"
+              {...amountInputGuards}
               className={`${inputClass} w-28`}
             />
           </label>
@@ -325,6 +327,7 @@ export function PaymentSchedule({
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             inputMode="decimal"
+            {...amountInputGuards}
             placeholder="50,000"
             className={`${inputClass} w-28`}
           />

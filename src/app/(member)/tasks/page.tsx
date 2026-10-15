@@ -82,9 +82,15 @@ export default async function TasksPage({
         <div className="mt-6 rounded-xl bg-white p-8 text-center shadow-[0_1px_3px_rgba(35,31,32,0.04)]">
           <p className="font-serif text-xl text-ink">Nothing here</p>
           <p className="mt-1 text-sm text-ink-2">
-            {query.view === "all" && !query.status && !query.priority && !query.assignee
+            {query.view === "all" &&
+            !query.status &&
+            !query.priority &&
+            !query.assignee &&
+            !query.eventId
               ? "Add your first task, like “Finalize photographer”."
-              : "No tasks match these filters."}
+              : query.view === "mine" && !query.status && !query.priority && !query.eventId
+                ? "Nothing assigned to you is left to do."
+                : "No tasks match these filters. Try “Clear filters” above."}
           </p>
         </div>
       ) : groups ? (

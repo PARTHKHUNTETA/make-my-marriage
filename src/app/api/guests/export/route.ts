@@ -3,7 +3,7 @@ import { jsonError } from "@/lib/http";
 import { requirePermission } from "@/lib/authz";
 import { toCsv } from "@/lib/csv";
 import { listEvents } from "@/modules/events/service";
-import { RSVP_LABELS } from "@/modules/guests/schema";
+import { RSVP_LABELS, VEHICLE_LABELS } from "@/modules/guests/schema";
 import { listEveryGuest } from "@/modules/guests/service";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,16 @@ export async function GET(request: Request) {
     const guests = await listEveryGuest(ctx.weddingId, { eventId });
 
     const rows: Array<Array<string | number | undefined>> = [
-      ["Event", "Guest", "Phone", "Email", "Reply", "People attending", "Guests allowed"],
+      [
+        "Event",
+        "Guest",
+        "Phone",
+        "Email",
+        "Reply",
+        "People attending",
+        "Guests allowed",
+        "Transport",
+      ],
     ];
     for (const event of events) {
       if (eventId && event.id !== eventId) continue;
@@ -39,6 +48,7 @@ export async function GET(request: Request) {
           RSVP_LABELS[reply.rsvpStatus],
           reply.rsvpStatus === "attending" ? reply.numberAttending : undefined,
           guest.guestsAllowed,
+          guest.transport ? VEHICLE_LABELS[guest.transport.vehicle] : undefined,
         ]);
       }
     }

@@ -27,6 +27,8 @@ export default async function NewGuestPage() {
           guestsAllowed: 2,
           invitedEventIds: [],
           notes: "",
+          needsTransport: false,
+          vehicle: "",
         }}
         events={events.map((e) => ({ id: e.id, name: e.name }))}
       />

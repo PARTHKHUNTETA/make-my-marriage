@@ -66,7 +66,11 @@ describe("session tokens", () => {
       "base64url",
     );
     expect(await s.verifySessionToken(`${h}.${forged}.${sig}`)).toBeNull();
-    expect(await s.verifySessionToken(`${h}.${p}.${sig!.slice(0, -2)}xx`)).toBeNull();
+    // Change the signature's first character to one it is not. (Overwriting the last characters
+    // with a fixed "xx" was flaky: the last base64 character carries only 4 bits, so the edit could
+    // leave the decoded signature unchanged.)
+    const head = sig![0] === "A" ? "B" : "A";
+    expect(await s.verifySessionToken(`${h}.${p}.${head}${sig!.slice(1)}`)).toBeNull();
   });
 
   it("rejects a token signed with a different secret", async () => {

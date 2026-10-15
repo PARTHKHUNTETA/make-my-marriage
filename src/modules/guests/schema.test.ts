@@ -20,6 +20,19 @@ describe("normalizePhone", () => {
     for (const bad of ["", "abc", "12345", "+12", "98765432101234567"])
       expect(normalizePhone(bad)).toBeNull();
   });
+  it("needs exactly ten digits for an Indian number, with or without the code", () => {
+    for (const bad of [
+      "98403850821111111", // too long, no code
+      "984038508", // nine digits
+      "98403 850821", // eleven digits not starting with 0
+      "+91 98403850821111", // too long after +91
+      "+91 984038508", // too short after +91
+      "0091 98765 432101", // too long after 0091
+      "+91 09876543210", // a leading 0 after the code
+    ])
+      expect(normalizePhone(bad), bad).toBeNull();
+    expect(normalizePhone("0091 98765 43210")).toBe("+919876543210");
+  });
 });
 
 describe("guestInputSchema", () => {

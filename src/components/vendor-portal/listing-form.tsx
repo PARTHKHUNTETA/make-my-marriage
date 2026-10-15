@@ -1,5 +1,6 @@
 "use client";
 
+import { amountInputGuards } from "@/lib/input-guards";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -137,6 +138,7 @@ export function ListingForm({
             id="startingPrice"
             label="Starting price, ₹ (optional)"
             inputMode="decimal"
+            {...amountInputGuards}
             autoComplete="off"
             placeholder="e.g. 50,000"
             error={errors.startingPrice?.message as string | undefined}

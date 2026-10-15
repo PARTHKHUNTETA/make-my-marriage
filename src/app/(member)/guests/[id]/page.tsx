@@ -43,6 +43,8 @@ export default async function GuestPage({ params }: { params: Promise<{ id: stri
               guestsAllowed: guest.guestsAllowed,
               invitedEventIds: guest.invitations.map((i) => i.eventId).filter((e) => known.has(e)),
               notes: guest.notes ?? "",
+              needsTransport: Boolean(guest.transport),
+              vehicle: guest.transport?.vehicle ?? "",
             }}
             events={events.map((e) => ({ id: e.id, name: e.name }))}
             answeredEventIds={guest.invitations

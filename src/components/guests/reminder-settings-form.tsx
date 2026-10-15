@@ -1,5 +1,6 @@
 "use client";
 
+import { numberListInputGuards } from "@/lib/input-guards";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { FormAlert } from "@/components/auth/form-alert";
@@ -60,6 +61,7 @@ export function ReminderSettingsForm({
           onChange={(e) => setDays(e.target.value)}
           placeholder="14, 3"
           inputMode="numeric"
+          {...numberListInputGuards}
           className="h-11 rounded-lg border border-line-soft/60 bg-white px-4 text-sm text-ink outline-none focus:border-plum focus:ring-1 focus:ring-plum"
         />
         <span className="text-xs text-ink-2">

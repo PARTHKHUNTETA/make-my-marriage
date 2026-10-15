@@ -1,5 +1,6 @@
 "use client";
 
+import { amountInputGuards } from "@/lib/input-guards";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { saveSplitDefaultAction } from "@/modules/money/actions";
@@ -60,6 +61,7 @@ export function SplitDefaultRow({
         setMessage(null);
       }}
       inputMode="decimal"
+      {...amountInputGuards}
       placeholder="%"
       autoComplete="off"
       className="h-9 w-20 rounded-lg border border-line-soft/60 bg-white px-2 text-right text-[13px] text-ink outline-none focus:border-plum focus:ring-1 focus:ring-plum"

@@ -29,11 +29,18 @@ export function normalizePhone(input: string): string | null {
   if (!international) {
     if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1);
     if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
-    if (digits.length !== 10) return null;
+    if (digits.length !== 10 || digits.startsWith("0")) return null;
     return `+91${digits}`;
   }
+  // An Indian number written with its country code still needs exactly 10 digits after it.
+  if (digits.startsWith("91"))
+    return digits.length === 12 && digits[2] !== "0" ? `+${digits}` : null;
   return digits.length >= 8 && digits.length <= 15 ? `+${digits}` : null;
 }
+
+// Longest phone number a box accepts as typed, spaces and dashes included: "+91 98765-43210" is 15,
+// "0044 20 7946 0958" is 17. Anything longer cannot be a valid number.
+export const PHONE_INPUT_MAX = 18;
 
 const phone = z.preprocess(
   blankToUndefined,
@@ -59,32 +66,52 @@ const guestsAllowed = z.preprocess(
     .max(MAX_PARTY, `At most ${MAX_PARTY}`),
 );
 
-export const guestInputSchema = z.object({
-  name: z.string().trim().min(1, "Enter the guest's name").max(150, "That name is too long"),
-  phone,
-  email: z.preprocess(
-    blankToUndefined,
-    z
+// How a guest gets to the venue when the couple arranges it.
+export const VEHICLES = ["car", "suv", "tempo_traveller", "mini_bus", "bus", "other"] as const;
+export type Vehicle = (typeof VEHICLES)[number];
+export const VEHICLE_LABELS: Record<Vehicle, string> = {
+  car: "Car",
+  suv: "SUV / Innova",
+  tempo_traveller: "Tempo Traveller",
+  mini_bus: "Mini bus",
+  bus: "Bus",
+  other: "Other",
+};
+
+export const guestInputSchema = z
+  .object({
+    name: z.string().trim().min(1, "Enter the guest's name").max(150, "That name is too long"),
+    phone,
+    email: z.preprocess(
+      blankToUndefined,
+      z
+        .string()
+        .trim()
+        .toLowerCase()
+        .max(254, "That email address is too long")
+        .pipe(z.email("Enter a valid email address"))
+        .optional(),
+    ),
+    guestsAllowed,
+    // A form with a single event checkbox hands back one string, or false, instead of an array.
+    invitedEventIds: z.preprocess(
+      (value) => (typeof value === "string" ? [value] : value === false ? [] : value),
+      z.array(objectId).min(1, "Choose at least one event").max(50, "That is too many events"),
+    ),
+    notes: z
       .string()
       .trim()
-      .toLowerCase()
-      .max(254, "That email address is too long")
-      .pipe(z.email("Enter a valid email address"))
-      .optional(),
-  ),
-  guestsAllowed,
-  // A form with a single event checkbox hands back one string, or false, instead of an array.
-  invitedEventIds: z.preprocess(
-    (value) => (typeof value === "string" ? [value] : value === false ? [] : value),
-    z.array(objectId).min(1, "Choose at least one event").max(50, "That is too many events"),
-  ),
-  notes: z
-    .string()
-    .trim()
-    .max(1000, "That is too long")
-    .optional()
-    .transform((value) => value || undefined),
-});
+      .max(1000, "That is too long")
+      .optional()
+      .transform((value) => value || undefined),
+    // Ticked when the couple is arranging the guest's travel; the vehicle is then required.
+    needsTransport: z.boolean().default(false),
+    vehicle: z.preprocess(blankToUndefined, z.enum(VEHICLES).optional()),
+  })
+  .superRefine((value, ctx) => {
+    if (value.needsTransport && !value.vehicle)
+      ctx.addIssue({ code: "custom", path: ["vehicle"], message: "Choose a vehicle" });
+  });
 
 export type GuestInput = z.output<typeof guestInputSchema>;
 export type GuestFormValues = z.input<typeof guestInputSchema>;
@@ -154,6 +181,8 @@ export type GuestItem = {
   email?: string;
   guestsAllowed: number;
   notes?: string;
+  // Present when the couple is arranging this guest's travel.
+  transport?: { vehicle: Vehicle };
   token: string;
   invitations: InvitationItem[];
   remindersUnsubscribed: boolean;

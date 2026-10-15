@@ -1,9 +1,11 @@
 "use client";
 
+import { wholeNumberInputGuards } from "@/lib/input-guards";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { FormAlert } from "@/components/auth/form-alert";
 import { Textarea } from "@/components/ui/textarea";
+import { normalizePhone, PHONE_INPUT_MAX } from "@/modules/guests/schema";
 import { sendBookingRequestAction } from "@/modules/marketplace/actions";
 
 const inputClass =
@@ -125,6 +127,7 @@ export function BookingRequestForm({
               value={headcount}
               onChange={(e) => setHeadcount(e.target.value)}
               inputMode="numeric"
+              {...wholeNumberInputGuards}
               className={inputClass}
               aria-invalid={fieldErrors.expectedHeadcount ? true : undefined}
             />
@@ -164,7 +167,18 @@ export function BookingRequestForm({
               <input
                 value={contactPhone}
                 onChange={(e) => setContactPhone(e.target.value)}
+                onBlur={() =>
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    if (contactPhone.trim() && !normalizePhone(contactPhone))
+                      next.contactPhone = "Enter a valid phone number";
+                    else delete next.contactPhone;
+                    return next;
+                  })
+                }
                 type="tel"
+                inputMode="tel"
+                maxLength={PHONE_INPUT_MAX}
                 className={inputClass}
                 aria-invalid={fieldErrors.contactPhone ? true : undefined}
               />

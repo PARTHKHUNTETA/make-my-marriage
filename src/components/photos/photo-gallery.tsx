@@ -5,7 +5,16 @@ import * as React from "react";
 import { useCan } from "@/components/permissions/permissions-provider";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Download, Eye, ImagePlus, Trash2, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Eye,
+  ImageOff,
+  ImagePlus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { formatBytes } from "@/lib/bytes";
 import { buildZip, fetchBytes, saveZip, type ZipSource } from "@/lib/zip-download";
 import {
@@ -548,13 +557,7 @@ export function PhotoGallery({
                 className="block size-full"
               >
                 {p.thumbUrl && p.viewable ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={p.thumbUrl}
-                    alt={p.fileName}
-                    loading="lazy"
-                    className="size-full object-cover"
-                  />
+                  <GridThumb src={p.thumbUrl} name={p.fileName} />
                 ) : (
                   <span className="flex size-full items-center justify-center p-2 text-center text-xs text-ink-2">
                     {p.fileName}
@@ -752,5 +755,29 @@ function Lightbox({
         {index + 1} of {items.length}
       </p>
     </div>
+  );
+}
+
+// One gallery tile's picture. If the file cannot be loaded (for example it is missing from
+// storage), it says so instead of showing a broken image with its file name spilling out.
+function GridThumb({ src, name }: { src: string; name: string }) {
+  const [failed, setFailed] = React.useState(false);
+  if (failed)
+    return (
+      <span className="flex size-full flex-col items-center justify-center gap-1 p-2 text-center text-xs text-ink-2">
+        <ImageOff className="size-5" aria-hidden />
+        Image unavailable
+        <span className="w-full truncate text-[11px] opacity-80">{name}</span>
+      </span>
+    );
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={name}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className="size-full object-cover"
+    />
   );
 }

@@ -97,7 +97,10 @@ export function WebsiteSettingsForm({
           </p>
         ) : null}
 
-        <section className="rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)] sm:p-6">
+        <section
+          id="show-site"
+          className="scroll-mt-24 rounded-xl bg-white p-5 shadow-[0_1px_3px_rgba(35,31,32,0.04)] sm:p-6"
+        >
           <label className="flex items-start gap-3 text-sm text-ink">
             <input type="checkbox" className="mt-0.5 size-4 accent-plum" {...register("isOn")} />
             <span>

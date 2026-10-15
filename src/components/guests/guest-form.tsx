@@ -1,5 +1,6 @@
 "use client";
 
+import { wholeNumberInputGuards } from "@/lib/input-guards";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,11 +9,27 @@ import { Field } from "@/components/auth/field";
 import { FieldError } from "@/components/auth/field-error";
 import { FormAlert } from "@/components/auth/form-alert";
 import { SubmitButton } from "@/components/auth/submit-button";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createGuestAction, checkPhoneAction, updateGuestAction } from "@/modules/guests/actions";
-import { guestInputSchema, type GuestFormValues, type GuestInput } from "@/modules/guests/schema";
+import {
+  guestInputSchema,
+  PHONE_INPUT_MAX,
+  VEHICLE_LABELS,
+  VEHICLES,
+  type GuestFormValues,
+  type GuestInput,
+} from "@/modules/guests/schema";
 
-const FIELDS = ["name", "phone", "email", "guestsAllowed", "invitedEventIds", "notes"] as const;
+const FIELDS = [
+  "name",
+  "phone",
+  "email",
+  "guestsAllowed",
+  "invitedEventIds",
+  "notes",
+  "vehicle",
+] as const;
 
 export function GuestForm({
   initial,
@@ -34,12 +51,15 @@ export function GuestForm({
     register,
     handleSubmit,
     setError,
+    setValue,
     reset,
     control,
     formState: { errors, isSubmitting },
   } = useForm<GuestFormValues, undefined, GuestInput>({
     resolver: zodResolver(guestInputSchema),
     defaultValues: initial,
+    // Check each field when the person leaves it, not only on save.
+    mode: "onTouched",
   });
   const phone = register("phone");
   const watched = useWatch({ control, name: "invitedEventIds" }) as unknown;
@@ -49,6 +69,23 @@ export function GuestForm({
       ? [watched]
       : [];
   const dropping = answeredEventIds.filter((id) => !chosen.includes(id));
+  const needsTransport = useWatch({ control, name: "needsTransport" });
+
+  // "All events" ticks or clears every event at once, and shows a partial tick when only some are
+  // chosen.
+  const allChosen = events.length > 0 && events.every((e) => chosen.includes(e.id));
+  const someChosen = !allChosen && events.some((e) => chosen.includes(e.id));
+  const allBox = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    if (allBox.current) allBox.current.indeterminate = someChosen;
+  }, [someChosen]);
+  function chooseAll(on: boolean) {
+    setValue("invitedEventIds", on ? events.map((e) => e.id) : [], {
+      shouldDirty: true,
+      shouldValidate: Boolean(errors.invitedEventIds),
+    });
+    setSaved(false);
+  }
 
   async function warnIfDuplicate(value: string) {
     setDuplicate(null);
@@ -73,6 +110,7 @@ export function GuestForm({
         phone: values.phone ?? "",
         email: values.email ?? "",
         notes: values.notes ?? "",
+        vehicle: values.needsTransport ? (values.vehicle ?? "") : "",
       });
       setSaved(true);
       router.refresh();
@@ -127,6 +165,8 @@ export function GuestForm({
               id="phone"
               label="Phone (optional)"
               type="tel"
+              inputMode="tel"
+              maxLength={PHONE_INPUT_MAX}
               autoComplete="off"
               placeholder="e.g. 98765 43210"
               hint="Numbers without a country code are treated as +91."
@@ -159,6 +199,7 @@ export function GuestForm({
             label="Guests allowed"
             type="number"
             inputMode="numeric"
+            {...wholeNumberInputGuards}
             min={1}
             error={errors.guestsAllowed?.message}
             {...register("guestsAllowed")}
@@ -172,17 +213,31 @@ export function GuestForm({
               Add an event first. Guests are invited to events.
             </p>
           ) : (
-            events.map((event) => (
-              <label key={event.id} className="flex items-center gap-3 text-sm text-ink">
-                <input
-                  type="checkbox"
-                  value={event.id}
-                  className="size-4 accent-plum"
-                  {...register("invitedEventIds")}
-                />
-                {event.name}
-              </label>
-            ))
+            <>
+              {events.length > 1 ? (
+                <label className="flex items-center gap-3 border-b border-line pb-2 text-sm font-semibold text-ink">
+                  <input
+                    ref={allBox}
+                    type="checkbox"
+                    checked={allChosen}
+                    onChange={(e) => chooseAll(e.target.checked)}
+                    className="size-4 accent-plum"
+                  />
+                  All events
+                </label>
+              ) : null}
+              {events.map((event) => (
+                <label key={event.id} className="flex items-center gap-3 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    value={event.id}
+                    className="size-4 accent-plum"
+                    {...register("invitedEventIds")}
+                  />
+                  {event.name}
+                </label>
+              ))}
+            </>
           )}
           {errors.invitedEventIds?.message ? (
             <FieldError id="invitedEventIds-error">
@@ -197,6 +252,45 @@ export function GuestForm({
                 : "events they have replied to"}{" "}
               deletes that reply.
             </p>
+          ) : null}
+        </fieldset>
+
+        <fieldset className="flex flex-col gap-3 rounded-lg border border-line p-4">
+          <legend className="px-1 text-xs font-semibold tracking-wide text-ink">Transport</legend>
+          <label className="flex items-start gap-3 text-sm text-ink">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 accent-plum"
+              {...register("needsTransport")}
+            />
+            <span>
+              Needs transport
+              <span className="block text-xs text-ink-2">
+                Tick if you are arranging how this guest gets to the venue.
+              </span>
+            </span>
+          </label>
+          {needsTransport ? (
+            <div className="flex max-w-64 flex-col gap-1">
+              <label htmlFor="vehicle" className="text-xs font-semibold tracking-wide text-ink">
+                Vehicle
+              </label>
+              <Select
+                id="vehicle"
+                aria-invalid={errors.vehicle ? true : undefined}
+                {...register("vehicle")}
+              >
+                <option value="">Choose a vehicle</option>
+                {VEHICLES.map((v) => (
+                  <option key={v} value={v}>
+                    {VEHICLE_LABELS[v]}
+                  </option>
+                ))}
+              </Select>
+              {errors.vehicle?.message ? (
+                <FieldError id="vehicle-error">{errors.vehicle.message as string}</FieldError>
+              ) : null}
+            </div>
           ) : null}
         </fieldset>
 

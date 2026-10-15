@@ -1,5 +1,7 @@
 "use client";
 
+import { amountInputGuards } from "@/lib/input-guards";
+import { PHONE_INPUT_MAX } from "@/modules/guests/schema";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -52,6 +54,8 @@ export function VendorForm({
   } = useForm<VendorFormValues, undefined, VendorInput>({
     resolver: zodResolver(vendorInputSchema),
     defaultValues: initial,
+    // Check each field when the person leaves it, not only on save.
+    mode: "onTouched",
   });
 
   async function onSubmit() {
@@ -134,6 +138,8 @@ export function VendorForm({
             id="phone"
             label="Phone (optional)"
             type="tel"
+            inputMode="tel"
+            maxLength={PHONE_INPUT_MAX}
             autoComplete="off"
             placeholder="e.g. 98765 43210"
             error={errors.phone?.message as string | undefined}
@@ -162,6 +168,7 @@ export function VendorForm({
             id="totalCost"
             label="Total cost, ₹ (optional)"
             inputMode="decimal"
+            {...amountInputGuards}
             autoComplete="off"
             placeholder="e.g. 1,50,000"
             error={errors.totalCost?.message as string | undefined}

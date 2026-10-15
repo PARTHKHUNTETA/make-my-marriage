@@ -77,7 +77,15 @@ export function parseTaskQuery(raw: Record<string, string | string[] | undefined
     const value = one(key);
     return value === "none" || (value && objectId.safeParse(value).success) ? value : undefined;
   };
-  return { view, status, priority, assignee: id("assignee"), eventId: id("eventId") };
+  // A tab that fixes a filter wins over a leftover value for it in the URL, so the list never
+  // depends on a filter the page is not showing: "My tasks" is always yours, "Completed" always done.
+  return {
+    view,
+    status: view === "completed" ? undefined : status,
+    priority,
+    assignee: view === "mine" ? undefined : id("assignee"),
+    eventId: id("eventId"),
+  };
 }
 
 export type TaskItem = {

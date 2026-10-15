@@ -51,6 +51,7 @@ export function toItem(doc: GuestDoc): GuestItem {
     email: doc.email,
     guestsAllowed: doc.guestsAllowed,
     notes: doc.notes,
+    transport: doc.transport,
     token: doc.token,
     invitations: doc.invitations.map((i) => ({
       eventId: i.eventId.toHexString(),
@@ -71,6 +72,8 @@ function split(input: GuestInput): { set: GuestFields; unset: OptionalGuestField
     if (input[key]) set[key] = input[key];
     else unset.push(key);
   }
+  if (input.needsTransport && input.vehicle) set.transport = { vehicle: input.vehicle };
+  else unset.push("transport");
   return { set, unset };
 }
 

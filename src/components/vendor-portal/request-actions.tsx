@@ -1,5 +1,6 @@
 "use client";
 
+import { amountInputGuards } from "@/lib/input-guards";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { declineRequestAction, quoteRequestAction } from "@/modules/marketplace/actions";
@@ -56,6 +57,7 @@ export function RequestActions({
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           inputMode="decimal"
+          {...amountInputGuards}
           placeholder="Your price ₹"
           autoComplete="off"
           className="h-9 w-36 rounded-lg border border-line-soft/60 bg-white px-3 text-[13px] text-ink outline-none focus:border-plum focus:ring-1 focus:ring-plum"

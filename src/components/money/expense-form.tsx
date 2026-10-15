@@ -1,5 +1,6 @@
 "use client";
 
+import { amountInputGuards } from "@/lib/input-guards";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -201,6 +202,7 @@ export function ExpenseForm({
             id="amount"
             label="Amount (₹)"
             inputMode="decimal"
+            {...amountInputGuards}
             autoComplete="off"
             placeholder="e.g. 50,000"
             error={errors.amount?.message}
@@ -309,6 +311,7 @@ export function ExpenseForm({
                 id="shareBride"
                 label={PAYER_LABELS.bride_family}
                 inputMode="decimal"
+                {...amountInputGuards}
                 autoComplete="off"
                 placeholder={mode === "amount" ? "₹" : "%"}
                 error={errors.shareBride?.message}
@@ -318,6 +321,7 @@ export function ExpenseForm({
                 id="shareGroom"
                 label={PAYER_LABELS.groom_family}
                 inputMode="decimal"
+                {...amountInputGuards}
                 autoComplete="off"
                 placeholder={mode === "amount" ? "₹" : "%"}
                 error={errors.shareGroom?.message}
@@ -327,6 +331,7 @@ export function ExpenseForm({
                 id="shareCouple"
                 label={PAYER_LABELS.couple}
                 inputMode="decimal"
+                {...amountInputGuards}
                 autoComplete="off"
                 placeholder={mode === "amount" ? "₹" : "%"}
                 error={errors.shareCouple?.message}

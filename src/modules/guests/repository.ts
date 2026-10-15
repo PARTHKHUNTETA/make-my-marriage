@@ -9,7 +9,7 @@ import {
 } from "mongodb";
 import { getDb } from "@/lib/db";
 import { scoped } from "@/lib/scoped";
-import type { RsvpStatus } from "./schema";
+import type { RsvpStatus, Vehicle } from "./schema";
 
 // All MongoDB access for the guests module. One guest document is one invited party, with its
 // per-event invitations embedded (db-design §6): a guest and all their RSVPs are read and
@@ -33,6 +33,8 @@ export type GuestDoc = {
   email?: string;
   guestsAllowed: number;
   notes?: string;
+  // Present when the couple is arranging this guest's travel.
+  transport?: { vehicle: Vehicle };
   token: string;
   invitations: InvitationDoc[];
   remindersUnsubscribed: boolean;
@@ -43,8 +45,8 @@ export type GuestDoc = {
 };
 
 export type GuestFields = Pick<GuestDoc, "name" | "guestsAllowed"> &
-  Partial<Pick<GuestDoc, "phone" | "email" | "notes">>;
-export type OptionalGuestField = "phone" | "email" | "notes";
+  Partial<Pick<GuestDoc, "phone" | "email" | "notes" | "transport">>;
+export type OptionalGuestField = "phone" | "email" | "notes" | "transport";
 
 let ready: Promise<Collection<GuestDoc>> | undefined;
 

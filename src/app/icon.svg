@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#fdfbf7"/>
+  <g fill="none" stroke-width="5.5">
+    <circle cx="24" cy="32" r="15" stroke="#2d1226"/>
+    <circle cx="40" cy="32" r="15" stroke="#c49a4a"/>
+    <!-- The plum ring passes over the gold one at the bottom crossing, so the rings interlock. -->
+    <path d="M36.29 40.6 A15 15 0 0 1 25.31 46.94" stroke="#2d1226"/>
+  </g>
+</svg>

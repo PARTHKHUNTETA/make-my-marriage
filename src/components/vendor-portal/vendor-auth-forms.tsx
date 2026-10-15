@@ -1,5 +1,6 @@
 "use client";
 
+import { PHONE_INPUT_MAX } from "@/modules/guests/schema";
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -125,6 +126,7 @@ export function VendorSignupForm() {
   } = useForm<VendorSignupFormValues, undefined, VendorSignupInput>({
     resolver: zodResolver(vendorSignupSchema),
     defaultValues: { businessName: "", email: "", phone: "", password: "" },
+    mode: "onTouched",
   });
 
   async function onSubmit(values: VendorSignupInput) {
@@ -183,6 +185,8 @@ export function VendorSignupForm() {
             label="Phone"
             type="tel"
             autoComplete="tel"
+            inputMode="tel"
+            maxLength={PHONE_INPUT_MAX}
             placeholder="e.g. 98765 43210"
             error={errors.phone?.message as string | undefined}
             {...register("phone")}

@@ -1,5 +1,6 @@
 "use client";
 
+import { wholeNumberInputGuards } from "@/lib/input-guards";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { GripVertical, Plus, Trash2, TriangleAlert, X } from "lucide-react";
@@ -259,6 +260,7 @@ function TableCard({
               value={capacity}
               onChange={(e) => setCapacity(e.target.value)}
               inputMode="numeric"
+              {...wholeNumberInputGuards}
               className={`${input} w-20`}
             />
             <button type="submit" disabled={busy} className={`${small} bg-bronze text-white`}>
@@ -450,6 +452,7 @@ function TableCard({
                 value={seats}
                 onChange={(e) => setSeats(e.target.value)}
                 inputMode="numeric"
+                {...wholeNumberInputGuards}
                 placeholder={String(chosen.remaining)}
                 className={`${input} w-16`}
               />
@@ -498,6 +501,7 @@ function AddTable({
           value={capacity}
           onChange={(e) => setCapacity(e.target.value)}
           inputMode="numeric"
+          {...wholeNumberInputGuards}
           className={`${input} w-20`}
         />
       </label>
